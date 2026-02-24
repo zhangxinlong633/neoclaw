@@ -82,6 +82,84 @@ NEO_MODEL=qwen/qwen3-32b ./neo "你好"
 - **socket 模式**（Linux/macOS）：监听指定路径；每个连接发一行、收一行，同一进程内共享会话历史。
 - 配置中的 **bootstrap / skills / memory** 在 daemon 下同样生效；每次请求会重新注入当前时间。
 
+### 示例
+
+**单次查询（小模型推荐 qwen3-8b）：**
+
+```bash
+# 身份/能力
+./neo "你是谁"
+
+# 带 skill 的领域问答（需 config 里 high_priority: [nanjing]）
+./neo "南京2026旅游数据"
+
+# 翻译
+./neo "把 Hello world 译成中文"
+
+# 解释
+./neo "什么是 REST API？用一句话说"
+
+# 要代码
+./neo "写一个 bash 循环，列出当前目录下所有 .md 文件"
+
+# 指定模型与配置
+./neo -c config.yaml -m qwen/qwen3-8b "总结一下刚才说的三点"
+```
+
+**运行示例（模型：qwen3-8b）**：下面为实际输出片段。
+
+```text
+$ ./neo "你是谁"
+我是 Neo，一个基于配置运行的本地/命令行助手。我能够通过多种技能协助你，例如：  
+- 提供南京旅游数据（如2026年春节首日接待游客134.8万人次）  
+- 记录笔记、解释概念、翻译文本  
+- 总结内容、编写代码、管理待办任务  
+- 其他你需要的帮助 😊  
+
+需要我帮你做什么？
+
+$ ./neo "将你是谁翻译成英文"
+原文：你是谁  
+译文：Who are you?
+
+$ ./neo "将你是谁翻译成日文"  
+原文：你是谁  
+译文：あなたは誰ですか
+```
+
+**环境变量覆盖（不改 config）：**
+
+```bash
+NEO_MODEL=qwen/qwen3-8b NEO_CONFIG=./config.yaml ./neo "你好"
+```
+
+**调试（看请求与 system prompt）：**
+
+```bash
+./neo -d "你是谁"
+# 会在 stderr 打出 base_url、model、loaded skills、完整 system prompt、用户消息
+```
+
+**Daemon 多轮：**
+
+```bash
+./neo daemon
+# 然后逐行输入，例如：
+# 你是谁
+# 南京春节首日多少人
+# exit
+```
+
+**Socket 一发一收（脚本或其它进程调用）：**
+
+```bash
+# 终端 1
+./neo daemon --socket /tmp/neo.sock
+
+# 终端 2
+echo "南京2026旅游数据" | nc -U /tmp/neo.sock
+```
+
 ### 典型效果示例
 
 - **问「南京2026旅游数据」**：若配置了 `skills/nanjing/SKILL.md` 且为高优先级，会优先引用 skill 中的**必引**数据（2026 年春节首日 **134.8 万人次**、2025 年春节整假期 **1690 万人次**、收入 181 亿元等），而不是模型自行推测。
