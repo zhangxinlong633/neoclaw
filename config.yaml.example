@@ -1,0 +1,37 @@
+# Neo agent config example.
+# Copy to config.yaml and adjust. See README for env overrides (NEO_MODEL, NEO_API_KEY).
+
+# --- Model (OpenAI-compatible API) ---
+model:
+  provider: openrouter
+  base_url: "https://openrouter.ai/api/v1"
+  name: "qwen/qwen3-32b"
+  api_key: "YOUR_OPENROUTER_API_KEY"
+  max_tokens: 4096
+  temperature: 0.7
+
+# --- Bootstrap: identity / system context (like OpenClaw AGENTS.md, SOUL.md) ---
+bootstrap:
+  max_chars_per_file: 8000
+  - path: "AGENTS.md"
+  - path: "SOUL.md"
+
+# --- Skills: directory and/or explicit paths; high_priority listed separately ---
+skills:
+  directory: "skills"   # scan for skills/*/SKILL.md and add all (optional; can use - path: only)
+  high_priority:        # list names or paths to inject full and first (e.g. dirname "nanjing")
+    - "nanjing"
+  unmatched: index     # index | skip: when normal skill not matched
+  # Or list paths by hand (and/or in addition to directory):
+  # - path: "skills/summarize/SKILL.md"
+  # - path: "skills/nanjing/SKILL.md"
+  #   priority: high
+
+# --- Memory: context file, truncated to max_chars ---
+memory:
+  path: "MEMORY.md"
+  max_chars: 4000
+
+# --- Session (daemon mode): max user+assistant pairs to send as history ---
+session:
+  max_turns: 10
