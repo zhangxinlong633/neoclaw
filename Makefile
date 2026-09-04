@@ -16,6 +16,13 @@ neo: $(OBJ)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f neo $(OBJ)
+	rm -f neo $(OBJ) tests/test_parse_commands
 
-.PHONY: clean
+TEST_PARSE_CMD = tests/test_parse_commands
+$(TEST_PARSE_CMD): tests/test_parse_commands.c src/config.c src/config.h
+	$(CC) $(CFLAGS) -o $@ tests/test_parse_commands.c src/config.c
+
+test: $(TEST_PARSE_CMD)
+	./$(TEST_PARSE_CMD)
+
+.PHONY: clean test

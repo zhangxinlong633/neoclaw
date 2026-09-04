@@ -49,6 +49,17 @@ typedef struct {
   int prompt_cwd; /* 1: append cwd to system prompt */
 } workspace_config_t;
 
+/* Declared external command tool (tools.commands). pass_args: 0=stdin_json, 1=env */
+typedef struct {
+  char *name;
+  char *description;
+  char **argv;
+  int argv_count;
+  int timeout_sec;
+  int max_output_bytes;
+  int pass_args;
+} tool_command_t;
+
 typedef struct {
   int enabled;       /* 0 off, 1 on (read_file / write_file under root) */
   char *root;        /* sandbox root directory (default ".") */
@@ -58,6 +69,8 @@ typedef struct {
   int http_fetch_enabled;   /* 0 off: do not register http_get */
   char *http_allow_hosts;   /* comma-separated hostnames, e.g. "api.github.com,httpbin.org" */
   int http_fetch_max_bytes; /* cap response body (default 262144) */
+  tool_command_t *commands;
+  int command_count;
 } tools_config_t;
 
 typedef struct {
