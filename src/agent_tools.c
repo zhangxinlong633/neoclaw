@@ -2,6 +2,7 @@
  * OpenAI-style tool_calls: read_file, write_file, list_dir; optional http_get (allowlist).
  */
 #include "agent_tools.h"
+#include "command_tools.h"
 #include <curl/curl.h>
 #include <ctype.h>
 #include <errno.h>
@@ -96,6 +97,7 @@ static const char NEO_TOOL_HTTPGET[] =
   "{\"type\":\"function\",\"function\":{\"name\":\"http_get\",\"description\":\"HTTPS GET for allowlisted hosts only (config tools.http_allow_hosts). No redirects. Body truncated.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\"}},\"required\":[\"url\"]}}}";
 
 static int neo_build_tools_json(NeoBuf *b, const agent_config_t *conf) {
+  int i;
   if (neo_buf_append(b, "[", 0) != 0) return -1;
   if (neo_buf_append(b, NEO_TOOL_READ, strlen(NEO_TOOL_READ)) != 0) return -1;
   if (neo_buf_append(b, ",", 0) != 0) return -1;
@@ -105,6 +107,16 @@ static int neo_build_tools_json(NeoBuf *b, const agent_config_t *conf) {
   if (conf->tools.http_fetch_enabled && conf->tools.http_allow_hosts && conf->tools.http_allow_hosts[0]) {
     if (neo_buf_append(b, ",", 0) != 0) return -1;
     if (neo_buf_append(b, NEO_TOOL_HTTPGET, strlen(NEO_TOOL_HTTPGET)) != 0) return -1;
+  }
+  for (i = 0; i < conf->tools.command_count; i++) {
+    const tool_command_t *cmd = &conf->tools.commands[i];
+    const char *desc = (cmd->description && cmd->description[0]) ? cmd->description : cmd->name;
+    if (!cmd->name || !cmd->name[0]) continue;
+    if (neo_buf_append(b, ",{\"type\":\"function\",\"function\":{\"name\":\"", 0) != 0) return -1;
+    neo_json_escape(cmd->name, b);
+    if (neo_buf_append(b, "\",\"description\":\"", 0) != 0) return -1;
+    neo_json_escape(desc ? desc : "", b);
+    if (neo_buf_append(b, "\",\"parameters\":{\"type\":\"object\"}}}", 0) != 0) return -1;
   }
   return neo_buf_append(b, "]", 0);
 }
@@ -671,6 +683,9 @@ static int tool_write_file(const agent_config_t *conf, const char *root_real, co
 }
 
 static int run_one_tool(const agent_config_t *conf, const char *root_real, NeoToolCall *tc, NeoBuf *result) {
+  int idx;
+  char *out = NULL;
+  size_t out_len = 0;
   result->len = 0;
   if (result->s) result->s[0] = '\0';
   fprintf(stderr, "neo tool: %s\n", tc->name);
@@ -682,6 +697,20 @@ static int run_one_tool(const agent_config_t *conf, const char *root_real, NeoTo
     return tool_list_dir(conf, root_real, tc->arguments, result);
   if (strcmp(tc->name, "http_get") == 0)
     return tool_http_get(conf, tc->arguments, result);
+  idx = command_tool_find(conf, tc->name);
+  if (idx >= 0) {
+    if (command_tool_run(conf, root_real, &conf->tools.commands[idx],
+                         tc->arguments ? tc->arguments : "{}", &out, &out_len) != 0) {
+      int r = neo_buf_append(result, out ? out : "ERROR: command tool failed", 0);
+      free(out);
+      return r;
+    }
+    {
+      int r = neo_buf_append(result, out ? out : "", 0);
+      free(out);
+      return r;
+    }
+  }
   return neo_buf_append(result, "ERROR: unknown tool", 0);
 }
 
