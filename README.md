@@ -4,9 +4,10 @@
 
 **Neo 不做「最强」的 agent，做「最灵活」、能在到处运行的瑞士军刀。**
 
-- **强在接缝，不在堆能力**：刀刃用 YAML + 脚本挂上（`tools.commands`、skills、workflow），换机器拷配置就能用，不必为新能力改 C、不必带一堆运行时。
-- **强在入口，不在生态锁**：终端单次、daemon / Unix socket、管道与 cron（`scripts/neo-ask`）、多配置编排（`scripts/neo-team`）都能唤起同一套核心。
-- **强在轻量，不在全家桶**：单二进制、主要依赖 libcurl；适合小模型、本机 / 边缘 / 树莓派；刻意不做重插件宿主、完整 MCP 运行时或复杂编排平台。
+- **强在接缝，不在堆能力**：刀刃用 YAML + 脚本挂上（`tools.commands`、skills、**确定性 DAG workflow**），换机器拷配置就能用。
+- **编排确定性**：`neo workflow run` 的拓扑由配置声明，LLM **只当图中的 Worker**，不参与流程控制；自然语言对话仍可用 `./neo "..."`。
+- **强在入口，不在生态锁**：终端、daemon / socket、管道与 cron（`neo-ask`）、`neo-team` 都能唤起同一核心。
+- **强在轻量，不在全家桶**：单二进制 + libcurl；不做 Temporal / 重插件 / 完整 MCP 宿主。
 
 一句话：**能塞进 shell、CI、IoT 和仓库旁路的小助手**——能力按需配置，而不是预装巨无。
 

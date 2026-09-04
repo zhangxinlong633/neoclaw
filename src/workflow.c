@@ -239,8 +239,151 @@ static int wf_run_step(const agent_config_t *conf, const char *root_real, const 
     }
     return 0;
   }
+  if (st->type == WF_STEP_ROUTE) {
+    /* route handled by DAG runner; treat as no-op success if called directly */
+    return 0;
+  }
   fprintf(stderr, "neo: workflow:%s step:%s: unknown type\n", wf_name, st->id);
   return -1;
+}
+
+static int wf_index_of(const workflow_t *wf, const char *id) {
+  int i;
+  for (i = 0; i < wf->step_count; i++) {
+    if (wf->steps[i].id && id && strcmp(wf->steps[i].id, id) == 0) return i;
+  }
+  return -1;
+}
+
+static int wf_is_dag_mode(const workflow_t *wf) {
+  int i;
+  for (i = 0; i < wf->step_count; i++) {
+    if (wf->steps[i].depends_count > 0) return 1;
+    if (wf->steps[i].type == WF_STEP_ROUTE) return 1;
+  }
+  return 0;
+}
+
+/* Kahn topo; order[] filled with step indices. Returns 0 or -1 on cycle. */
+static int wf_topo_sort(const workflow_t *wf, int *order, int *order_n) {
+  int n = wf->step_count;
+  int indeg[WF_MAX_STEPS];
+  int i, j, left;
+  if (n > WF_MAX_STEPS) return -1;
+  memset(indeg, 0, sizeof(indeg));
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < wf->steps[i].depends_count; j++) {
+      if (wf_index_of(wf, wf->steps[i].depends_on[j]) < 0) return -1;
+      indeg[i]++;
+    }
+  }
+  *order_n = 0;
+  left = n;
+  while (left > 0) {
+    int picked = -1;
+    for (i = 0; i < n; i++) {
+      if (indeg[i] == 0) {
+        picked = i;
+        break;
+      }
+    }
+    if (picked < 0) {
+      fprintf(stderr, "neo: workflow:%s: dependency cycle\n", wf->name);
+      return -1;
+    }
+    order[(*order_n)++] = picked;
+    indeg[picked] = -1;
+    left--;
+    for (i = 0; i < n; i++) {
+      for (j = 0; j < wf->steps[i].depends_count; j++) {
+        int d = wf_index_of(wf, wf->steps[i].depends_on[j]);
+        if (d == picked && indeg[i] > 0) indeg[i]--;
+      }
+    }
+  }
+  return 0;
+}
+
+static void wf_mark_skip_ids(const workflow_t *wf, int *skip, char **ids, int nids) {
+  int i, idx;
+  for (i = 0; i < nids; i++) {
+    idx = wf_index_of(wf, ids[i]);
+    if (idx >= 0) skip[idx] = 1;
+  }
+}
+
+static int wf_run_dag(const agent_config_t *conf, const char *root_real, const workflow_t *wf,
+                      char **out_text) {
+  int order[WF_MAX_STEPS];
+  int order_n = 0;
+  int skip[WF_MAX_STEPS];
+  wf_out_map_t map[WF_MAX_STEPS];
+  int map_n = 0;
+  char *prev = NULL;
+  int oi, i, j;
+
+  memset(skip, 0, sizeof(skip));
+  memset(map, 0, sizeof(map));
+  if (wf_topo_sort(wf, order, &order_n) != 0) return -1;
+
+  for (oi = 0; oi < order_n; oi++) {
+    int idx = order[oi];
+    const workflow_step_t *st = &wf->steps[idx];
+    int dep_skip = 0;
+
+    for (j = 0; j < st->depends_count; j++) {
+      int d = wf_index_of(wf, st->depends_on[j]);
+      if (d >= 0 && skip[d]) dep_skip = 1;
+    }
+    if (dep_skip) {
+      skip[idx] = 1;
+      fprintf(stderr, "neo dag: %s skip %s\n", wf->name, st->id);
+      continue;
+    }
+    if (skip[idx]) {
+      fprintf(stderr, "neo dag: %s skip %s\n", wf->name, st->id);
+      continue;
+    }
+
+    if (st->type == WF_STEP_ROUTE) {
+      const char *ids[WF_MAX_STEPS];
+      const char *texts[WF_MAX_STEPS];
+      char *expanded;
+      int hit = 0;
+      for (i = 0; i < map_n; i++) {
+        ids[i] = map[i].id;
+        texts[i] = map[i].text;
+      }
+      expanded = workflow_expand_template(st->route_on, prev, ids, texts, map_n);
+      if (!expanded) {
+        fprintf(stderr, "neo: workflow:%s step:%s: route on expand failed\n", wf->name, st->id);
+        wf_map_free(map, map_n);
+        free(prev);
+        return -1;
+      }
+      if (st->route_match && st->route_match[0] && strstr(expanded, st->route_match))
+        hit = 1;
+      fprintf(stderr, "neo dag: %s run %s (type=route hit=%d)\n", wf->name, st->id, hit);
+      if (hit)
+        wf_mark_skip_ids(wf, skip, st->route_else, st->route_else_count);
+      else
+        wf_mark_skip_ids(wf, skip, st->route_then, st->route_then_count);
+      free(expanded);
+      wf_map_set(map, &map_n, st->id, hit ? "then" : "else");
+      continue;
+    }
+
+    fprintf(stderr, "neo dag: %s run %s\n", wf->name, st->id ? st->id : "?");
+    if (wf_run_step(conf, root_real, wf->name, wf, st, map, &map_n, &prev) != 0) {
+      wf_map_free(map, map_n);
+      free(prev);
+      return -1;
+    }
+  }
+
+  *out_text = prev ? prev : strdup("");
+  wf_map_free(map, map_n);
+  return 0;
 }
 
 int workflow_run(const agent_config_t *conf, const char *workflow_name, char **out_text) {
@@ -275,9 +418,13 @@ int workflow_run(const agent_config_t *conf, const char *workflow_name, char **o
     fprintf(stderr, "neo: tools.root realpath failed\n");
     return -1;
   }
+
+  if (wf_is_dag_mode(wf))
+    return wf_run_dag(conf, root_real, wf, out_text);
+
   memset(map, 0, sizeof(map));
 
-  /* Steps referenced by a loop's over are definition-only until the loop runs them. */
+  /* Legacy: steps referenced by a loop's over are definition-only until the loop runs them. */
   for (i = 0; i < wf->step_count; i++) {
     int skip = 0;
     int j, k;

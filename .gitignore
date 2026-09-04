@@ -12,4 +12,4 @@ tests/test_command_exec
 tests/test_parse_workflows
 tests/test_workflow_loop
 tests/test_workflow_template
-tests/test_*
+tests/test_workflow_dag

@@ -76,7 +76,8 @@ typedef struct {
 typedef enum {
   WF_STEP_TOOL = 0,
   WF_STEP_LLM = 1,
-  WF_STEP_LOOP = 2
+  WF_STEP_LOOP = 2,
+  WF_STEP_ROUTE = 3
 } wf_step_type_t;
 
 typedef struct {
@@ -89,6 +90,15 @@ typedef struct {
   char **over_ids;
   int over_count;
   int max_iters;
+  char **depends_on;
+  int depends_count;
+  /* route: expand `on`, if contains `match` take then[], else else[] */
+  char *route_on;
+  char *route_match;
+  char **route_then;
+  int route_then_count;
+  char **route_else;
+  int route_else_count;
 } workflow_step_t;
 
 typedef struct {

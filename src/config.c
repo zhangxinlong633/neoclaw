@@ -113,11 +113,34 @@ static void free_workflows(workflow_t *wfs, int n) {
           for (k = 0; k < s->over_count; k++) free(s->over_ids[k]);
           free(s->over_ids);
         }
+        if (s->depends_on) {
+          for (k = 0; k < s->depends_count; k++) free(s->depends_on[k]);
+          free(s->depends_on);
+        }
+        free(s->route_on);
+        free(s->route_match);
+        if (s->route_then) {
+          for (k = 0; k < s->route_then_count; k++) free(s->route_then[k]);
+          free(s->route_then);
+        }
+        if (s->route_else) {
+          for (k = 0; k < s->route_else_count; k++) free(s->route_else[k]);
+          free(s->route_else);
+        }
       }
       free(wfs[i].steps);
     }
   }
   free(wfs);
+}
+
+static int wf_id_exists(const workflow_t *wf, const char *id) {
+  int m;
+  if (!id) return 0;
+  for (m = 0; m < wf->step_count; m++) {
+    if (wf->steps[m].id && strcmp(wf->steps[m].id, id) == 0) return 1;
+  }
+  return 0;
 }
 
 static int validate_workflows(agent_config_t *c) {
@@ -143,6 +166,17 @@ static int validate_workflows(agent_config_t *c) {
       for (k = 0; k < j; k++) {
         if (wf->steps[k].id && strcmp(wf->steps[k].id, s->id) == 0) {
           fprintf(stderr, "neo: workflow '%s': duplicate step id '%s'\n", wf->name, s->id);
+          return -1;
+        }
+      }
+      for (k = 0; k < s->depends_count; k++) {
+        if (!s->depends_on[k] || !wf_id_exists(wf, s->depends_on[k])) {
+          fprintf(stderr, "neo: workflow '%s' step '%s': unknown depends_on '%s'\n",
+                  wf->name, s->id, s->depends_on[k] ? s->depends_on[k] : "?");
+          return -1;
+        }
+        if (strcmp(s->depends_on[k], s->id) == 0) {
+          fprintf(stderr, "neo: workflow '%s' step '%s': depends_on self\n", wf->name, s->id);
           return -1;
         }
       }
@@ -186,6 +220,27 @@ static int validate_workflows(agent_config_t *c) {
           if (!found) {
             fprintf(stderr, "neo: workflow '%s' step '%s': unknown over id '%s'\n",
                     wf->name, s->id, s->over_ids[k]);
+            return -1;
+          }
+        }
+      } else if (s->type == WF_STEP_ROUTE) {
+        if (!s->route_on || !s->route_on[0]) {
+          fprintf(stderr, "neo: workflow '%s' step '%s': route on required\n", wf->name, s->id);
+          return -1;
+        }
+        if (s->route_then_count < 1 && s->route_else_count < 1) {
+          fprintf(stderr, "neo: workflow '%s' step '%s': route then/else empty\n", wf->name, s->id);
+          return -1;
+        }
+        for (k = 0; k < s->route_then_count; k++) {
+          if (!wf_id_exists(wf, s->route_then[k])) {
+            fprintf(stderr, "neo: workflow '%s' step '%s': unknown then id\n", wf->name, s->id);
+            return -1;
+          }
+        }
+        for (k = 0; k < s->route_else_count; k++) {
+          if (!wf_id_exists(wf, s->route_else[k])) {
+            fprintf(stderr, "neo: workflow '%s' step '%s': unknown else id\n", wf->name, s->id);
             return -1;
           }
         }
@@ -544,6 +599,7 @@ int config_load_file(agent_config_t *c, const char *path) {
             while (*v == ' ' || *v == '\t') v++;
             if (strncmp(v, "llm", 3) == 0) st->type = WF_STEP_LLM;
             else if (strncmp(v, "loop", 4) == 0) st->type = WF_STEP_LOOP;
+            else if (strncmp(v, "route", 5) == 0) st->type = WF_STEP_ROUTE;
             else st->type = WF_STEP_TOOL;
             continue;
           }
@@ -585,12 +641,73 @@ int config_load_file(agent_config_t *c, const char *path) {
               return -1;
             }
             if (st->over_ids) {
-              int k;
-              for (k = 0; k < st->over_count; k++) free(st->over_ids[k]);
+              int kk;
+              for (kk = 0; kk < st->over_count; kk++) free(st->over_ids[kk]);
               free(st->over_ids);
             }
             st->over_ids = ids;
             st->over_count = n;
+            continue;
+          }
+          if (strncmp(t, "depends_on:", 11) == 0) {
+            char **ids = NULL;
+            int n = parse_bracket_list(t + 11, &ids, MAX_ARGV);
+            if (n < 0) {
+              fprintf(stderr, "neo: workflow step '%s': bad depends_on list\n", st->id ? st->id : "?");
+              fclose(f);
+              return -1;
+            }
+            if (st->depends_on) {
+              int kk;
+              for (kk = 0; kk < st->depends_count; kk++) free(st->depends_on[kk]);
+              free(st->depends_on);
+            }
+            st->depends_on = ids;
+            st->depends_count = n;
+            continue;
+          }
+          if (strncmp(t, "on:", 3) == 0) {
+            free(st->route_on);
+            st->route_on = dup_str(trim_quotes(t + 3));
+            continue;
+          }
+          if (strncmp(t, "match:", 6) == 0) {
+            free(st->route_match);
+            st->route_match = dup_str(trim_quotes(t + 6));
+            continue;
+          }
+          if (strncmp(t, "then:", 5) == 0) {
+            char **ids = NULL;
+            int n = parse_bracket_list(t + 5, &ids, MAX_ARGV);
+            if (n < 0) {
+              fprintf(stderr, "neo: workflow step '%s': bad then list\n", st->id ? st->id : "?");
+              fclose(f);
+              return -1;
+            }
+            if (st->route_then) {
+              int kk;
+              for (kk = 0; kk < st->route_then_count; kk++) free(st->route_then[kk]);
+              free(st->route_then);
+            }
+            st->route_then = ids;
+            st->route_then_count = n;
+            continue;
+          }
+          if (strncmp(t, "else:", 5) == 0) {
+            char **ids = NULL;
+            int n = parse_bracket_list(t + 5, &ids, MAX_ARGV);
+            if (n < 0) {
+              fprintf(stderr, "neo: workflow step '%s': bad else list\n", st->id ? st->id : "?");
+              fclose(f);
+              return -1;
+            }
+            if (st->route_else) {
+              int kk;
+              for (kk = 0; kk < st->route_else_count; kk++) free(st->route_else[kk]);
+              free(st->route_else);
+            }
+            st->route_else = ids;
+            st->route_else_count = n;
             continue;
           }
           if (strncmp(t, "max:", 4) == 0) {

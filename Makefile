@@ -16,7 +16,7 @@ neo: $(OBJ)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f neo $(OBJ) tests/test_parse_commands tests/test_command_exec tests/test_parse_workflows tests/test_workflow_loop tests/test_workflow_template
+	rm -f neo $(OBJ) tests/test_parse_commands tests/test_command_exec tests/test_parse_workflows tests/test_workflow_loop tests/test_workflow_template tests/test_workflow_dag
 
 TEST_PARSE_CMD = tests/test_parse_commands
 $(TEST_PARSE_CMD): tests/test_parse_commands.c src/config.c src/config.h
@@ -38,11 +38,16 @@ TEST_WF_TMPL = tests/test_workflow_template
 $(TEST_WF_TMPL): tests/test_workflow_template.c src/workflow.c src/agent_tools.c src/command_tools.c src/config.c src/llm.c
 	$(CC) $(CFLAGS) -o $@ tests/test_workflow_template.c src/workflow.c src/agent_tools.c src/command_tools.c src/config.c src/llm.c $(LDFLAGS)
 
-test: $(TEST_PARSE_CMD) $(TEST_CMD_EXEC) $(TEST_PARSE_WF) $(TEST_WF_LOOP) $(TEST_WF_TMPL)
+TEST_WF_DAG = tests/test_workflow_dag
+$(TEST_WF_DAG): tests/test_workflow_dag.c src/workflow.c src/agent_tools.c src/command_tools.c src/config.c src/llm.c
+	$(CC) $(CFLAGS) -o $@ tests/test_workflow_dag.c src/workflow.c src/agent_tools.c src/command_tools.c src/config.c src/llm.c $(LDFLAGS)
+
+test: $(TEST_PARSE_CMD) $(TEST_CMD_EXEC) $(TEST_PARSE_WF) $(TEST_WF_LOOP) $(TEST_WF_TMPL) $(TEST_WF_DAG)
 	./$(TEST_PARSE_CMD)
 	./$(TEST_CMD_EXEC)
 	./$(TEST_PARSE_WF)
 	./$(TEST_WF_LOOP)
 	./$(TEST_WF_TMPL)
+	./$(TEST_WF_DAG)
 
 .PHONY: clean test
