@@ -23,9 +23,41 @@ tools:
 - **`enabled: false`**（或未写 `tools:`）：不会发 `tools`，行为与旧版一致，模型只能「口头」给 shell，**不会**真实读写文件。
 - **临时关闭工具**：`NEO_DISABLE_TOOLS=1 ./neo "..."`（环境变量存在即视为关闭）。
 
-完整示例可与仓库内 `config.yaml.example` 对照。
+完整示例可与仓库内 `config/config.yaml.example` 对照。
 
 ### 1.1 `list_dir` 与 `http_get` 行为摘要
+
+| 工具 | 说明 |
+|------|------|
+| `list_dir` | 参数 `path` 为相对 `tools.root` 的目录路径；返回该目录下条目名列表（有上限，见 `list_dir_max_entries`）。 |
+| `http_get` | 仅当 `http_fetch_enabled: true` 且 `http_allow_hosts` 配置了允许的主机名时出现；参数 `url` 必须为 `https://` 且 URL 的主机名（大小写不敏感）在允许列表中；不跟随 3xx；正文截断至 `http_fetch_max_bytes`。 |
+
+### 1.2 `tools.commands`（自定义命令工具）
+
+在 `tools:` 下声明 `commands`，无需改 C / 重新 `make`。模型通过 `tool_calls` 调用；Neo 在 `tools.root` 下 `exec` 已声明的 `argv`（不拼 shell）。
+
+```yaml
+tools:
+  enabled: true
+  root: "."
+  commands:
+    - name: echo_args
+      description: "Echo tool arguments JSON"
+      argv: ["./scripts/tools/echo-args.sh"]
+      timeout_sec: 30
+      max_output_bytes: 65536
+      pass_args: stdin_json   # 或 env（NEO_TOOL_ARGS）
+```
+
+- `argv[0]` 必须相对 `tools.root`，禁止绝对路径与 `..`。
+- `pass_args: stdin_json`：arguments JSON 写入子进程 stdin；`NEO_TOOL_NAME` 环境变量始终设置。
+- 非 0 退出码：结果前缀 `EXIT:<code>\n`。
+- 样例脚本：`scripts/tools/echo-args.sh`。
+
+---
+
+## 2. 实录：真实命令与输出
+
 
 | 工具 | 说明 |
 |------|------|

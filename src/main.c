@@ -10,13 +10,13 @@
 #include "daemon.h"
 #include "llm.h"
 #include "skills.h"
+#include "workflow.h"
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
-#endif
 
 #ifndef NEO_DISABLE_TOOLS_GETENV
 #define NEO_DISABLE_TOOLS_GETENV "NEO_DISABLE_TOOLS"
@@ -59,14 +59,47 @@ static void build_user_message(char *buf, size_t cap, char **argv, int start, in
 
 static void print_usage(const char *prog) {
   fprintf(stderr, "Usage: %s [OPTIONS] \"your message\"\n", prog);
-  fprintf(stderr, "       %s daemon [--socket PATH]\n", prog);
+  fprintf(stderr, "       %s [OPTIONS] daemon [--socket PATH]\n", prog);
+  fprintf(stderr, "       %s [OPTIONS] workflow run NAME\n", prog);
   fprintf(stderr, "Options:\n");
-  fprintf(stderr, "  -c, --config PATH   Config file (default: config.yaml or NEO_CONFIG)\n");
+  fprintf(stderr, "  -c, --config PATH   Config file (default: config/config.yaml, else config.yaml)\n");
+  fprintf(stderr, "  -p, --profile NAME  Use config/profiles/NAME/ (fallback: profiles/NAME/)\n");
   fprintf(stderr, "  -m, --model NAME    Override model name\n");
   fprintf(stderr, "  -d, --debug         Print system prompt, user message and request params to stderr\n");
   fprintf(stderr, "  -h, --help          Show this help\n");
   fprintf(stderr, "  daemon              Run as daemon: read from stdin, reply to stdout\n");
   fprintf(stderr, "  --socket PATH       (with daemon) Listen on Unix socket instead of stdin\n");
+  fprintf(stderr, "  workflow run NAME   Run a declarative workflow from config\n");
+}
+
+/* Prefer config/ layout; keep repo-root paths as fallback. */
+static const char *neo_default_config_path(void) {
+  if (access("config/config.yaml", R_OK) == 0) return "config/config.yaml";
+  if (access("config.yaml", R_OK) == 0) return "config.yaml";
+  return "config/config.yaml";
+}
+
+static int neo_resolve_profile_dir(const char *name, char *out, size_t out_sz) {
+  char cand[PATH_MAX];
+  if (!name || !name[0] || !out) return -1;
+  if (snprintf(cand, sizeof(cand), "config/profiles/%s", name) >= (int)sizeof(cand))
+    return -1;
+  if (access(cand, F_OK) == 0) {
+    if (strlen(cand) + 1 > out_sz) return -1;
+    memcpy(out, cand, strlen(cand) + 1);
+    return 0;
+  }
+  if (snprintf(cand, sizeof(cand), "profiles/%s", name) >= (int)sizeof(cand))
+    return -1;
+  if (access(cand, F_OK) == 0) {
+    if (strlen(cand) + 1 > out_sz) return -1;
+    memcpy(out, cand, strlen(cand) + 1);
+    return 0;
+  }
+  /* Prefer new layout in error message path */
+  if (snprintf(out, out_sz, "config/profiles/%s", name) >= (int)out_sz)
+    return -1;
+  return -1;
 }
 
 /* ANSI colors for debug (no-op if stderr not a tty; call debug_color_ok() to decide) */
@@ -109,13 +142,20 @@ static void debug_print_request(agent_config_t *conf,
 
 int main(int argc, char **argv) {
   const char *config_path = getenv("NEO_CONFIG");
-  if (!config_path || !config_path[0]) config_path = "config.yaml";
+  const char *profile = getenv("NEO_PROFILE");
+  int config_set = 0;
+  char profile_dir[PATH_MAX];
+  int used_profile = 0;
+  if (!config_path || !config_path[0]) config_path = neo_default_config_path();
+  else config_set = 1;
   const char *model_override = NULL;
   int arg_start = 1;
 
   const char *socket_path = NULL;
   int daemon_mode = 0;
   int debug = 0;
+  int workflow_mode = 0;
+  const char *workflow_name = NULL;
 
   while (arg_start < argc) {
     if (strcmp(argv[arg_start], "--help") == 0 || strcmp(argv[arg_start], "-h") == 0) {
@@ -125,6 +165,13 @@ int main(int argc, char **argv) {
     if (strcmp(argv[arg_start], "--config") == 0 || strcmp(argv[arg_start], "-c") == 0) {
       if (arg_start + 1 >= argc) { fprintf(stderr, "neo: --config requires PATH\n"); return 1; }
       config_path = argv[arg_start + 1];
+      config_set = 1;
+      arg_start += 2;
+      continue;
+    }
+    if (strcmp(argv[arg_start], "--profile") == 0 || strcmp(argv[arg_start], "-p") == 0) {
+      if (arg_start + 1 >= argc) { fprintf(stderr, "neo: --profile requires NAME\n"); return 1; }
+      profile = argv[arg_start + 1];
       arg_start += 2;
       continue;
     }
@@ -139,6 +186,16 @@ int main(int argc, char **argv) {
       arg_start++;
       continue;
     }
+    if (strcmp(argv[arg_start], "workflow") == 0) {
+      if (arg_start + 2 >= argc || strcmp(argv[arg_start + 1], "run") != 0) {
+        fprintf(stderr, "neo: usage: workflow run NAME\n");
+        return 1;
+      }
+      workflow_mode = 1;
+      workflow_name = argv[arg_start + 2];
+      arg_start += 3;
+      continue;
+    }
     if (strcmp(argv[arg_start], "--socket") == 0) {
       if (arg_start + 1 >= argc) { fprintf(stderr, "neo: --socket requires PATH\n"); return 1; }
       socket_path = argv[arg_start + 1];
@@ -151,6 +208,28 @@ int main(int argc, char **argv) {
       continue;
     }
     break;
+  }
+
+  if (profile && profile[0]) {
+#if defined(__linux__) || defined(__APPLE__)
+    if (neo_resolve_profile_dir(profile, profile_dir, sizeof(profile_dir)) != 0) {
+      fprintf(stderr, "neo: profile not found (tried config/profiles/%s and profiles/%s)\n",
+              profile, profile);
+      return 1;
+    }
+    if (chdir(profile_dir) != 0) {
+      fprintf(stderr, "neo: cannot chdir to profile '%s'\n", profile_dir);
+      return 1;
+    }
+    used_profile = 1;
+    if (!config_set) {
+      config_path = "neo.yaml";
+    }
+#else
+    fprintf(stderr, "neo: profiles require Linux/macOS\n");
+    return 1;
+#endif
+    (void)used_profile;
   }
 
   if (daemon_mode) {
@@ -168,6 +247,30 @@ int main(int argc, char **argv) {
       if (conf.model.name) strcpy(conf.model.name, model_override);
     }
     int r = socket_path ? run_daemon_socket(&conf, socket_path, debug) : run_daemon_stdin(&conf, debug);
+    config_free(&conf);
+    return r != 0;
+  }
+
+  if (workflow_mode) {
+    agent_config_t conf;
+    char *out = NULL;
+    int r;
+    config_init(&conf);
+    if (config_load_file(&conf, config_path) != 0) {
+      fprintf(stderr, "neo: failed to load config from %s\n", config_path);
+      config_free(&conf);
+      return 1;
+    }
+    config_apply_env(&conf);
+    if (model_override) {
+      free(conf.model.name);
+      conf.model.name = malloc(strlen(model_override) + 1);
+      if (conf.model.name) strcpy(conf.model.name, model_override);
+    }
+    r = workflow_run(&conf, workflow_name, &out);
+    if (r == 0 && out) fputs(out, stdout);
+    if (out && out[0] && out[strlen(out) - 1] != '\n') fputc('\n', stdout);
+    free(out);
     config_free(&conf);
     return r != 0;
   }

@@ -1,5 +1,6 @@
 # Neo agent config example.
-# Copy to config.yaml and adjust. See README for env overrides (NEO_MODEL, NEO_API_KEY).
+# Copy to config/config.yaml (preferred) or config.yaml and adjust.
+# See README for env overrides (NEO_MODEL, NEO_API_KEY).
 
 # --- Model (OpenAI-compatible API) ---
 model:
@@ -60,3 +61,11 @@ session:
 #   http_fetch_enabled: false   # set true and http_allow_hosts to register http_get
 #   http_allow_hosts: ""        # comma-separated hostnames, e.g. "api.github.com,httpbin.org"
 #   http_fetch_max_bytes: 262144
+#   # Custom command tools (no recompile): argv under tools.root only; no shell strings.
+#   commands:
+#     - name: echo_args
+#       description: "Echo tool arguments JSON (demo)"
+#       argv: ["./scripts/tools/echo-args.sh"]
+#       timeout_sec: 30
+#       max_output_bytes: 65536
+#       pass_args: stdin_json   # stdin_json | env

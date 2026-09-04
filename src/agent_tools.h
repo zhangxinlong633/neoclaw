@@ -17,4 +17,12 @@ int agent_run_with_tools(
   const char *user_message,
   llm_response_t *out_text);
 
+/*
+ * Dispatch one tool by name (builtin or tools.commands).
+ * Caller frees *out_text. Returns 0 on handled call (including tool ERROR strings).
+ */
+int neo_dispatch_tool(const agent_config_t *conf, const char *root_real,
+                      const char *name, const char *args_json,
+                      char **out_text, size_t *out_len);
+
 #endif

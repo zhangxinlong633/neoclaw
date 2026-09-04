@@ -49,6 +49,17 @@ typedef struct {
   int prompt_cwd; /* 1: append cwd to system prompt */
 } workspace_config_t;
 
+/* Declared external command tool (tools.commands). pass_args: 0=stdin_json, 1=env */
+typedef struct {
+  char *name;
+  char *description;
+  char **argv;
+  int argv_count;
+  int timeout_sec;
+  int max_output_bytes;
+  int pass_args;
+} tool_command_t;
+
 typedef struct {
   int enabled;       /* 0 off, 1 on (read_file / write_file under root) */
   char *root;        /* sandbox root directory (default ".") */
@@ -58,7 +69,34 @@ typedef struct {
   int http_fetch_enabled;   /* 0 off: do not register http_get */
   char *http_allow_hosts;   /* comma-separated hostnames, e.g. "api.github.com,httpbin.org" */
   int http_fetch_max_bytes; /* cap response body (default 262144) */
+  tool_command_t *commands;
+  int command_count;
 } tools_config_t;
+
+typedef enum {
+  WF_STEP_TOOL = 0,
+  WF_STEP_LLM = 1,
+  WF_STEP_LOOP = 2
+} wf_step_type_t;
+
+typedef struct {
+  char *id;
+  wf_step_type_t type;
+  char *tool;
+  char *args_json;
+  char *prompt;
+  int tools_on; /* llm only: 0 off, 1 on */
+  char **over_ids;
+  int over_count;
+  int max_iters;
+} workflow_step_t;
+
+typedef struct {
+  char *name;
+  char *description;
+  workflow_step_t *steps;
+  int step_count;
+} workflow_t;
 
 typedef struct {
   model_config_t model;
@@ -69,6 +107,8 @@ typedef struct {
   skills_config_t skills;
   memory_config_t memory;
   tools_config_t tools;
+  workflow_t *workflows;
+  int workflow_count;
   int session_max_turns;
 } agent_config_t;
 
@@ -76,5 +116,6 @@ void config_init(agent_config_t *c);
 void config_free(agent_config_t *c);
 int config_load_file(agent_config_t *c, const char *path);
 void config_apply_env(agent_config_t *c);
+const workflow_t *config_find_workflow(const agent_config_t *c, const char *name);
 
 #endif
