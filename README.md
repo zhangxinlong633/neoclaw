@@ -26,9 +26,11 @@ make
 复制示例配置并填入自己的 API 与模型名：
 
 ```bash
-cp config.yaml.example config.yaml
-# 编辑 config.yaml：model.api_key、model.name（如 qwen/qwen3-8b）
+cp config/config.yaml.example config/config.yaml
+# 编辑 config/config.yaml：model.api_key、model.name（如 qwen/qwen3-8b）
 ```
+
+也兼容仓库根的 `config.yaml`（若存在则仍可读；默认优先 `config/config.yaml`）。
 
 **4. 跑一条**
 
@@ -46,7 +48,7 @@ cp config.yaml.example config.yaml
 
 ```bash
 ./neo "你的问题"
-./neo -c config.yaml -m qwen/qwen3-8b "总结一下"
+./neo -c config/config.yaml -m qwen/qwen3-8b "总结一下"
 ```
 
 ### 多轮对话（daemon）
@@ -60,7 +62,7 @@ cp config.yaml.example config.yaml
 
 - **自定义命令工具**：见 `doc/tool.md`（`tools.commands`）。
 - **声明式 workflow**：`./neo workflow run NAME`，说明见 `doc/workflow.md`。
-- **Profile**：`./neo -p demo ...` 使用 `profiles/demo/neo.yaml`。
+- **Profile**：`./neo -p demo ...` 使用 `config/profiles/demo/neo.yaml`（兼容旧路径 `profiles/demo/`）。
 - **管道/cron**：`./scripts/neo-ask -p demo --workflow demo_loop`。
 
 ### 示例命令与运行效果（qwen3-8b）
@@ -162,7 +164,7 @@ $ ./neo "将你是谁翻译成日文"
 
 ## 流程简述
 
-1. 读 **config.yaml**（或 `NEO_CONFIG` / `-c`）。
+1. 读 **config/config.yaml**（或根目录 `config.yaml` / `NEO_CONFIG` / `-c`）。
 2. 拼 **system prompt**：固定说明 → 当前时间 →（可选）**cwd** → **高优先级 skills（全文）** →（可选）**soul** → bootstrap →（可选）**rules** → **普通 skills（匹配全文 / 未匹配摘要或跳过）** → memory 文件 →（若启用）tools 说明。
 3. 用户消息 = 命令行参数拼接（或 daemon 下当前行）。
 4. POST 到 `base_url/chat/completions`（OpenAI 兼容），带 `max_tokens`、`temperature`；非 200 时 stderr 打响应片段。

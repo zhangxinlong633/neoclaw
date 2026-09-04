@@ -1,6 +1,6 @@
 # Neo 声明式 Workflow
 
-在 `config.yaml`（或 profile 的 `neo.yaml`）里写短流程，用 `tool` / `llm` / `loop` 做简单循环。
+在 `config/config.yaml`（或 profile 的 `neo.yaml`）里写短流程，用 `tool` / `llm` / `loop` 做简单循环。
 
 ## 配置示例
 

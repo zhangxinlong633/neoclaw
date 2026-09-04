@@ -16,9 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#if defined(__linux__) || defined(__APPLE__)
 #include <unistd.h>
-#endif
 
 #ifndef NEO_DISABLE_TOOLS_GETENV
 #define NEO_DISABLE_TOOLS_GETENV "NEO_DISABLE_TOOLS"
@@ -64,14 +62,44 @@ static void print_usage(const char *prog) {
   fprintf(stderr, "       %s [OPTIONS] daemon [--socket PATH]\n", prog);
   fprintf(stderr, "       %s [OPTIONS] workflow run NAME\n", prog);
   fprintf(stderr, "Options:\n");
-  fprintf(stderr, "  -c, --config PATH   Config file (default: config.yaml or NEO_CONFIG)\n");
-  fprintf(stderr, "  -p, --profile NAME  Use profiles/NAME/ as config root (neo.yaml)\n");
+  fprintf(stderr, "  -c, --config PATH   Config file (default: config/config.yaml, else config.yaml)\n");
+  fprintf(stderr, "  -p, --profile NAME  Use config/profiles/NAME/ (fallback: profiles/NAME/)\n");
   fprintf(stderr, "  -m, --model NAME    Override model name\n");
   fprintf(stderr, "  -d, --debug         Print system prompt, user message and request params to stderr\n");
   fprintf(stderr, "  -h, --help          Show this help\n");
   fprintf(stderr, "  daemon              Run as daemon: read from stdin, reply to stdout\n");
   fprintf(stderr, "  --socket PATH       (with daemon) Listen on Unix socket instead of stdin\n");
   fprintf(stderr, "  workflow run NAME   Run a declarative workflow from config\n");
+}
+
+/* Prefer config/ layout; keep repo-root paths as fallback. */
+static const char *neo_default_config_path(void) {
+  if (access("config/config.yaml", R_OK) == 0) return "config/config.yaml";
+  if (access("config.yaml", R_OK) == 0) return "config.yaml";
+  return "config/config.yaml";
+}
+
+static int neo_resolve_profile_dir(const char *name, char *out, size_t out_sz) {
+  char cand[PATH_MAX];
+  if (!name || !name[0] || !out) return -1;
+  if (snprintf(cand, sizeof(cand), "config/profiles/%s", name) >= (int)sizeof(cand))
+    return -1;
+  if (access(cand, F_OK) == 0) {
+    if (strlen(cand) + 1 > out_sz) return -1;
+    memcpy(out, cand, strlen(cand) + 1);
+    return 0;
+  }
+  if (snprintf(cand, sizeof(cand), "profiles/%s", name) >= (int)sizeof(cand))
+    return -1;
+  if (access(cand, F_OK) == 0) {
+    if (strlen(cand) + 1 > out_sz) return -1;
+    memcpy(out, cand, strlen(cand) + 1);
+    return 0;
+  }
+  /* Prefer new layout in error message path */
+  if (snprintf(out, out_sz, "config/profiles/%s", name) >= (int)out_sz)
+    return -1;
+  return -1;
 }
 
 /* ANSI colors for debug (no-op if stderr not a tty; call debug_color_ok() to decide) */
@@ -116,10 +144,9 @@ int main(int argc, char **argv) {
   const char *config_path = getenv("NEO_CONFIG");
   const char *profile = getenv("NEO_PROFILE");
   int config_set = 0;
-  char profile_config[PATH_MAX];
   char profile_dir[PATH_MAX];
   int used_profile = 0;
-  if (!config_path || !config_path[0]) config_path = "config.yaml";
+  if (!config_path || !config_path[0]) config_path = neo_default_config_path();
   else config_set = 1;
   const char *model_override = NULL;
   int arg_start = 1;
@@ -184,11 +211,12 @@ int main(int argc, char **argv) {
   }
 
   if (profile && profile[0]) {
-    if (snprintf(profile_dir, sizeof(profile_dir), "profiles/%s", profile) >= (int)sizeof(profile_dir)) {
-      fprintf(stderr, "neo: profile path too long\n");
+#if defined(__linux__) || defined(__APPLE__)
+    if (neo_resolve_profile_dir(profile, profile_dir, sizeof(profile_dir)) != 0) {
+      fprintf(stderr, "neo: profile not found (tried config/profiles/%s and profiles/%s)\n",
+              profile, profile);
       return 1;
     }
-#if defined(__linux__) || defined(__APPLE__)
     if (chdir(profile_dir) != 0) {
       fprintf(stderr, "neo: cannot chdir to profile '%s'\n", profile_dir);
       return 1;
@@ -196,15 +224,12 @@ int main(int argc, char **argv) {
     used_profile = 1;
     if (!config_set) {
       config_path = "neo.yaml";
-    } else if (config_path[0] != '/') {
-      /* relative -c stays relative to profile dir after chdir */
     }
 #else
     fprintf(stderr, "neo: profiles require Linux/macOS\n");
     return 1;
 #endif
     (void)used_profile;
-    (void)profile_config;
   }
 
   if (daemon_mode) {

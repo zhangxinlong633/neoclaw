@@ -57,9 +57,9 @@ Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdo
 
 ## 3. 配置文件怎么写
 
-配置文件默认可为仓库根下的 `config.yaml`，也可用 `-c /path/to/config.yaml` 或环境变量 `NEO_CONFIG`。
+配置文件默认可为 **`config/config.yaml`**（优先），其次仓库根 **`config.yaml`**；也可用 `-c /path/to/config.yaml` 或环境变量 `NEO_CONFIG`。Profile 优先 **`config/profiles/<name>/`**，兼容旧路径 **`profiles/<name>/`**。
 
-完整字段示例以仓库内 **`config.yaml.example`** 为准；下面只强调 **OpenClaw 相关三节**。
+完整字段示例以仓库内 **`config/config.yaml.example`** 为准；下面只强调 **OpenClaw 相关三节**。
 
 ### 3.1 `soul:`（人格 / 语气）
 

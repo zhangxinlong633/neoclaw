@@ -1,5 +1,6 @@
 # Neo agent config example.
-# Copy to config.yaml and adjust. See README for env overrides (NEO_MODEL, NEO_API_KEY).
+# Copy to config/config.yaml (preferred) or config.yaml and adjust.
+# See README for env overrides (NEO_MODEL, NEO_API_KEY).
 
 # --- Model (OpenAI-compatible API) ---
 model:

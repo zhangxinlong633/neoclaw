@@ -23,7 +23,7 @@ tools:
 - **`enabled: false`**（或未写 `tools:`）：不会发 `tools`，行为与旧版一致，模型只能「口头」给 shell，**不会**真实读写文件。
 - **临时关闭工具**：`NEO_DISABLE_TOOLS=1 ./neo "..."`（环境变量存在即视为关闭）。
 
-完整示例可与仓库内 `config.yaml.example` 对照。
+完整示例可与仓库内 `config/config.yaml.example` 对照。
 
 ### 1.1 `list_dir` 与 `http_get` 行为摘要
 
