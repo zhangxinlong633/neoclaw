@@ -547,6 +547,12 @@ int config_load_file(agent_config_t *c, const char *path) {
             else st->type = WF_STEP_TOOL;
             continue;
           }
+          if (strncmp(t, "tools:", 6) == 0) {
+            const char *v = trim_quotes(t + 6);
+            while (*v == ' ' || *v == '\t') v++;
+            st->tools_on = (strncmp(v, "on", 2) == 0) ? 1 : 0;
+            continue;
+          }
           if (strncmp(t, "tool:", 5) == 0) {
             free(st->tool);
             st->tool = dup_str(trim_quotes(t + 5));
@@ -568,12 +574,6 @@ int config_load_file(agent_config_t *c, const char *path) {
           if (strncmp(t, "prompt:", 7) == 0) {
             free(st->prompt);
             st->prompt = dup_str(trim_quotes(t + 7));
-            continue;
-          }
-          if (strncmp(t, "tools:", 6) == 0) {
-            const char *v = trim_quotes(t + 6);
-            while (*v == ' ' || *v == '\t') v++;
-            st->tools_on = (strncmp(v, "on", 2) == 0) ? 1 : 0;
             continue;
           }
           if (strncmp(t, "over:", 5) == 0) {

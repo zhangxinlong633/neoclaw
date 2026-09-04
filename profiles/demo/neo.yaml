@@ -6,9 +6,15 @@ tools:
   enabled: true
   root: "."
   commands:
+    - name: echo_args
+      description: "Echo arguments JSON"
+      argv: ["./scripts/tools/echo-args.sh"]
+      timeout_sec: 5
+      max_output_bytes: 4096
+      pass_args: stdin_json
     - name: count_run
-      description: "Append one line to tests/fixtures/count.out"
-      argv: ["./tests/fixtures/bin/count.sh"]
+      description: "Append to count.out"
+      argv: ["./scripts/tools/count.sh"]
       timeout_sec: 5
       max_output_bytes: 4096
       pass_args: stdin_json
@@ -25,10 +31,8 @@ workflows:
         over: ["fetch"]
         max: 2
         until: always
-skills:
-  directory: "skills"
 memory:
   path: "MEMORY.md"
-  max_chars: 100
+  max_chars: 200
 session:
-  max_turns: 2
+  max_turns: 4

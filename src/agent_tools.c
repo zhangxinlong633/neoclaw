@@ -714,6 +714,30 @@ static int run_one_tool(const agent_config_t *conf, const char *root_real, NeoTo
   return neo_buf_append(result, "ERROR: unknown tool", 0);
 }
 
+int neo_dispatch_tool(const agent_config_t *conf, const char *root_real,
+                      const char *name, const char *args_json,
+                      char **out_text, size_t *out_len) {
+  NeoToolCall tc;
+  NeoBuf result;
+  int r;
+  if (out_text) *out_text = NULL;
+  if (out_len) *out_len = 0;
+  if (!conf || !root_real || !name || !out_text) return -1;
+  memset(&tc, 0, sizeof(tc));
+  memset(&result, 0, sizeof(result));
+  tc.name = (char *)name;
+  tc.arguments = (char *)(args_json ? args_json : "{}");
+  r = run_one_tool(conf, root_real, &tc, &result);
+  if (r != 0) {
+    neo_buf_free(&result);
+    return -1;
+  }
+  *out_text = result.s ? result.s : strdup("");
+  if (out_len) *out_len = result.len;
+  /* ownership transferred */
+  return 0;
+}
+
 int agent_run_with_tools(
   const agent_config_t *conf,
   const char *system_prompt,

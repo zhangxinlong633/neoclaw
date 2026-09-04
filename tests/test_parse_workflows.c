@@ -22,7 +22,7 @@ int main(void) {
     return 1;
   }
   if (wf->steps[0].type != WF_STEP_TOOL || !wf->steps[0].tool ||
-      strcmp(wf->steps[0].tool, "echo_args") != 0) {
+      strcmp(wf->steps[0].tool, "count_run") != 0) {
     fprintf(stderr, "bad tool step\n");
     config_free(&c);
     return 1;

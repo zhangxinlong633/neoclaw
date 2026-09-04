@@ -56,6 +56,13 @@ cp config.yaml.example config.yaml
 
 会话轮数由配置里 `session.max_turns` 限制（默认 10 对）。
 
+### Workflow / Profile / neo-ask
+
+- **自定义命令工具**：见 `doc/tool.md`（`tools.commands`）。
+- **声明式 workflow**：`./neo workflow run NAME`，说明见 `doc/workflow.md`。
+- **Profile**：`./neo -p demo ...` 使用 `profiles/demo/neo.yaml`。
+- **管道/cron**：`./scripts/neo-ask -p demo --workflow demo_loop`。
+
 ### 示例命令与运行效果（qwen3-8b）
 
 ```bash

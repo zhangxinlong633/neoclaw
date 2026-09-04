@@ -3,3 +3,11 @@ neo
 config.yaml
 demo-tool.txt
 .worktrees
+tests/fixtures/count.out
+profiles/demo/count.out
+tests/test_*
+tests/test_parse_commands
+tests/test_command_exec
+tests/test_parse_workflows
+tests/test_workflow_loop
+tests/test_workflow_template

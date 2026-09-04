@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# Thin wrapper around ./neo for cron / pipes. No business logic.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+NEO_BIN="${NEO_BIN:-$ROOT/neo}"
+if [[ ! -x "$NEO_BIN" ]]; then
+  echo "neo-ask: neo binary not found at $NEO_BIN (set NEO_BIN or make)" >&2
+  exit 1
+fi
+
+ARGS=()
+STDIN_MODE=0
+WORKFLOW=""
+MSG_PARTS=()
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --stdin)
+      STDIN_MODE=1
+      shift
+      ;;
+    --workflow)
+      WORKFLOW="${2:-}"
+      if [[ -z "$WORKFLOW" ]]; then
+        echo "neo-ask: --workflow requires NAME" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
+    -p|--profile|-c|--config|-m|--model)
+      ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    -d|--debug)
+      ARGS+=("$1")
+      shift
+      ;;
+    -h|--help)
+      cat >&2 <<EOF
+Usage: neo-ask [options] "message"
+       echo msg | neo-ask [options] --stdin
+       neo-ask [options] --workflow NAME
+Options pass through to neo: -p/-c/-m/-d
+EOF
+      exit 0
+      ;;
+    --)
+      shift
+      MSG_PARTS+=("$@")
+      break
+      ;;
+    *)
+      MSG_PARTS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+cd "$ROOT"
+
+if [[ -n "$WORKFLOW" ]]; then
+  exec "$NEO_BIN" "${ARGS[@]}" workflow run "$WORKFLOW"
+fi
+
+if [[ "$STDIN_MODE" -eq 1 ]]; then
+  MSG="$(cat)"
+  exec "$NEO_BIN" "${ARGS[@]}" "$MSG"
+fi
+
+if [[ ${#MSG_PARTS[@]} -eq 0 ]]; then
+  echo "neo-ask: message required (or --stdin / --workflow)" >&2
+  exit 1
+fi
+
+exec "$NEO_BIN" "${ARGS[@]}" "${MSG_PARTS[@]}"
