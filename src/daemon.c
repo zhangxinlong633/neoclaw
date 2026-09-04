@@ -1,6 +1,7 @@
 /*
  * Daemon mode: stdin loop or Unix socket server, with session history.
  */
+#include "agent_tools.h"
 #include "config.h"
 #include "llm.h"
 #include "skills.h"
@@ -48,7 +49,9 @@ static void build_system_prompt(agent_config_t *conf, const char *user_message, 
   char *tmp = malloc(65536);
   if (!tmp) { out[0] = '\0'; return; }
   out[0] = '\0';
-  strncat(out, "You are a helpful assistant. Follow any skill and bootstrap instructions below.\n\n", cap - 1);
+  strncat(out,
+          "You are a helpful assistant. Follow any soul, rules, skills, and bootstrap instructions below.\n\n",
+          cap - 1);
   {
     time_t now = time(NULL);
     struct tm *utc = gmtime(&now);
@@ -60,16 +63,47 @@ static void build_system_prompt(agent_config_t *conf, const char *user_message, 
       strcpy(line, "Current date and time: (unknown)\n\n");
     strncat(out, line, cap - 1);
   }
+#if defined(__linux__) || defined(__APPLE__)
+  if (conf->workspace.prompt_cwd) {
+    char cwd[4096];
+    if (getcwd(cwd, sizeof(cwd))) {
+      strncat(out, "## Workspace\n\nNeo process working directory: ", cap - strlen(out) - 1);
+      strncat(out, cwd, cap - strlen(out) - 1);
+      strncat(out, "\n\n", cap - strlen(out) - 1);
+    }
+  }
+#endif
   skills_append_to_system_prompt(conf, user_message, out, cap, 1); /* high priority first */
+  if (conf->soul.path && conf->soul.path[0]) {
+    size_t max_soul = (conf->soul.max_chars > 0) ? (size_t)conf->soul.max_chars : 8000;
+    if (read_file_into(tmp, 65536, conf->soul.path, max_soul) > 0)
+      append_section(out, cap, "## Soul\n\n", conf->soul.path, tmp);
+  }
   for (int i = 0; i < conf->bootstrap.path_count; i++) {
     size_t max_c = (conf->bootstrap.max_chars_per_file > 0) ? (size_t)conf->bootstrap.max_chars_per_file : 8000;
     if (read_file_into(tmp, 65536, conf->bootstrap.paths[i], max_c) > 0)
       append_section(out, cap, "## Bootstrap: ", conf->bootstrap.paths[i], tmp);
   }
+  for (int i = 0; i < conf->rules.path_count; i++) {
+    size_t max_c = (conf->rules.max_chars_per_file > 0) ? (size_t)conf->rules.max_chars_per_file : 8000;
+    if (read_file_into(tmp, 65536, conf->rules.paths[i], max_c) > 0)
+      append_section(out, cap, "## Rules: ", conf->rules.paths[i], tmp);
+  }
   skills_append_to_system_prompt(conf, user_message, out, cap, 0); /* normal skills */
   if (conf->memory.path) {
     if (read_file_into(tmp, 65536, conf->memory.path, (size_t)conf->memory.max_chars) > 0)
       append_section(out, cap, "## Memory (context)\n\n", "", tmp);
+  }
+  if (conf->tools.enabled && getenv("NEO_DISABLE_TOOLS") == NULL) {
+    strncat(out,
+            "\n\n## Tools (executed by host)\n"
+            "The API exposes read_file, write_file, and list_dir; Neo runs them on disk under tools.root. "
+            "Use paths relative to the workspace root only (no leading /, no `..`). "
+            "When http_get is available (config), it is HTTPS-only, host must be in tools.http_allow_hosts, "
+            "redirects are not followed, and the response body is truncated. "
+            "Do not claim you cannot access files or ask the user to run cat/echo when read_file, "
+            "write_file, or list_dir suffices. Do not output only shell snippets as a substitute for tool calls.\n",
+            cap - strlen(out) - 1);
   }
   free(tmp);
 }
@@ -110,6 +144,23 @@ static void session_trim_to(int max_turns) {
 }
 
 static int do_one_turn(agent_config_t *conf, char *system_prompt, const char *user_input, llm_response_t *out) {
+  if (conf->tools.enabled && getenv("NEO_DISABLE_TOOLS") == NULL) {
+    llm_message_t *pmsgs = NULL;
+    int np = 0;
+    if (session_count > 0) {
+      pmsgs = malloc((size_t)session_count * sizeof(llm_message_t));
+      if (!pmsgs) return -1;
+      for (int i = 0; i < session_count; i++) {
+        if (!session_messages[i].content) continue;
+        pmsgs[np].role = session_messages[i].role;
+        pmsgs[np].content = session_messages[i].content;
+        np++;
+      }
+    }
+    int err = agent_run_with_tools(conf, system_prompt, pmsgs, np, user_input, out);
+    free(pmsgs);
+    return err;
+  }
   llm_message_t *msgs = malloc((session_count + 1) * sizeof(llm_message_t));
   if (!msgs) return -1;
   int n = 0;

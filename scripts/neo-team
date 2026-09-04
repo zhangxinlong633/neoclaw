@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""
+Orchestrate multiple Neo CLI runs (parallel or sequential) and optionally a merge/chair pass.
+
+Requires: Python 3.7+, neo binary (see --neo / NEO_BIN). No third-party packages.
+
+Usage:
+  ./scripts/neo-team team.example.json "你的任务"
+  NEO_BIN=/path/to/neo ./scripts/neo-team -C /path/to/neoclaw team.example.json "任务"
+
+Schema (JSON):
+  mode          "parallel" | "sequential" (default: parallel)
+  members       list of { "name", "config", "user_prefix"?, "user_suffix"?, "neo_args"? }
+  merge         optional { "config", "user_intro"?, "neo_args"? }; omit or use {} to skip chair pass
+  task          optional default task string if no argv after TEAM.json
+
+Paths in members[].config are relative to the working directory (-C or cwd).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Any, Dict, List, Optional, Tuple
+
+
+def _die(msg: str, code: int = 1) -> None:
+    print(msg, file=sys.stderr)
+    raise SystemExit(code)
+
+
+def _load_team(path: str) -> Dict[str, Any]:
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        _die(f"neo-team: team file not found: {path}")
+    except json.JSONDecodeError as e:
+        _die(f"neo-team: invalid JSON in {path}: {e}")
+
+
+def _resolve_neo_bin(explicit: Optional[str]) -> str:
+    if explicit:
+        return explicit
+    env = os.environ.get("NEO_BIN")
+    if env:
+        return env
+    local = os.path.join(os.getcwd(), "neo")
+    if os.path.isfile(local) and os.access(local, os.X_OK):
+        return os.path.abspath(local)
+    return "neo"
+
+
+def _build_user_message(
+    task: str,
+    prefix: str = "",
+    suffix: str = "",
+    prior: Optional[str] = None,
+) -> str:
+    parts: List[str] = []
+    if prefix:
+        parts.append(prefix.strip())
+    if prior is not None:
+        parts.append("Previous agent output:\n" + prior.strip())
+    parts.append(task.strip())
+    if suffix:
+        parts.append(suffix.strip())
+    return "\n\n".join(p for p in parts if p)
+
+
+def _run_neo(
+    neo_bin: str,
+    config: str,
+    user_message: str,
+    extra_args: Optional[List[str]] = None,
+) -> Tuple[int, str, str]:
+    extra = extra_args if extra_args else []
+    argv = [neo_bin] + list(extra) + ["-c", config, user_message]
+    p = subprocess.run(
+        argv,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    out = p.stdout or ""
+    err = p.stderr or ""
+    return p.returncode, out, err
+
+
+def _member_field(m: Dict[str, Any], key: str, default: str = "") -> str:
+    v = m.get(key)
+    if v is None:
+        return default
+    if not isinstance(v, str):
+        return str(v)
+    return v
+
+
+def _member_list(m: Dict[str, Any], key: str, *, label: Optional[str] = None) -> List[str]:
+    v = m.get(key)
+    if v is None:
+        return []
+    if isinstance(v, list) and all(isinstance(x, str) for x in v):
+        return list(v)
+    who = label if label else f'member "{m.get("name")}"'
+    _die(f"neo-team: {who} field {key!r} must be a list of strings")
+
+
+def run_team(
+    team: Dict[str, Any],
+    task: str,
+    neo_bin: str,
+    cwd: Optional[str],
+) -> int:
+    if cwd:
+        os.chdir(cwd)
+
+    mode = str(team.get("mode", "parallel")).lower()
+    if mode not in ("parallel", "sequential"):
+        _die('neo-team: "mode" must be "parallel" or "sequential"')
+
+    members = team.get("members")
+    if not isinstance(members, list) or not members:
+        _die('neo-team: "members" must be a non-empty list')
+
+    for i, m in enumerate(members):
+        if not isinstance(m, dict):
+            _die(f"neo-team: members[{i}] must be an object")
+        if not m.get("config"):
+            _die(f'neo-team: members[{i}] missing "config"')
+        if not m.get("name"):
+            m["name"] = f"agent_{i}"
+
+    results: List[Tuple[str, int, str, str]] = []  # name, code, stdout, stderr
+
+    if mode == "parallel":
+
+        def one(m: Dict[str, Any]) -> Tuple[str, int, str, str]:
+            name = str(m["name"])
+            msg = _build_user_message(
+                task,
+                prefix=_member_field(m, "user_prefix"),
+                suffix=_member_field(m, "user_suffix"),
+            )
+            code, out, err = _run_neo(
+                neo_bin,
+                str(m["config"]),
+                msg,
+                _member_list(m, "neo_args"),
+            )
+            return name, code, out, err
+
+        with ThreadPoolExecutor(max_workers=min(len(members), 8)) as ex:
+            futs = {ex.submit(one, m): m for m in members}
+            for fut in as_completed(futs):
+                name, code, out, err = fut.result()
+                results.append((name, code, out, err))
+        # Stabilize print order by member list order
+        order = {str(m["name"]): i for i, m in enumerate(members)}
+        results.sort(key=lambda t: order.get(t[0], 999))
+    else:
+        prior_out: Optional[str] = None
+        for m in members:
+            name = str(m["name"])
+            msg = _build_user_message(
+                task,
+                prefix=_member_field(m, "user_prefix"),
+                suffix=_member_field(m, "user_suffix"),
+                prior=prior_out,
+            )
+            code, out, err = _run_neo(
+                neo_bin,
+                str(m["config"]),
+                msg,
+                _member_list(m, "neo_args"),
+            )
+            results.append((name, code, out, err))
+            prior_out = out if code == 0 else prior_out
+
+    any_fail = False
+    for name, code, out, err in results:
+        if err.strip():
+            print(err, file=sys.stderr, end="" if err.endswith("\n") else "\n")
+        if code != 0:
+            any_fail = True
+            print(f"neo-team: member {name!r} exited with code {code}", file=sys.stderr)
+        print(f"\n=== {name} ===\n", flush=True)
+        sys.stdout.write(out)
+        if out and not out.endswith("\n"):
+            sys.stdout.write("\n")
+
+    merge = team.get("merge")
+    if merge is None:
+        return 1 if any_fail else 0
+    if not isinstance(merge, dict):
+        _die('neo-team: "merge" must be an object or null')
+
+    mcfg = merge.get("config")
+    if not mcfg:
+        return 1 if any_fail else 0
+
+    blocks = []
+    for name, code, out, _err in results:
+        if code == 0 and out.strip():
+            blocks.append(f"## {name}\n{out.strip()}")
+
+    intro = _member_field(merge, "user_intro")
+    if not intro:
+        intro = (
+            "Multiple agents answered the same task. Synthesize their answers "
+            "into one concise reply (same language as the task unless asked otherwise).\n\n"
+        )
+
+    if not blocks:
+        print(
+            "neo-team: merge skipped (no successful member output to synthesize)",
+            file=sys.stderr,
+        )
+        return 1 if any_fail else 0
+
+    merge_msg = intro.rstrip() + "\n\n# Task\n" + task.strip() + "\n\n" + "\n\n".join(blocks)
+    m_extra = _member_list(merge, "neo_args", label="merge")
+    code, out, err = _run_neo(neo_bin, str(mcfg), merge_msg, m_extra)
+    if err.strip():
+        print(err, file=sys.stderr, end="" if err.endswith("\n") else "\n")
+    print("\n=== merge ===\n", flush=True)
+    sys.stdout.write(out or "")
+    if out and not out.endswith("\n"):
+        sys.stdout.write("\n")
+    if code != 0:
+        print(f"neo-team: merge exited with code {code}", file=sys.stderr)
+        return 1
+    return 1 if any_fail else 0
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Run a Neo multi-agent team from a JSON file.")
+    ap.add_argument("team_file", help="Path to team JSON (e.g. team.example.json)")
+    ap.add_argument(
+        "task_parts",
+        nargs="*",
+        help="Task text (joined with spaces). If empty, uses team file top-level \"task\".",
+    )
+    ap.add_argument("-C", "--directory", help="chdir here before resolving configs / neo")
+    ap.add_argument("--neo", help="neo binary path (default: ./neo, NEO_BIN, or neo on PATH)")
+    args = ap.parse_args()
+
+    team = _load_team(args.team_file)
+    task_parts = list(args.task_parts)
+    if task_parts:
+        task = " ".join(task_parts)
+    else:
+        t = team.get("task")
+        task = t.strip() if isinstance(t, str) else ""
+    if not task:
+        _die("neo-team: no task: pass argv after TEAM.json or set \"task\" in the JSON")
+
+    neo_bin = _resolve_neo_bin(args.neo)
+    cwd = args.directory
+    if cwd and not os.path.isdir(cwd):
+        _die(f"neo-team: not a directory: {cwd}")
+
+    code = run_team(team, task, neo_bin, cwd)
+    raise SystemExit(code)
+
+
+if __name__ == "__main__":
+    main()
+

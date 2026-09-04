@@ -5,6 +5,7 @@
  * Env:   NEO_CONFIG, NEO_MODEL, NEO_API_KEY
  * Output: LLM response to stdout.
  */
+#include "agent_tools.h"
 #include "config.h"
 #include "daemon.h"
 #include "llm.h"
@@ -13,6 +14,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#if defined(__linux__) || defined(__APPLE__)
+#include <unistd.h>
+#endif
+
+#ifndef NEO_DISABLE_TOOLS_GETENV
+#define NEO_DISABLE_TOOLS_GETENV "NEO_DISABLE_TOOLS"
+#endif
 
 #define SYSTEM_MAX (256 * 1024)
 #define USER_MAX   (64 * 1024)
@@ -197,7 +205,9 @@ int main(int argc, char **argv) {
   user_message[0]  = '\0';
   if (!tmp) tmp = malloc(1024);
 
-  strncat(system_prompt, "You are a helpful assistant. Follow any skill and bootstrap instructions below.\n\n", SYSTEM_MAX - 1);
+  strncat(system_prompt,
+          "You are a helpful assistant. Follow any soul, rules, skills, and bootstrap instructions below.\n\n",
+          SYSTEM_MAX - 1);
 
   {
     time_t now = time(NULL);
@@ -211,14 +221,38 @@ int main(int argc, char **argv) {
     strncat(system_prompt, line, SYSTEM_MAX - 1);
   }
 
+#if defined(__linux__) || defined(__APPLE__)
+  if (conf.workspace.prompt_cwd) {
+    char cwd[4096];
+    if (getcwd(cwd, sizeof(cwd))) {
+      strncat(system_prompt, "## Workspace\n\nNeo process working directory: ", SYSTEM_MAX - strlen(system_prompt) - 1);
+      strncat(system_prompt, cwd, SYSTEM_MAX - strlen(system_prompt) - 1);
+      strncat(system_prompt, "\n\n", SYSTEM_MAX - strlen(system_prompt) - 1);
+    }
+  }
+#endif
+
   build_user_message(user_message, USER_MAX, argv, arg_start, argc);
   skills_append_to_system_prompt(&conf, user_message, system_prompt, SYSTEM_MAX, 1); /* high priority first */
+  if (tmp && conf.soul.path && conf.soul.path[0]) {
+    size_t max_soul = (conf.soul.max_chars > 0) ? (size_t)conf.soul.max_chars : 8000;
+    if (read_file_into(tmp, 65536, conf.soul.path, max_soul) > 0)
+      append_section(system_prompt, SYSTEM_MAX, "## Soul\n\n", conf.soul.path, tmp);
+  }
   if (tmp) {
     for (int i = 0; i < conf.bootstrap.path_count; i++) {
       const char *path = conf.bootstrap.paths[i];
       size_t max_c = (conf.bootstrap.max_chars_per_file > 0) ? (size_t)conf.bootstrap.max_chars_per_file : 8000;
       if (read_file_into(tmp, 65536, path, max_c) > 0)
         append_section(system_prompt, SYSTEM_MAX, "## Bootstrap: ", path, tmp);
+    }
+  }
+  if (tmp) {
+    for (int i = 0; i < conf.rules.path_count; i++) {
+      const char *path = conf.rules.paths[i];
+      size_t max_c = (conf.rules.max_chars_per_file > 0) ? (size_t)conf.rules.max_chars_per_file : 8000;
+      if (read_file_into(tmp, 65536, path, max_c) > 0)
+        append_section(system_prompt, SYSTEM_MAX, "## Rules: ", path, tmp);
     }
   }
   skills_append_to_system_prompt(&conf, user_message, system_prompt, SYSTEM_MAX, 0); /* normal skills */
@@ -228,21 +262,37 @@ int main(int argc, char **argv) {
       append_section(system_prompt, SYSTEM_MAX, "## Memory (context)\n\n", "", tmp);
   }
 
+  if (conf.tools.enabled && getenv(NEO_DISABLE_TOOLS_GETENV) == NULL) {
+    strncat(system_prompt,
+            "\n\n## Tools (executed by host)\n"
+            "The API exposes read_file, write_file, and list_dir; Neo runs them on disk under tools.root. "
+            "Use paths relative to the workspace root only (no leading /, no `..`). "
+            "When http_get is available (config), it is HTTPS-only, host must be in tools.http_allow_hosts, "
+            "redirects are not followed, and the response body is truncated. "
+            "Do not claim you cannot access files or ask the user to run cat/echo when read_file, "
+            "write_file, or list_dir suffices. Do not output only shell snippets as a substitute for tool calls.\n",
+            SYSTEM_MAX - strlen(system_prompt) - 1);
+  }
+
   if (debug)
     debug_print_request(&conf, conf.model.base_url, conf.model.name, conf.model.max_tokens, conf.model.temperature,
                        system_prompt, user_message);
 
   llm_response_t resp = {0};
-  int err = llm_chat(
-    conf.model.base_url,
-    conf.model.name,
-    conf.model.api_key,
-    conf.model.max_tokens,
-    conf.model.temperature,
-    system_prompt,
-    user_message,
-    &resp
-  );
+  int err;
+  if (conf.tools.enabled && getenv(NEO_DISABLE_TOOLS_GETENV) == NULL)
+    err = agent_run_with_tools(&conf, system_prompt, NULL, 0, user_message, &resp);
+  else
+    err = llm_chat(
+      conf.model.base_url,
+      conf.model.name,
+      conf.model.api_key,
+      conf.model.max_tokens,
+      conf.model.temperature,
+      system_prompt,
+      user_message,
+      &resp
+    );
   config_free(&conf);
   free(system_prompt);
   free(user_message);

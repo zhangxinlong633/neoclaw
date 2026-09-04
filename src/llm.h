@@ -26,4 +26,11 @@ int llm_chat_messages(const char *base_url, const char *model, const char *api_k
                       const llm_message_t *messages, int n_messages,
                       llm_response_t *out);
 
+/* POST raw JSON body to .../chat/completions; full HTTP body stored in out (not content-only). */
+int llm_post_chat_completions_json(const char *base_url, const char *api_key,
+                                   const char *json_body, llm_response_t *out);
+
+/* Extract first assistant message string content from a chat/completions JSON response. */
+int llm_extract_content_json(const char *json, llm_response_t *out);
+
 #endif

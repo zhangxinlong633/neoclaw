@@ -110,7 +110,10 @@ $ ./neo "将你是谁翻译成日文"
 | 配置节 | 说明 |
 |--------|------|
 | **model** | `base_url`、`name`、`api_key`；可选 `max_tokens`（默认 4096，内部上限 16384）、`temperature`（默认 0.7） |
+| **soul** | （可选）OpenClaw 式人格/语气文件：`path`、`max_chars`；在 system 里排在高优 skills 之后、bootstrap 之前 |
 | **bootstrap** | 身份/系统上下文文件列表（如 AGENTS.md），每文件可设 `max_chars_per_file` |
+| **rules** | （可选）项目规则文件列表（如 RULES.md），`max_chars_per_file`；注入在 bootstrap 之后、普通 skills 之前 |
+| **workspace** | （可选）`prompt_cwd: true` 时在 system 中写入 Neo 进程当前工作目录，便于对齐仓库根 |
 | **skills** | 见下方「Skills」：`directory` 扫描、`high_priority`、`unmatched: index \| skip` |
 | **memory** | `path` 指向 MEMORY.md，`max_chars` 限制注入长度 |
 | **session** | daemon 用：`max_turns` 为保留的对话对数（默认 10） |
@@ -153,7 +156,7 @@ $ ./neo "将你是谁翻译成日文"
 ## 流程简述
 
 1. 读 **config.yaml**（或 `NEO_CONFIG` / `-c`）。
-2. 拼 **system prompt**：固定说明 → 当前时间 → **高优先级 skills（全文）** → bootstrap 文件 → **普通 skills（匹配全文 / 未匹配摘要或跳过）** → memory 文件。
+2. 拼 **system prompt**：固定说明 → 当前时间 →（可选）**cwd** → **高优先级 skills（全文）** →（可选）**soul** → bootstrap →（可选）**rules** → **普通 skills（匹配全文 / 未匹配摘要或跳过）** → memory 文件 →（若启用）tools 说明。
 3. 用户消息 = 命令行参数拼接（或 daemon 下当前行）。
 4. POST 到 `base_url/chat/completions`（OpenAI 兼容），带 `max_tokens`、`temperature`；非 200 时 stderr 打响应片段。
 5. 取响应里的 `content` 写到 **stdout**。
