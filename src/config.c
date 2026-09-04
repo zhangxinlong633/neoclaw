@@ -35,6 +35,13 @@ static void free_path_list(char **paths, int n) {
 
 void config_init(agent_config_t *c) {
   memset(c, 0, sizeof(*c));
+  c->soul.max_chars = 8000;
+  c->rules.max_chars_per_file = 8000;
+  c->tools.max_rounds = 16;
+  c->tools.max_read_bytes = 262144;
+  c->tools.list_dir_max_entries = 256;
+  c->tools.http_fetch_enabled = 0;
+  c->tools.http_fetch_max_bytes = 262144;
 }
 
 void config_free(agent_config_t *c) {
@@ -46,6 +53,11 @@ void config_free(agent_config_t *c) {
   free_path_list(c->bootstrap.paths, c->bootstrap.path_count);
   c->bootstrap.paths = NULL;
   c->bootstrap.path_count = 0;
+  free(c->soul.path);
+  c->soul.path = NULL;
+  free_path_list(c->rules.paths, c->rules.path_count);
+  c->rules.paths = NULL;
+  c->rules.path_count = 0;
   free_path_list(c->skills.paths, c->skills.path_count);
   free(c->skills.priority);
   free(c->skills.directory);
@@ -58,6 +70,10 @@ void config_free(agent_config_t *c) {
   c->skills.high_priority_count = 0;
   free(c->memory.path);
   c->memory.path = NULL;
+  free(c->tools.root);
+  c->tools.root = NULL;
+  free(c->tools.http_allow_hosts);
+  c->tools.http_allow_hosts = NULL;
 }
 
 static void add_path(char ***paths, int *count, const char *val, int max_count) {
@@ -77,6 +93,7 @@ int config_load_file(agent_config_t *c, const char *path) {
 
   char line[1024];
   int in_model = 0, in_skills = 0, in_memory = 0, in_bootstrap = 0, in_session = 0, in_high_priority = 0;
+  int in_tools = 0, in_soul = 0, in_rules = 0, in_workspace = 0;
   c->memory.max_chars = 4000;
   c->model.max_tokens = 4096;
   c->model.temperature = 0.7;
@@ -88,11 +105,60 @@ int config_load_file(agent_config_t *c, const char *path) {
     while (*t == ' ' || *t == '\t') t++;
     if (*t == '#' || *t == '\n' || *t == '\0') continue;
 
-    if (strncmp(t, "model:", 6) == 0) { in_model = 1; in_skills = 0; in_memory = 0; in_bootstrap = 0; in_session = 0; continue; }
-    if (strncmp(t, "skills:", 7) == 0) { in_skills = 1; in_high_priority = 0; in_model = 0; in_memory = 0; in_bootstrap = 0; in_session = 0; continue; }
-    if (strncmp(t, "memory:", 7) == 0) { in_memory = 1; in_model = 0; in_skills = 0; in_bootstrap = 0; in_session = 0; continue; }
-    if (strncmp(t, "bootstrap:", 10) == 0) { in_bootstrap = 1; in_model = 0; in_skills = 0; in_memory = 0; in_session = 0; continue; }
-    if (strncmp(t, "session:", 8) == 0) { in_session = 1; in_model = 0; in_skills = 0; in_memory = 0; in_bootstrap = 0; continue; }
+    if (strncmp(t, "model:", 6) == 0) {
+      in_model = 1;
+      in_high_priority = 0;
+      in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
+      continue;
+    }
+    if (strncmp(t, "skills:", 7) == 0) {
+      in_skills = 1;
+      in_high_priority = 0;
+      in_model = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
+      continue;
+    }
+    if (strncmp(t, "memory:", 7) == 0) {
+      in_memory = 1;
+      in_high_priority = 0;
+      in_model = in_skills = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
+      continue;
+    }
+    if (strncmp(t, "bootstrap:", 10) == 0) {
+      in_bootstrap = 1;
+      in_high_priority = 0;
+      in_model = in_skills = in_memory = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
+      continue;
+    }
+    if (strncmp(t, "session:", 8) == 0) {
+      in_session = 1;
+      in_high_priority = 0;
+      in_model = in_skills = in_memory = in_bootstrap = in_tools = in_soul = in_rules = in_workspace = 0;
+      continue;
+    }
+    if (strncmp(t, "tools:", 6) == 0) {
+      in_tools = 1;
+      in_high_priority = 0;
+      in_model = in_skills = in_memory = in_bootstrap = in_session = in_soul = in_rules = in_workspace = 0;
+      continue;
+    }
+    if (strncmp(t, "soul:", 5) == 0) {
+      in_soul = 1;
+      in_high_priority = 0;
+      in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_rules = in_workspace = 0;
+      continue;
+    }
+    if (strncmp(t, "rules:", 6) == 0) {
+      in_rules = 1;
+      in_high_priority = 0;
+      in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_workspace = 0;
+      continue;
+    }
+    if (strncmp(t, "workspace:", 10) == 0) {
+      in_workspace = 1;
+      in_high_priority = 0;
+      in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = 0;
+      continue;
+    }
 
     if (in_model) {
       if (strncmp(t, "base_url:", 9) == 0) {
@@ -124,6 +190,27 @@ int config_load_file(agent_config_t *c, const char *path) {
         add_path(&c->bootstrap.paths, &c->bootstrap.path_count, trim_quotes(t + 7), MAX_PATHS);
       else if (strncmp(t, "max_chars_per_file:", 19) == 0)
         c->bootstrap.max_chars_per_file = atoi(t + 19);
+    }
+    if (in_soul) {
+      if (strncmp(t, "path:", 5) == 0) {
+        free(c->soul.path);
+        c->soul.path = dup_str(trim_quotes(t + 5));
+      } else if (strncmp(t, "max_chars:", 10) == 0)
+        c->soul.max_chars = atoi(t + 10);
+    }
+    if (in_rules) {
+      if (strncmp(t, "- path:", 7) == 0)
+        add_path(&c->rules.paths, &c->rules.path_count, trim_quotes(t + 7), MAX_PATHS);
+      else if (strncmp(t, "max_chars_per_file:", 19) == 0)
+        c->rules.max_chars_per_file = atoi(t + 19);
+    }
+    if (in_workspace) {
+      if (strncmp(t, "prompt_cwd:", 11) == 0) {
+        const char *v = trim_quotes(t + 11);
+        while (*v == ' ' || *v == '\t') v++;
+        c->workspace.prompt_cwd =
+            (strncmp(v, "true", 4) == 0 || strncmp(v, "yes", 3) == 0 || strncmp(v, "on", 2) == 0 || strcmp(v, "1") == 0) ? 1 : 0;
+      }
     }
     if (in_skills && strncmp(t, "- path:", 7) == 0) {
       add_path(&c->skills.paths, &c->skills.path_count, trim_quotes(t + 7), MAX_PATHS);
@@ -159,9 +246,39 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_high_priority = 0;
     if (in_session && strncmp(t, "max_turns:", 10) == 0)
       c->session_max_turns = atoi(t + 10);
+
+    if (in_tools) {
+      if (strncmp(t, "enabled:", 8) == 0) {
+        const char *v = trim_quotes(t + 8);
+        while (*v == ' ' || *v == '\t') v++;
+        c->tools.enabled = (strncmp(v, "true", 4) == 0 || strncmp(v, "yes", 3) == 0 || strncmp(v, "on", 2) == 0 || strcmp(v, "1") == 0) ? 1 : 0;
+      } else if (strncmp(t, "root:", 5) == 0) {
+        free(c->tools.root);
+        c->tools.root = dup_str(trim_quotes(t + 5));
+      } else if (strncmp(t, "max_rounds:", 11) == 0)
+        c->tools.max_rounds = atoi(t + 11);
+      else if (strncmp(t, "max_read_bytes:", 15) == 0)
+        c->tools.max_read_bytes = atoi(t + 15);
+      else if (strncmp(t, "list_dir_max_entries:", 21) == 0)
+        c->tools.list_dir_max_entries = atoi(t + 21);
+      else if (strncmp(t, "http_fetch_enabled:", 19) == 0) {
+        const char *v = trim_quotes(t + 19);
+        while (*v == ' ' || *v == '\t') v++;
+        c->tools.http_fetch_enabled =
+            (strncmp(v, "true", 4) == 0 || strncmp(v, "yes", 3) == 0 || strncmp(v, "on", 2) == 0 || strcmp(v, "1") == 0) ? 1 : 0;
+      } else if (strncmp(t, "http_allow_hosts:", 17) == 0) {
+        free(c->tools.http_allow_hosts);
+        c->tools.http_allow_hosts = dup_str(trim_quotes(t + 17));
+      } else if (strncmp(t, "http_fetch_max_bytes:", 21) == 0)
+        c->tools.http_fetch_max_bytes = atoi(t + 21);
+    }
   }
   fclose(f);
   if (c->session_max_turns <= 0) c->session_max_turns = 10;
+  if (c->tools.list_dir_max_entries <= 0) c->tools.list_dir_max_entries = 256;
+  if (c->tools.http_fetch_max_bytes <= 0) c->tools.http_fetch_max_bytes = 262144;
+  if (c->soul.max_chars <= 0) c->soul.max_chars = 8000;
+  if (c->rules.max_chars_per_file <= 0) c->rules.max_chars_per_file = 8000;
 
 #if defined(__linux__) || defined(__APPLE__)
   if (c->skills.directory && c->skills.directory[0]) {

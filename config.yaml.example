@@ -10,11 +10,24 @@ model:
   max_tokens: 4096
   temperature: 0.7
 
-# --- Bootstrap: identity / system context (like OpenClaw AGENTS.md, SOUL.md) ---
+# --- Soul (OpenClaw-style persona / voice); optional — injects before bootstrap as ## Soul
+# soul:
+#   path: "SOUL.md"
+#   max_chars: 8000
+
+# --- Bootstrap: repo identity / mission (e.g. AGENTS.md)
 bootstrap:
   max_chars_per_file: 8000
   - path: "AGENTS.md"
-  - path: "SOUL.md"
+
+# --- Rules: project constraints (OpenClaw / Cursor-style); optional, after bootstrap
+# rules:
+#   max_chars_per_file: 6000
+#   - path: "RULES.md"
+
+# --- Workspace: tell the model Neo's cwd (run ./neo from repo root)
+# workspace:
+#   prompt_cwd: true
 
 # --- Skills: directory and/or explicit paths; high_priority listed separately ---
 skills:
@@ -35,3 +48,15 @@ memory:
 # --- Session (daemon mode): max user+assistant pairs to send as history ---
 session:
   max_turns: 10
+
+# --- Tools (optional): read_file / write_file / list_dir under root; optional http_get (HTTPS + host allowlist).
+# Disable at runtime: NEO_DISABLE_TOOLS=1 ./neo "..."
+# tools:
+#   enabled: true
+#   root: "."          # realpath sandbox; all file paths must stay under this directory
+#   max_rounds: 16     # max model↔tool API rounds per user message
+#   max_read_bytes: 262144
+#   list_dir_max_entries: 256   # max directory entries returned by list_dir
+#   http_fetch_enabled: false   # set true and http_allow_hosts to register http_get
+#   http_allow_hosts: ""        # comma-separated hostnames, e.g. "api.github.com,httpbin.org"
+#   http_fetch_max_bytes: 262144

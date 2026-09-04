@@ -1,0 +1,20 @@
+{
+  "description": "Same config.yaml, two user_suffix styles in parallel, then one merge pass.",
+  "mode": "parallel",
+  "members": [
+    {
+      "name": "bullets",
+      "config": "config.yaml",
+      "user_suffix": "Answer in bullet points only (max 5)."
+    },
+    {
+      "name": "prose",
+      "config": "config.yaml",
+      "user_suffix": "Answer in one short paragraph."
+    }
+  ],
+  "merge": {
+    "config": "config.yaml",
+    "user_intro": "Two teammates answered the same question below. Write a 2–3 sentence synthesis in Chinese."
+  }
+}

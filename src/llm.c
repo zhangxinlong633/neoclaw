@@ -35,7 +35,7 @@ void llm_response_free(llm_response_t *r) {
   r->size = 0;
 }
 
-static int extract_content_from_json(const char *json, llm_response_t *out) {
+int llm_extract_content_json(const char *json, llm_response_t *out) {
   const char *needle = "\"content\":";
   const char *p = strstr(json, needle);
   if (!p) {
@@ -43,7 +43,16 @@ static int extract_content_from_json(const char *json, llm_response_t *out) {
     p = strstr(json, needle);
   }
   if (!p) return -1;
-  p = strchr(p + strlen(needle), '"');
+  p += strlen(needle);
+  while (*p == ' ' || *p == '\t') p++;
+  if (strncmp(p, "null", 4) == 0 && (p[4] == ',' || p[4] == '}' || p[4] == '\n' || p[4] == '\r' || p[4] == '\0')) {
+    out->data = malloc(1);
+    if (!out->data) return -1;
+    out->data[0] = '\0';
+    out->size = 0;
+    return 0;
+  }
+  p = strchr(p, '"');
   if (!p) return -1;
   p++;
   const char *end = p;
@@ -139,10 +148,61 @@ int llm_chat(const char *base_url, const char *model, const char *api_key,
   }
   if (!out->data) { llm_response_free(out); return -1; }
   llm_response_t extracted = {0};
-  if (extract_content_from_json(out->data, &extracted) == 0) {
+  if (llm_extract_content_json(out->data, &extracted) == 0) {
     llm_response_free(out);
     *out = extracted;
   }
+  return 0;
+}
+
+int llm_post_chat_completions_json(const char *base_url, const char *api_key,
+                                   const char *json_body, llm_response_t *out) {
+  out->data = NULL;
+  out->size = 0;
+  if (!base_url || !json_body) return -1;
+
+  char url[1024];
+  snprintf(url, sizeof(url), "%s/chat/completions", base_url);
+
+  CURL *curl = curl_easy_init();
+  if (!curl) return -1;
+
+  struct curl_slist *headers = NULL;
+  headers = curl_slist_append(headers, "Content-Type: application/json");
+  if (api_key && api_key[0]) {
+    char auth[1024];
+    snprintf(auth, sizeof(auth), "Authorization: Bearer %s", api_key);
+    headers = curl_slist_append(headers, auth);
+  }
+
+  curl_easy_setopt(curl, CURLOPT_URL, url);
+  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json_body);
+  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, out);
+  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
+
+  long code = 0;
+  int err = do_request(curl, json_body, out, &code);
+  if (err == 0 && (code == 429 || code == 503 || (code >= 500 && code < 600))) {
+    llm_response_free(out);
+    struct timespec ts = { 1, 0 };
+    nanosleep(&ts, NULL);
+    err = do_request(curl, json_body, out, &code);
+  }
+  curl_slist_free_all(headers);
+  curl_easy_cleanup(curl);
+
+  if (err != 0) {
+    llm_response_free(out);
+    return -1;
+  }
+  if (code != 200) {
+    if (out->data && out->size) fprintf(stderr, "neo: LLM HTTP %ld: %.*s\n", code, (int)(out->size > 512 ? 512 : out->size), out->data);
+    llm_response_free(out);
+    return -1;
+  }
+  if (!out->data) return -1;
   return 0;
 }
 
@@ -218,7 +278,7 @@ int llm_chat_messages(const char *base_url, const char *model, const char *api_k
   }
   if (!out->data) { llm_response_free(out); return -1; }
   llm_response_t extracted = {0};
-  if (extract_content_from_json(out->data, &extracted) == 0) {
+  if (llm_extract_content_json(out->data, &extracted) == 0) {
     llm_response_free(out);
     *out = extracted;
   }

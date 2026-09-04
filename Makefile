@@ -6,7 +6,7 @@ CC     = cc
 CFLAGS = -O2 -Wall -Wextra -I src
 LDFLAGS = -lcurl
 
-SRC = src/main.c src/config.c src/llm.c src/daemon.c src/skills.c
+SRC = src/main.c src/config.c src/llm.c src/daemon.c src/skills.c src/agent_tools.c
 OBJ = $(SRC:.c=.o)
 
 neo: $(OBJ)
