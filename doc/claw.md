@@ -1,8 +1,23 @@
 # Neo 的 OpenClaw 式用法与操作
 
-Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdown 文件**：身份（bootstrap）、人格（soul）、硬约束（rules）、长期笔记（memory）、按需技能（skills），以及可选的 **工作区 cwd 提示** 与 **本地工具**。本文说明这些块的**用途、在 prompt 里的顺序、YAML 写法与日常操作**。
+## 定位（先对齐预期）
 
-更细的 **read_file / write_file / list_dir / http_get** 见同目录下的 [tool.md](tool.md)。
+Neo 的产品选择是 **灵活、可移植**，不是 **能力天花板**：
+
+| 更在意 | Neo 怎么做 |
+|--------|------------|
+| 到处能跑 | 单二进制 + libcurl；配置集中在 `config/`；profile / 脚本可整包拷走 |
+| 随时加刀刃 | `tools.commands`、skills、workflow 用 YAML/脚本扩展，不改核心 |
+| 到处能唤起 | CLI、daemon socket、`neo-ask`、cron / 管道、`neo-team` |
+| 不做什么 | 不做「最强 IDE agent」、不做重插件 / 完整 MCP 宿主、不做通用 hooks 总线 |
+
+若你要的是最强多工具云端助手，Neo 不是那个方向；若你要的是 **能塞进任意机器与 shell 流的可配置小爪**，本文描述的就是那套用法。
+
+---
+
+Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdown 文件**：身份（bootstrap）、人格（soul）、硬约束（rules）、长期笔记（memory）、按需技能（skills），以及可选的 **工作区 cwd 提示**、**本地工具** 与 **声明式 workflow**。本文说明这些块的**用途、在 prompt 里的顺序、YAML 写法与日常操作**。
+
+更细的工具见 [tool.md](tool.md)；workflow 见 [workflow.md](workflow.md)。
 
 ---
 
@@ -15,7 +30,7 @@ Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdo
 | **AGENTS / SOUL / Rules / Memory** | 用固定文件名或约定承载身份、人格、约束、笔记 | ✅ 用 **`bootstrap` / `soul` / `rules` / `memory`** 读 Markdown（或 README）**拼进 system prompt**；不替你托管远端账号 |
 | **运行时** | 可能是独立守护进程、插件宿主、或与 IDE 深度绑定 | ❌ **仅** `neo` 进程：`./neo` 单次或 **`neo daemon`**（stdin / Unix socket），无第三方 claw 二进制 |
 | **模型 API** | 视产品而定 | ✅ **OpenAI 兼容** `chat/completions`；可选 **function tools**（本地执行，见 [tool.md](tool.md)） |
-| **自动化** | 定时唤醒、Webhook、多代理编排等 | ⚠️ **部分**：daemon 常驻会话、**`scripts/neo-team`** 多配置并行/合并；**无**内置 cron / 通用钩子系统 |
+| **自动化** | 定时唤醒、Webhook、多代理编排等 | ⚠️ **轻量**：daemon、**`neo-ask`**（cron/管道）、**`neo-team`** 多配置；**workflow** 声明式短循环；**无**内置通用 hooks / 重编排平台 |
 | **可审计** | 依产品 | ✅ 用 **`./neo -d`** 可在 stderr 看到**完整 system prompt**，claw 相关段落是否出现一目了然 |
 
 **一句话**：`doc/claw.md` 描述的是 **Neo 里真实存在的读配置、读文件、拼 prompt 等操作**；「OpenClaw 式」指 **习惯与结构上的类比**，不是与某一上游产品 **1:1 行为兼容** 的声明。若你本地另有 OpenClaw 发行版，需自行对照其文档，不要把 Neo 当成该产品的子进程或插件。
@@ -32,7 +47,9 @@ Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdo
 | **memory** | 会话间要记住的事实、偏好、进行中的任务摘要 | 你 + 模型建议后手改 |
 | **skills** | 按主题拆好的 SKILL.md，按匹配与高优注入 | 仓库 |
 | **workspace.prompt_cwd** | 告诉模型 Neo 进程**当前工作目录**（一般是仓库根） | 配置开关 |
-| **tools** | 模型发起 tool_calls，Neo 在本地读/写/列目录或受控 HTTPS | 配置 + 允许列表 |
+| **tools** | 模型发起 tool_calls，Neo 在本地读/写/列目录、受控 HTTPS，或跑 **`tools.commands`** 声明的 argv | 配置 + 允许列表 / 命令白名单 |
+| **workflows** | 声明式 `tool` / `llm` / `loop`，适合简单重复任务 | YAML + `neo workflow run` |
+| **profiles** | 整套人设与工具根切换（`config/profiles/<name>/`） | `-p` / `NEO_PROFILE` |
 
 ---
 
