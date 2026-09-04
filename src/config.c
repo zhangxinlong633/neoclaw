@@ -96,6 +96,115 @@ static int tool_command_name_reserved(const char *name) {
                   strcmp(name, "list_dir") == 0 || strcmp(name, "http_get") == 0);
 }
 
+static void free_workflows(workflow_t *wfs, int n) {
+  int i, j, k;
+  if (!wfs) return;
+  for (i = 0; i < n; i++) {
+    free(wfs[i].name);
+    free(wfs[i].description);
+    if (wfs[i].steps) {
+      for (j = 0; j < wfs[i].step_count; j++) {
+        workflow_step_t *s = &wfs[i].steps[j];
+        free(s->id);
+        free(s->tool);
+        free(s->args_json);
+        free(s->prompt);
+        if (s->over_ids) {
+          for (k = 0; k < s->over_count; k++) free(s->over_ids[k]);
+          free(s->over_ids);
+        }
+      }
+      free(wfs[i].steps);
+    }
+  }
+  free(wfs);
+}
+
+static int validate_workflows(agent_config_t *c) {
+  int i, j, k, m;
+  for (i = 0; i < c->workflow_count; i++) {
+    workflow_t *wf = &c->workflows[i];
+    if (!wf->name || !wf->name[0]) {
+      fprintf(stderr, "neo: workflows[%d]: empty name\n", i);
+      return -1;
+    }
+    for (j = 0; j < i; j++) {
+      if (c->workflows[j].name && strcmp(c->workflows[j].name, wf->name) == 0) {
+        fprintf(stderr, "neo: workflows: duplicate name '%s'\n", wf->name);
+        return -1;
+      }
+    }
+    for (j = 0; j < wf->step_count; j++) {
+      workflow_step_t *s = &wf->steps[j];
+      if (!s->id || !s->id[0]) {
+        fprintf(stderr, "neo: workflow '%s' step %d: empty id\n", wf->name, j);
+        return -1;
+      }
+      for (k = 0; k < j; k++) {
+        if (wf->steps[k].id && strcmp(wf->steps[k].id, s->id) == 0) {
+          fprintf(stderr, "neo: workflow '%s': duplicate step id '%s'\n", wf->name, s->id);
+          return -1;
+        }
+      }
+      if (s->type == WF_STEP_TOOL) {
+        if (!s->tool || !s->tool[0]) {
+          fprintf(stderr, "neo: workflow '%s' step '%s': tool required\n", wf->name, s->id);
+          return -1;
+        }
+      } else if (s->type == WF_STEP_LLM) {
+        if (!s->prompt || !s->prompt[0]) {
+          fprintf(stderr, "neo: workflow '%s' step '%s': prompt required\n", wf->name, s->id);
+          return -1;
+        }
+      } else if (s->type == WF_STEP_LOOP) {
+        if (s->max_iters < 1) {
+          fprintf(stderr, "neo: workflow '%s' step '%s': loop max must be >= 1\n", wf->name, s->id);
+          return -1;
+        }
+        if (s->over_count < 1) {
+          fprintf(stderr, "neo: workflow '%s' step '%s': loop over empty\n", wf->name, s->id);
+          return -1;
+        }
+        for (k = 0; k < s->over_count; k++) {
+          int found = 0;
+          if (!s->over_ids[k]) continue;
+          if (strcmp(s->over_ids[k], s->id) == 0) {
+            fprintf(stderr, "neo: workflow '%s' step '%s': loop cannot include self\n", wf->name, s->id);
+            return -1;
+          }
+          for (m = 0; m < wf->step_count; m++) {
+            if (wf->steps[m].id && strcmp(wf->steps[m].id, s->over_ids[k]) == 0) {
+              if (wf->steps[m].type == WF_STEP_LOOP) {
+                fprintf(stderr, "neo: workflow '%s': loop over cannot include loop step '%s'\n",
+                        wf->name, s->over_ids[k]);
+                return -1;
+              }
+              found = 1;
+              break;
+            }
+          }
+          if (!found) {
+            fprintf(stderr, "neo: workflow '%s' step '%s': unknown over id '%s'\n",
+                    wf->name, s->id, s->over_ids[k]);
+            return -1;
+          }
+        }
+      }
+    }
+  }
+  return 0;
+}
+
+const workflow_t *config_find_workflow(const agent_config_t *c, const char *name) {
+  int i;
+  if (!c || !name) return NULL;
+  for (i = 0; i < c->workflow_count; i++) {
+    if (c->workflows[i].name && strcmp(c->workflows[i].name, name) == 0)
+      return &c->workflows[i];
+  }
+  return NULL;
+}
+
 static int validate_tool_commands(agent_config_t *c) {
   int i, j;
   for (i = 0; i < c->tools.command_count; i++) {
@@ -168,6 +277,9 @@ void config_free(agent_config_t *c) {
   free_tool_commands(c->tools.commands, c->tools.command_count);
   c->tools.commands = NULL;
   c->tools.command_count = 0;
+  free_workflows(c->workflows, c->workflow_count);
+  c->workflows = NULL;
+  c->workflow_count = 0;
 }
 
 static void add_path(char ***paths, int *count, const char *val, int max_count) {
@@ -187,7 +299,8 @@ int config_load_file(agent_config_t *c, const char *path) {
 
   char line[1024];
   int in_model = 0, in_skills = 0, in_memory = 0, in_bootstrap = 0, in_session = 0, in_high_priority = 0;
-  int in_tools = 0, in_soul = 0, in_rules = 0, in_workspace = 0, in_commands = 0;
+  int in_tools = 0, in_soul = 0, in_rules = 0, in_workspace = 0, in_commands = 0, in_workflows = 0;
+  int in_wf_steps = 0;
   c->memory.max_chars = 4000;
   c->model.max_tokens = 4096;
   c->model.temperature = 0.7;
@@ -203,6 +316,8 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_model = 1;
       in_high_priority = 0;
       in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
       in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
@@ -210,6 +325,8 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_skills = 1;
       in_high_priority = 0;
       in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
       in_model = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
@@ -217,6 +334,8 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_memory = 1;
       in_high_priority = 0;
       in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
       in_model = in_skills = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
@@ -224,6 +343,8 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_bootstrap = 1;
       in_high_priority = 0;
       in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
       in_model = in_skills = in_memory = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
@@ -231,6 +352,8 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_session = 1;
       in_high_priority = 0;
       in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
@@ -238,13 +361,25 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_tools = 1;
       in_high_priority = 0;
       in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_session = in_soul = in_rules = in_workspace = 0;
+      continue;
+    }
+    if (strncmp(t, "workflows:", 10) == 0) {
+      in_workflows = 1;
+      in_wf_steps = 0;
+      in_high_priority = 0;
+      in_commands = 0;
+      in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
     if (strncmp(t, "soul:", 5) == 0) {
       in_soul = 1;
       in_high_priority = 0;
       in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_rules = in_workspace = 0;
       continue;
     }
@@ -252,6 +387,8 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_rules = 1;
       in_high_priority = 0;
       in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_workspace = 0;
       continue;
     }
@@ -259,6 +396,8 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_workspace = 1;
       in_high_priority = 0;
       in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = 0;
       continue;
     }
@@ -349,6 +488,123 @@ int config_load_file(agent_config_t *c, const char *path) {
       in_high_priority = 0;
     if (in_session && strncmp(t, "max_turns:", 10) == 0)
       c->session_max_turns = atoi(t + 10);
+
+    if (in_workflows) {
+      if (strncmp(t, "- name:", 7) == 0) {
+        workflow_t *np;
+        workflow_t *wf;
+        if (c->workflow_count >= MAX_COMMANDS) {
+          fprintf(stderr, "neo: workflows: too many entries\n");
+          fclose(f);
+          return -1;
+        }
+        np = realloc(c->workflows, (c->workflow_count + 1) * sizeof(workflow_t));
+        if (!np) { fclose(f); return -1; }
+        c->workflows = np;
+        wf = &c->workflows[c->workflow_count];
+        memset(wf, 0, sizeof(*wf));
+        wf->name = dup_str(trim_quotes(t + 7));
+        c->workflow_count++;
+        in_wf_steps = 0;
+        continue;
+      }
+      if (c->workflow_count > 0) {
+        workflow_t *wf = &c->workflows[c->workflow_count - 1];
+        if (strncmp(t, "description:", 12) == 0) {
+          free(wf->description);
+          wf->description = dup_str(trim_quotes(t + 12));
+          continue;
+        }
+        if (strncmp(t, "steps:", 6) == 0) {
+          in_wf_steps = 1;
+          continue;
+        }
+        if (in_wf_steps && strncmp(t, "- id:", 5) == 0) {
+          workflow_step_t *sp;
+          workflow_step_t *st;
+          if (wf->step_count >= MAX_PATHS) {
+            fprintf(stderr, "neo: workflow '%s': too many steps\n", wf->name ? wf->name : "?");
+            fclose(f);
+            return -1;
+          }
+          sp = realloc(wf->steps, (wf->step_count + 1) * sizeof(workflow_step_t));
+          if (!sp) { fclose(f); return -1; }
+          wf->steps = sp;
+          st = &wf->steps[wf->step_count];
+          memset(st, 0, sizeof(*st));
+          st->id = dup_str(trim_quotes(t + 5));
+          st->type = WF_STEP_TOOL;
+          wf->step_count++;
+          continue;
+        }
+        if (in_wf_steps && wf->step_count > 0) {
+          workflow_step_t *st = &wf->steps[wf->step_count - 1];
+          if (strncmp(t, "type:", 5) == 0) {
+            const char *v = trim_quotes(t + 5);
+            while (*v == ' ' || *v == '\t') v++;
+            if (strncmp(v, "llm", 3) == 0) st->type = WF_STEP_LLM;
+            else if (strncmp(v, "loop", 4) == 0) st->type = WF_STEP_LOOP;
+            else st->type = WF_STEP_TOOL;
+            continue;
+          }
+          if (strncmp(t, "tool:", 5) == 0) {
+            free(st->tool);
+            st->tool = dup_str(trim_quotes(t + 5));
+            continue;
+          }
+          if (strncmp(t, "args:", 5) == 0) {
+            char *v = t + 5;
+            while (*v == ' ' || *v == '\t') v++;
+            {
+              char *end = v + strlen(v);
+              while (end > v && (end[-1] == '\n' || end[-1] == '\r' || end[-1] == ' ' || end[-1] == '\t'))
+                end--;
+              *end = '\0';
+            }
+            free(st->args_json);
+            st->args_json = dup_str(v);
+            continue;
+          }
+          if (strncmp(t, "prompt:", 7) == 0) {
+            free(st->prompt);
+            st->prompt = dup_str(trim_quotes(t + 7));
+            continue;
+          }
+          if (strncmp(t, "tools:", 6) == 0) {
+            const char *v = trim_quotes(t + 6);
+            while (*v == ' ' || *v == '\t') v++;
+            st->tools_on = (strncmp(v, "on", 2) == 0) ? 1 : 0;
+            continue;
+          }
+          if (strncmp(t, "over:", 5) == 0) {
+            char **ids = NULL;
+            int n = parse_bracket_list(t + 5, &ids, MAX_ARGV);
+            if (n < 0) {
+              fprintf(stderr, "neo: workflow step '%s': bad over list\n", st->id ? st->id : "?");
+              fclose(f);
+              return -1;
+            }
+            if (st->over_ids) {
+              int k;
+              for (k = 0; k < st->over_count; k++) free(st->over_ids[k]);
+              free(st->over_ids);
+            }
+            st->over_ids = ids;
+            st->over_count = n;
+            continue;
+          }
+          if (strncmp(t, "max:", 4) == 0) {
+            st->max_iters = atoi(t + 4);
+            continue;
+          }
+          if (strncmp(t, "until:", 6) == 0) {
+            /* first phase: only always — ignore value */
+            continue;
+          }
+        }
+      }
+      continue;
+    }
 
     if (in_tools) {
       if (strncmp(t, "commands:", 9) == 0) {
@@ -459,6 +715,7 @@ int config_load_file(agent_config_t *c, const char *path) {
   if (c->soul.max_chars <= 0) c->soul.max_chars = 8000;
   if (c->rules.max_chars_per_file <= 0) c->rules.max_chars_per_file = 8000;
   if (validate_tool_commands(c) != 0) return -1;
+  if (validate_workflows(c) != 0) return -1;
 
 #if defined(__linux__) || defined(__APPLE__)
   if (c->skills.directory && c->skills.directory[0]) {

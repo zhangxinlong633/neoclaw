@@ -1,0 +1,34 @@
+model:
+  base_url: "http://127.0.0.1:9"
+  name: "test"
+  api_key: "x"
+tools:
+  enabled: true
+  root: "."
+  commands:
+    - name: echo_args
+      description: "Echo arguments JSON"
+      argv: ["./scripts/tools/echo-args.sh"]
+      timeout_sec: 5
+      max_output_bytes: 4096
+      pass_args: stdin_json
+workflows:
+  - name: demo_loop
+    description: "echo then stop"
+    steps:
+      - id: fetch
+        type: tool
+        tool: echo_args
+        args: {"ping": 1}
+      - id: again
+        type: loop
+        over: ["fetch"]
+        max: 2
+        until: always
+skills:
+  directory: "skills"
+memory:
+  path: "MEMORY.md"
+  max_chars: 100
+session:
+  max_turns: 2

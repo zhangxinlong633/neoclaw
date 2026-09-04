@@ -73,6 +73,31 @@ typedef struct {
   int command_count;
 } tools_config_t;
 
+typedef enum {
+  WF_STEP_TOOL = 0,
+  WF_STEP_LLM = 1,
+  WF_STEP_LOOP = 2
+} wf_step_type_t;
+
+typedef struct {
+  char *id;
+  wf_step_type_t type;
+  char *tool;
+  char *args_json;
+  char *prompt;
+  int tools_on; /* llm only: 0 off, 1 on */
+  char **over_ids;
+  int over_count;
+  int max_iters;
+} workflow_step_t;
+
+typedef struct {
+  char *name;
+  char *description;
+  workflow_step_t *steps;
+  int step_count;
+} workflow_t;
+
 typedef struct {
   model_config_t model;
   bootstrap_config_t bootstrap;
@@ -82,6 +107,8 @@ typedef struct {
   skills_config_t skills;
   memory_config_t memory;
   tools_config_t tools;
+  workflow_t *workflows;
+  int workflow_count;
   int session_max_turns;
 } agent_config_t;
 
@@ -89,5 +116,6 @@ void config_init(agent_config_t *c);
 void config_free(agent_config_t *c);
 int config_load_file(agent_config_t *c, const char *path);
 void config_apply_env(agent_config_t *c);
+const workflow_t *config_find_workflow(const agent_config_t *c, const char *name);
 
 #endif
