@@ -1,32 +1,32 @@
-# Config JSON cutover + verbose workflow diagnostics
+# Config JSON5 cutover + verbose workflow diagnostics
 
 Date: 2026-09-05  
 Status: approved for implementation
 
 ## Goal
 
-Address the highest maintainability risk from the project review: **hand-written YAML parsing**. Replace config/workflow serialization with **JSON via existing yyjson**, hard-cut (no dual-read). Add **medium-tier diagnostics**: path-aware parse/validate errors by default, plus `--verbose` structured step summaries on stderr.
+Address the highest maintainability risk from the project review: **hand-written YAML parsing**. Replace config/workflow serialization with **JSON5 via yyjson 0.12.0** (`YYJSON_READ_JSON5`), hard-cut (no YAML dual-read). Add **medium-tier diagnostics**: path-aware parse/validate errors by default, plus `--verbose` structured step summaries on stderr.
 
 ## Decisions
 
 | Topic | Choice |
 |-------|--------|
-| Scope | Config JSON cutover + perceptible polish (not parallel DAG / MCP / audit files) |
-| Format | **JSON only** — one-shot cutover; refuse `.yaml`/`.yml` with migration hint |
-| Parser | yyjson → fill existing `agent_config_t` (no intermediate IR layer) |
+| Scope | Config JSON5 cutover + perceptible polish (not parallel DAG / MCP / audit files) |
+| Format | **JSON5** (JSON supersetted) — one-shot cutover; refuse `.yaml`/`.yml` with migration hint |
+| Parser | yyjson 0.12.0 with `YYJSON_READ_JSON5` → fill existing `agent_config_t` (no IR layer) |
 | Diagnostics | Default: path-aware failures; `-v/--verbose`: step summaries; `-d` unchanged (prompt dump) |
 | Migration script | Optional / deferred — not required for this change; docs suffice |
 
 ## Architecture
 
 ```text
-config.json ──yyjson──► agent_config_t ──► workflow / tools / plan (unchanged runtime model)
+config.json ──yyjson YYJSON_READ_JSON5──► agent_config_t ──► workflow / tools / plan
 neo plan LLM ──extract JSON──► validate ──► stdout JSON | materialize temp .json + run
 ```
 
 - Delete line/indent YAML parser in `config.c`.
 - Keep `agent_config_t` field layout stable so `workflow.c` / tools paths stay mostly untouched.
-- Plan materialization uses a temporary `.json` file loaded by the same `config_load`.
+- Plan materialization uses a temporary `.json` file loaded by the same `config_load` (JSON5 reader accepts strict JSON).
 
 ## Config paths
 
@@ -34,18 +34,22 @@ neo plan LLM ──extract JSON──► validate ──► stdout JSON | materi
 |------|-------------|--------|
 | Main config | `config/config.json`, else `config.json` | `*.yaml` / `*.yml` |
 | Profile | `config/profiles/<name>/neo.json`, else `profiles/<name>/neo.json` | `neo.yaml` |
-| `-c` / `NEO_CONFIG` | Must point at JSON | Non-JSON extension or parse failure → exit 1 + message |
+| `-c` / `NEO_CONFIG` | Must point at `.json` / `.json5` | YAML extension or parse failure → exit 1 + message |
 
-Stderr on yaml path (example): `neo: config is JSON-only; migrate to config.json (see docs)`.
+Also accept `.json5` as an alias extension for the same JSON5 reader. Default filenames stay `*.json` (JSON5 is a superset; comments/trailing commas allowed inside).
 
-## JSON shape
+Stderr on yaml path (example): `neo: config is JSON5-only; migrate to config.json (see docs)`.
+
+## JSON5 shape
 
 Top-level object keys match today’s sections: `model`, `skills`, `tools`, `workflows`, `plan`, `soul`, `rules`, `memory`, `bootstrap`, `session`, `workspace`.
 
-- Lists (`depends_on`, `then`, `else`, `paths`, `argv`, …) are JSON arrays only (no bare-string-as-list sugar).
+- Lists (`depends_on`, `then`, `else`, `paths`, `argv`, …) are arrays only (no bare-string-as-list sugar).
 - Step `tools` remains a step field (`"tools": "off"` / `"on"`), not confused with top-level `tools` object.
 - Omit `type` when `prompt` is present → treat as `llm` (preserve current semantic).
-- No JSON comments; no separate JSON Schema validator in-process.
+- **JSON5 allowed on read:** comments (`//`, `/* */`), trailing commas, unquoted keys, single-quoted strings, and other features covered by yyjson’s `YYJSON_READ_JSON5` (0.12.0).
+- No separate JSON Schema validator in-process.
+- **Write path** (`neo plan` stdout / `-o` / materialize): emit **strict JSON** (pretty), which remains valid JSON5 input.
 
 Example (fragment):
 
@@ -125,6 +129,7 @@ Replace unconditional `neo dag:` / noisy `neo tool:` success spam with the schem
 
 - Dual-read YAML or silent YAML fallback
 - Intermediate config IR / full JSON Schema engine
+- Disabling JSON5 (always use `YYJSON_READ_JSON5` for config load)
 - Parallel DAG, durable execution state, retries-as-platform
 - MCP host / plugin runtime
 - Audit log files or fine-grained permission matrix
@@ -132,6 +137,7 @@ Replace unconditional `neo dag:` / noisy `neo tool:` success spam with the schem
 
 ## Success criteria
 
-1. No YAML parser on the hot path; config and plan artifacts are JSON via yyjson.
-2. `neo plan` prints valid workflows JSON; `neo run -v` prints structured step lines on stderr.
-3. Docs and examples are JSON-first and runnable without yaml files.
+1. No YAML parser on the hot path; config loads via yyjson `YYJSON_READ_JSON5`; plan artifacts are (strict) JSON.
+2. Example/fixture configs may use JSON5 comments and trailing commas and still load.
+3. `neo plan` prints valid workflows JSON; `neo run -v` prints structured step lines on stderr.
+4. Docs and examples are JSON5-first and runnable without yaml files.

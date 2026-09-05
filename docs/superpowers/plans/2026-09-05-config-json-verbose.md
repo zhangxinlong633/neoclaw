@@ -2,19 +2,20 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace hand-written YAML config parsing with yyjson JSON-only loading, migrate plan/fixtures/docs to JSON, and add `--verbose` structured workflow step logging on stderr.
+**Goal:** Replace hand-written YAML config parsing with yyjson **JSON5** loading (`YYJSON_READ_JSON5`, yyjson 0.12.0), migrate plan/fixtures/docs off YAML, and add `--verbose` structured workflow step logging on stderr.
 
-**Architecture:** Rewrite `config_load_file` to parse a JSON object into the existing `agent_config_t` (no IR layer). Plan extract/materialize emit and consume workflows JSON. Extend `workflow_run` / `plan_run` with a `verbose` flag; default stderr is quiet except errors and one `run done` line.
+**Architecture:** Rewrite `config_load_file` to parse a JSON5 object into the existing `agent_config_t` (no IR layer). Plan extract/materialize emit **strict JSON** (valid JSON5 on reload). Extend `workflow_run` / `plan_run` with a `verbose` flag; default stderr is quiet except errors and one `run done` line.
 
-**Tech Stack:** C99, embedded yyjson (`src/yyjson.c`), libcurl, Makefile tests under `tests/`.
+**Tech Stack:** C99, embedded yyjson 0.12.0 (`src/yyjson.c` / `YYJSON_READ_JSON5`), libcurl, Makefile tests under `tests/`.
 
 **Spec:** `docs/superpowers/specs/2026-09-05-config-json-verbose-design.md`
 
 ## Global Constraints
 
-- JSON only: refuse `.yaml` / `.yml` config paths with migration hint; no dual-read.
+- JSON5 on read (`YYJSON_READ_JSON5`): refuse `.yaml` / `.yml` with migration hint; no YAML dual-read. Accept `.json` and `.json5` extensions.
 - Keep `agent_config_t` field layout; do not change workflow node semantics.
-- Lists must be JSON arrays (no bare-string-as-list sugar).
+- Lists must be arrays (no bare-string-as-list sugar).
+- Plan/write path emits strict JSON; config examples may use JSON5 comments / trailing commas.
 - `-d` / `--debug` meaning unchanged; `-v` / `--verbose` is orthogonal.
 - Successful non-verbose runs: at most one `neo: run done ...` summary on stderr; no per-step spam.
 - Do not add MCP, parallel DAG, audit log files, or YAML→JSON runtime converter.
@@ -181,7 +182,7 @@ static int path_has_ext(const char *path, const char *ext) {
 /* inside config_load_file: */
 if (path_has_ext(path, ".yaml") || path_has_ext(path, ".yml")) {
   fprintf(stderr,
-          "neo: config is JSON-only; migrate to .json (see docs/migrate-json.md)\n");
+          "neo: config is JSON5-only; migrate to .json (see docs/migrate-json.md)\n");
   return -1;
 }
 ```
@@ -190,9 +191,10 @@ if (path_has_ext(path, ".yaml") || path_has_ext(path, ".yml")) {
 
 ```c
 yyjson_read_err err;
-yyjson_doc *doc = yyjson_read_file(path, 0, NULL, &err);
+/* JSON5: comments, trailing commas, unquoted keys, single quotes, etc. */
+yyjson_doc *doc = yyjson_read_file(path, YYJSON_READ_JSON5, NULL, &err);
 if (!doc) {
-  fprintf(stderr, "neo: JSON parse error in %s: %s (at %zu)\n",
+  fprintf(stderr, "neo: JSON5 parse error in %s: %s (at %zu)\n",
           path, err.msg ? err.msg : "unknown", (size_t)err.pos);
   return -1;
 }
@@ -414,13 +416,13 @@ git commit -m "feat: add --verbose structured workflow step logs"
 **Files:**
 - Create: `config/config.json.example`, `docs/migrate-json.md`
 - Delete: `config/config.yaml.example`
-- Modify: `README.md`, `docs/tool.md`, `docs/workflow.md`, `docs/claw.md`, `example/README.md`, and any remaining `config.yaml` / `neo.yaml` / `workflows:` YAML fences in `docs/superpowers/specs/*.md` that describe runtime config (update to JSON; historical plan files may note “superseded by JSON” only where they instruct implementers)
+- Modify: `README.md`, `docs/tool.md`, `docs/workflow.md`, `docs/claw.md`, `example/README.md`, and any remaining `config.yaml` / `neo.yaml` / `workflows:` YAML fences in `docs/superpowers/specs/*.md` that describe runtime config (update to JSON5; historical plan files may note “superseded by JSON5” only where they instruct implementers)
 
 **Interfaces:** none (docs only)
 
-- [ ] **Step 1: Write `config/config.json.example`** from current yaml example using canonical shapes (comments become README / migrate doc notes).
+- [ ] **Step 1: Write `config/config.json.example`** from current yaml example using canonical shapes; **use JSON5 comments** (`//` / `/* */`) and trailing commas where helpful (must still load with `YYJSON_READ_JSON5`).
 
-- [ ] **Step 2: Write `docs/migrate-json.md`** — keys unchanged, arrays required, no comments, path table yaml→json, profile `neo.json`.
+- [ ] **Step 2: Write `docs/migrate-json.md`** — keys unchanged, arrays required, JSON5 comments OK, path table yaml→json, profile `neo.json`, note yyjson 0.12.0 `YYJSON_READ_JSON5`.
 
 - [ ] **Step 3: Update user-facing docs** (README quick start `cp config/config.json.example config/config.json`, workflow/plan JSON examples, claw config paths).
 
