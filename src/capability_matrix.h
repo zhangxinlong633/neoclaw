@@ -59,4 +59,7 @@ char *capability_matrix_tools_json(const capability_matrix_t *m);
 /* Human/model listing of enabled capabilities; caller frees. */
 char *capability_matrix_prompt_listing(const capability_matrix_t *m);
 
+/* Populate matrix from conf builtins + tools.commands. Clears m first. Returns 0 on success. */
+int capability_matrix_build_from_config(capability_matrix_t *m, const agent_config_t *conf);
+
 #endif

@@ -18,4 +18,5 @@ tests/test_workflow_loop
 tests/test_workflow_template
 tests/test_workflow_dag
 tests/test_plan_extract
+tests/test_capability_matrix
 .DS_Store

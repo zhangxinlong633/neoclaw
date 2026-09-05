@@ -58,6 +58,7 @@ typedef struct {
   int timeout_sec;
   int max_output_bytes;
   int pass_args;
+  char *parameters_json; /* optional JSON Schema object; NULL → default {"type":"object"} */
 } tool_command_t;
 
 typedef struct {

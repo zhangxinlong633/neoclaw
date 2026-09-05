@@ -34,6 +34,7 @@ static void free_tool_commands(tool_command_t *cmds, int n) {
   for (i = 0; i < n; i++) {
     free(cmds[i].name);
     free(cmds[i].description);
+    free(cmds[i].parameters_json);
     if (cmds[i].argv) {
       for (j = 0; j < cmds[i].argv_count; j++) free(cmds[i].argv[j]);
       free(cmds[i].argv);
@@ -44,7 +45,8 @@ static void free_tool_commands(tool_command_t *cmds, int n) {
 
 static int tool_command_name_reserved(const char *name) {
   return name && (strcmp(name, "read_file") == 0 || strcmp(name, "write_file") == 0 ||
-                  strcmp(name, "list_dir") == 0 || strcmp(name, "http_get") == 0);
+                  strcmp(name, "list_dir") == 0 || strcmp(name, "http_get") == 0 ||
+                  strcmp(name, "grep") == 0 || strcmp(name, "run_command") == 0);
 }
 
 static void free_workflows(workflow_t *wfs, int n) {
@@ -619,6 +621,17 @@ static int fill_tools(agent_config_t *c, yyjson_val *obj) {
     snprintf(pathbuf, sizeof(pathbuf), "/tools/commands/%zu/argv", i);
     if (argv && yy_string_array(argv, &cmd->argv, &cmd->argv_count, MAX_ARGV, pathbuf) != 0)
       return -1;
+    {
+      yyjson_val *params = yyjson_obj_get(el, "parameters");
+      if (params) {
+        if (!yyjson_is_obj(params)) {
+          fprintf(stderr, "neo: config error at /tools/commands/%zu/parameters: expected object\n", i);
+          return -1;
+        }
+        cmd->parameters_json = yyjson_val_write(params, 0, NULL);
+        if (!cmd->parameters_json) return -1;
+      }
+    }
     c->tools.command_count++;
   }
   return 0;

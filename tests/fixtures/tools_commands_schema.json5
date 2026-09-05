@@ -1,0 +1,25 @@
+{
+  model: {
+    base_url: "http://127.0.0.1:9",
+    name: "test",
+    api_key: "x",
+  },
+  tools: {
+    enabled: true,
+    root: ".",
+    commands: [
+      {
+        name: "schema_echo",
+        description: "Echo with schema",
+        argv: ["./tests/fixtures/bin/count.sh"],
+        parameters: {
+          type: "object",
+          properties: {
+            msg: { type: "string" },
+          },
+          required: ["msg"],
+        },
+      },
+    ],
+  },
+}

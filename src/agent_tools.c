@@ -2,6 +2,7 @@
  * OpenAI-style tool_calls: read_file, write_file, list_dir; optional http_get (allowlist).
  */
 #include "agent_tools.h"
+#include "capability_matrix.h"
 #include "command_tools.h"
 #include "yyjson.h"
 #include <curl/curl.h>
@@ -82,41 +83,21 @@ static void neo_json_escape(const char *in, NeoBuf *b) {
   }
 }
 
-static const char NEO_TOOL_READ[] =
-  "{\"type\":\"function\",\"function\":{\"name\":\"read_file\",\"description\":\"Read a UTF-8 text file under the workspace root.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"}},\"required\":[\"path\"]}}}";
-
-static const char NEO_TOOL_WRITE[] =
-  "{\"type\":\"function\",\"function\":{\"name\":\"write_file\",\"description\":\"Create or overwrite a UTF-8 text file under the workspace root.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\"},\"content\":{\"type\":\"string\"}},\"required\":[\"path\",\"content\"]}}}";
-
-static const char NEO_TOOL_LISTDIR[] =
-  "{\"type\":\"function\",\"function\":{\"name\":\"list_dir\",\"description\":\"List names of files and subdirectories at a path under the workspace root (non-recursive).\",\"parameters\":{\"type\":\"object\",\"properties\":{\"path\":{\"type\":\"string\",\"description\":\"Relative directory; use . for workspace root\"}},\"required\":[\"path\"]}}}";
-
-static const char NEO_TOOL_HTTPGET[] =
-  "{\"type\":\"function\",\"function\":{\"name\":\"http_get\",\"description\":\"HTTPS GET for allowlisted hosts only (config tools.http_allow_hosts). No redirects. Body truncated.\",\"parameters\":{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\"}},\"required\":[\"url\"]}}}";
-
 static int neo_build_tools_json(NeoBuf *b, const agent_config_t *conf) {
-  int i;
-  if (neo_buf_append(b, "[", 0) != 0) return -1;
-  if (neo_buf_append(b, NEO_TOOL_READ, strlen(NEO_TOOL_READ)) != 0) return -1;
-  if (neo_buf_append(b, ",", 0) != 0) return -1;
-  if (neo_buf_append(b, NEO_TOOL_WRITE, strlen(NEO_TOOL_WRITE)) != 0) return -1;
-  if (neo_buf_append(b, ",", 0) != 0) return -1;
-  if (neo_buf_append(b, NEO_TOOL_LISTDIR, strlen(NEO_TOOL_LISTDIR)) != 0) return -1;
-  if (conf->tools.http_fetch_enabled && conf->tools.http_allow_hosts && conf->tools.http_allow_hosts[0]) {
-    if (neo_buf_append(b, ",", 0) != 0) return -1;
-    if (neo_buf_append(b, NEO_TOOL_HTTPGET, strlen(NEO_TOOL_HTTPGET)) != 0) return -1;
+  capability_matrix_t m;
+  char *json;
+  int r;
+  capability_matrix_init(&m);
+  if (capability_matrix_build_from_config(&m, conf) != 0) {
+    capability_matrix_free(&m);
+    return -1;
   }
-  for (i = 0; i < conf->tools.command_count; i++) {
-    const tool_command_t *cmd = &conf->tools.commands[i];
-    const char *desc = (cmd->description && cmd->description[0]) ? cmd->description : cmd->name;
-    if (!cmd->name || !cmd->name[0]) continue;
-    if (neo_buf_append(b, ",{\"type\":\"function\",\"function\":{\"name\":\"", 0) != 0) return -1;
-    neo_json_escape(cmd->name, b);
-    if (neo_buf_append(b, "\",\"description\":\"", 0) != 0) return -1;
-    neo_json_escape(desc ? desc : "", b);
-    if (neo_buf_append(b, "\",\"parameters\":{\"type\":\"object\"}}}", 0) != 0) return -1;
-  }
-  return neo_buf_append(b, "]", 0);
+  json = capability_matrix_tools_json(&m);
+  capability_matrix_free(&m);
+  if (!json) return -1;
+  r = neo_buf_append(b, json, 0);
+  free(json);
+  return r;
 }
 
 static char *yy_strdup_val(yyjson_val *v) {
