@@ -49,6 +49,7 @@ Neo 在 `config.json5` 启用 `tools` 后，会构建一张 **Capability Matrix�
 |------|------|
 | `list_dir` | 参数 `path`；非递归列目录。 |
 | `grep` | 参数 `pattern`（必填）、可选 `path`（默认 `.`）、可选 `glob`（如 `*.md`）；在 `tools.root` 下按行做字面量匹配，有匹配数上限。 |
+| `run_command` | 仅当 `shell_enabled: true`；参数 `argv` 为字符串数组（**无 shell**）；`argv[0]` 须相对 `tools.root`（与 `tools.commands` 相同沙箱规则）。 |
 | `http_get` | 仅当 `http_fetch_enabled: true` 且配置了 `http_allow_hosts`；HTTPS、无重定向。 |
 
 ### 1.2 MCP stdio（能力矩阵 loader）

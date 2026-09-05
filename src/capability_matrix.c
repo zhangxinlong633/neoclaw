@@ -20,6 +20,9 @@ static const char *PARAMS_HTTP =
 static const char *PARAMS_GREP =
     "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},"
     "\"glob\":{\"type\":\"string\"}},\"required\":[\"pattern\"]}";
+static const char *PARAMS_RUN =
+    "{\"type\":\"object\",\"properties\":{\"argv\":{\"type\":\"array\",\"items\":{\"type\":\"string\"},"
+    "\"description\":\"Executable relative to tools.root, then args (no shell)\"}},\"required\":[\"argv\"]}";
 
 void capability_matrix_init(capability_matrix_t *m) {
   if (!m) return;
@@ -131,6 +134,13 @@ int capability_matrix_build_from_config(capability_matrix_t *m, const agent_conf
               "Search for a regex-like substring in files under the workspace root (literal match).",
               PARAMS_GREP, CAP_EFFECT_READ, CAP_BUILTIN_GREP, NULL) != 0)
     return -1;
+
+  if (conf->tools.shell_enabled) {
+    if (add_row(m, "run_command", CAP_SRC_BUILTIN,
+                "Run an allowlisted argv under tools.root (no shell). Requires tools.shell_enabled.",
+                PARAMS_RUN, CAP_EFFECT_EXEC, CAP_BUILTIN_RUN_COMMAND, NULL) != 0)
+      return -1;
+  }
 
   if (conf->tools.http_fetch_enabled && conf->tools.http_allow_hosts &&
       conf->tools.http_allow_hosts[0]) {

@@ -269,6 +269,7 @@ void config_init(agent_config_t *c) {
   c->tools.list_dir_max_entries = 256;
   c->tools.http_fetch_enabled = 0;
   c->tools.http_fetch_max_bytes = 262144;
+  c->tools.shell_enabled = 0;
 }
 
 void config_free(agent_config_t *c) {
@@ -598,6 +599,8 @@ static int fill_tools(agent_config_t *c, yyjson_val *obj) {
   cfg_set_str(&c->tools.http_allow_hosts, obj, "http_allow_hosts");
   v = yyjson_obj_get(obj, "http_fetch_max_bytes");
   if (yyjson_is_int(v) || yyjson_is_uint(v)) c->tools.http_fetch_max_bytes = (int)yyjson_get_sint(v);
+  v = yyjson_obj_get(obj, "shell_enabled");
+  if (v && yy_bool(v, &b) == 0) c->tools.shell_enabled = b;
 
   cmds = yyjson_obj_get(obj, "commands");
   if (cmds) {

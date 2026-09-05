@@ -79,6 +79,7 @@ typedef struct {
   int http_fetch_enabled;   /* 0 off: do not register http_get */
   char *http_allow_hosts;   /* comma-separated hostnames, e.g. "api.github.com,httpbin.org" */
   int http_fetch_max_bytes; /* cap response body (default 262144) */
+  int shell_enabled;        /* 0 off: do not register run_command */
   tool_command_t *commands;
   int command_count;
   mcp_server_config_t *mcp_servers;

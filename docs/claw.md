@@ -7,17 +7,18 @@ Neo 的产品选择是 **灵活、可移植**，不是 **能力天花板**：
 | 更在意 | Neo 怎么做 |
 |--------|------------|
 | 到处能跑 | 单二进制 + libcurl；配置集中在 `config/`；profile / 脚本可整包拷走 |
-| 随时加刀刃 | `tools.commands`、skills、workflow 用 YAML/脚本扩展，不改核心 |
+| 随时加刀刃 | **Capability Matrix（能力矩阵）** 统一 builtin / `tools.commands` / MCP stdio；skills、**DAG workflow** 按需挂上 |
 | 到处能唤起 | CLI、daemon socket、`neo-ask`、cron / 管道、`neo-team` |
-| 不做什么 | 不做「最强 IDE agent」、不做重插件 / 完整 MCP 宿主、不做通用 hooks 总线 |
+| 三件套 | **DAG** 管编排怎么走；**能力矩阵** 管能调用什么；**Policy**（如 `shell_enabled` / host allowlist）管许不许 |
+| 不做什么 | 不做「最强 IDE agent」、不做重插件宿主、不做通用 hooks 总线 |
 
 若你要的是最强多工具云端助手，Neo 不是那个方向；若你要的是 **能塞进任意机器与 shell 流的可配置小爪**，本文描述的就是那套用法。
 
 ---
 
-Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdown 文件**：身份（bootstrap）、人格（soul）、硬约束（rules）、长期笔记（memory）、按需技能（skills），以及可选的 **工作区 cwd 提示**、**本地工具** 与 **声明式 workflow**。本文说明这些块的**用途、在 prompt 里的顺序、YAML 写法与日常操作**。
+Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdown 文件**：身份（bootstrap）、人格（soul）、硬约束（rules）、长期笔记（memory）、按需技能（skills），以及可选的 **工作区 cwd 提示**、**本地工具 / 能力矩阵** 与 **声明式 workflow**。本文说明这些块的**用途、在 prompt 里的顺序、JSON5 写法与日常操作**。
 
-更细的工具见 [tool.md](tool.md)；workflow 见 [workflow.md](workflow.md)。
+更细的工具与能力矩阵见 [tool.md](tool.md)；workflow / DAG 见 [workflow.md](workflow.md)。
 
 ---
 

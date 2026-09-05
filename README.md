@@ -4,12 +4,14 @@
 
 **Neo 不做「最强」的 agent，做「最灵活」、能在到处运行的瑞士军刀。**
 
-- **强在接缝，不在堆能力**：刀刃用 JSON5 配置 + 脚本挂上（`tools.commands`、skills、**确定性 DAG workflow**、**Capability Matrix 能力矩阵**），换机器拷配置就能用。
-- **编排确定性**：`neo workflow run` 的拓扑由配置声明，LLM **只当图中的 Worker**，不参与流程控制；自然语言对话仍可用 `./neo "..."`。
+- **强在接缝，不在堆能力**：刀刃用 JSON5 配置 + 脚本挂上（`tools.commands`、skills、MCP stdio），换机器拷配置就能用。
+- **编排确定性**：**DAG** 管怎么走（`workflow` / `neo plan|run`）；LLM 只当工人。
+- **能力可发现**：**Capability Matrix（能力矩阵）** 管能调用什么——builtin / commands / MCP 同一套名字，供 loop 与 DAG 共用。
+- **边界可控**：**Policy** 管许不许（`shell_enabled`、`http_allow_hosts`、轮次/输出上限等）。
 - **强在入口，不在生态锁**：终端、daemon / socket、管道与 cron（`neo-ask`）、`neo-team` 都能唤起同一核心。
-- **强在轻量，不在全家桶**：单二进制 + libcurl + 内置 yyjson；**Capability Matrix** 统一发现 builtin / commands / **MCP stdio** 刀片，不做 Temporal / 重插件宿主。
+- **强在轻量，不在全家桶**：单二进制 + libcurl + 内置 yyjson；不做 Temporal / 重插件宿主。
 
-一句话：**能塞进 shell、CI、IoT 和仓库旁路的小助手**——能力按需配置，而不是预装巨无。
+一句话：**DAG ∥ 能力矩阵 ∥ Policy**——能塞进 shell、CI、IoT 和仓库旁路的小助手。
 
 ## 这个程序是做什么的
 

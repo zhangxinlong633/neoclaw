@@ -122,6 +122,60 @@ int main(void) {
     }
   }
 
+  if (capability_matrix_find(&m, "run_command")) {
+    fprintf(stderr, "run_command should be absent when shell_enabled is false\n");
+    capability_matrix_free(&m);
+    config_free(&conf);
+    return 1;
+  }
+
+  capability_matrix_free(&m);
+  config_free(&conf);
+
+  /* shell_enabled + run_command */
+  config_init(&conf);
+  if (config_load_file(&conf, "tests/fixtures/tools_commands_schema.json5") != 0) {
+    fprintf(stderr, "reload schema fixture failed\n");
+    return 1;
+  }
+  conf.tools.shell_enabled = 1;
+  capability_matrix_init(&m);
+  if (capability_matrix_build_from_config(&m, &conf) != 0) {
+    fprintf(stderr, "build with shell failed\n");
+    config_free(&conf);
+    return 1;
+  }
+  if (!capability_matrix_find(&m, "run_command")) {
+    fprintf(stderr, "missing run_command when shell_enabled\n");
+    capability_matrix_free(&m);
+    config_free(&conf);
+    return 1;
+  }
+  {
+    char root[PATH_MAX];
+    char *out = NULL;
+    size_t out_len = 0;
+    if (!realpath(".", root)) {
+      fprintf(stderr, "realpath failed\n");
+      return 1;
+    }
+    if (neo_dispatch_tool(&conf, root, "run_command",
+                          "{\"argv\":[\"tests/fixtures/bin/echo-argv.sh\",\"hi\"]}", &out,
+                          &out_len) != 0) {
+      fprintf(stderr, "run_command dispatch failed\n");
+      capability_matrix_free(&m);
+      config_free(&conf);
+      return 1;
+    }
+    if (!out || !strstr(out, "hi")) {
+      fprintf(stderr, "run_command missing hi: %s\n", out ? out : "(null)");
+      free(out);
+      capability_matrix_free(&m);
+      config_free(&conf);
+      return 1;
+    }
+    free(out);
+  }
   capability_matrix_free(&m);
   config_free(&conf);
 

@@ -549,6 +549,72 @@ static int tool_grep(const agent_config_t *conf, const char *root_real, const ch
   if (result->len == 0) return neo_buf_append(result, "(no matches)\n", 0);
   return 0;
 }
+
+static int tool_run_command(const agent_config_t *conf, const char *root_real, const char *args_json,
+                            NeoBuf *result) {
+  yyjson_doc *doc;
+  yyjson_val *root, *arr, *el;
+  tool_command_t tmp;
+  char **argv = NULL;
+  size_t i, n;
+  char *out = NULL;
+  size_t out_len = 0;
+  int rc;
+
+  if (!conf->tools.shell_enabled)
+    return neo_buf_append(result, "ERROR: run_command disabled (set tools.shell_enabled: true)", 0);
+  doc = yyjson_read(args_json ? args_json : "{}", strlen(args_json ? args_json : "{}"), 0);
+  if (!doc) return neo_buf_append(result, "ERROR: bad args JSON", 0);
+  root = yyjson_doc_get_root(doc);
+  arr = yyjson_is_obj(root) ? yyjson_obj_get(root, "argv") : NULL;
+  if (!yyjson_is_arr(arr) || yyjson_arr_size(arr) < 1) {
+    yyjson_doc_free(doc);
+    return neo_buf_append(result, "ERROR: argv must be a non-empty array", 0);
+  }
+  n = yyjson_arr_size(arr);
+  argv = calloc(n, sizeof(char *));
+  if (!argv) {
+    yyjson_doc_free(doc);
+    return -1;
+  }
+  for (i = 0; i < n; i++) {
+    el = yyjson_arr_get(arr, i);
+    if (!yyjson_is_str(el)) {
+      for (i = 0; i < n; i++) free(argv[i]);
+      free(argv);
+      yyjson_doc_free(doc);
+      return neo_buf_append(result, "ERROR: argv entries must be strings", 0);
+    }
+    argv[i] = strdup(yyjson_get_str(el) ? yyjson_get_str(el) : "");
+    if (!argv[i]) {
+      size_t j;
+      for (j = 0; j < i; j++) free(argv[j]);
+      free(argv);
+      yyjson_doc_free(doc);
+      return -1;
+    }
+  }
+  yyjson_doc_free(doc);
+  memset(&tmp, 0, sizeof(tmp));
+  tmp.argv = argv;
+  tmp.argv_count = (int)n;
+  tmp.timeout_sec = 30;
+  tmp.max_output_bytes = 65536;
+  tmp.pass_args = 0;
+  rc = command_tool_run(conf, root_real, &tmp, "{}", &out, &out_len);
+  for (i = 0; i < n; i++) free(argv[i]);
+  free(argv);
+  if (rc != 0) {
+    int r = neo_buf_append(result, out ? out : "ERROR: run_command failed", 0);
+    free(out);
+    return r;
+  }
+  {
+    int r = neo_buf_append(result, out ? out : "", 0);
+    free(out);
+    return r;
+  }
+}
 #else
 static int tool_list_dir(const agent_config_t *conf, const char *root_real, const char *args_json, NeoBuf *result) {
   (void)conf;
@@ -561,6 +627,13 @@ static int tool_grep(const agent_config_t *conf, const char *root_real, const ch
   (void)root_real;
   (void)args_json;
   return neo_buf_append(result, "ERROR: grep unsupported on this platform", 0);
+}
+static int tool_run_command(const agent_config_t *conf, const char *root_real, const char *args_json,
+                            NeoBuf *result) {
+  (void)conf;
+  (void)root_real;
+  (void)args_json;
+  return neo_buf_append(result, "ERROR: run_command unsupported on this platform", 0);
 }
 #endif
 
@@ -653,6 +726,8 @@ static int run_one_tool(const agent_config_t *conf, const char *root_real, NeoTo
     return tool_list_dir(conf, root_real, tc->arguments, result);
   if (strcmp(tc->name, "grep") == 0)
     return tool_grep(conf, root_real, tc->arguments, result);
+  if (strcmp(tc->name, "run_command") == 0)
+    return tool_run_command(conf, root_real, tc->arguments, result);
   if (strcmp(tc->name, "http_get") == 0)
     return tool_http_get(conf, tc->arguments, result);
   if (strncmp(tc->name, "mcp_", 4) == 0) {

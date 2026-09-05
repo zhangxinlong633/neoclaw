@@ -41,6 +41,7 @@
   //   enabled: true,
   //   root: ".",
   //   max_rounds: 16,
+  //   shell_enabled: false, // true → expose run_command (argv under tools.root, no shell)
   //   commands: [
   //     {
   //       name: "echo_args",
