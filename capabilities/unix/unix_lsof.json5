@@ -1,0 +1,15 @@
+{
+  name: "unix_lsof",
+  description: "List open files.",
+  when: ["Need open-file listing"],
+  when_not: ["Noisy; keep disabled", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "process", "dangerous"],
+  outcome: "Usage: lsof -nP | Sample: ...",
+  sample_usage: "lsof -nP",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/sbin/lsof"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

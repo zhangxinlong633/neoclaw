@@ -1,0 +1,15 @@
+{
+  name: "unix_sha256",
+  description: "Compute SHA-256 digest.",
+  when: ["Need stronger fingerprint"],
+  when_not: ["Not a signature"],
+  tags: ["unix", "hash", "safeish"],
+  outcome: "Usage: shasum -a 256 README.md | Sample: abcd... README.md",
+  sample_usage: "shasum -a 256 README.md",
+  sample_output: "abcd... README.md",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/shasum"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

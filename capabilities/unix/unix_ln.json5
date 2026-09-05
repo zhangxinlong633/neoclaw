@@ -1,0 +1,15 @@
+{
+  name: "unix_ln",
+  description: "Make links.",
+  when: ["Need ln"],
+  when_not: ["Writes; keep disabled", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "fs", "dangerous"],
+  outcome: "Usage: ln -s a b | Sample: ",
+  sample_usage: "ln -s a b",
+  sample_output: "",
+  argv: ["./scripts/tools/unix-exec.sh", "/bin/ln"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

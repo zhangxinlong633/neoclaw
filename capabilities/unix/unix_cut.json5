@@ -1,0 +1,15 @@
+{
+  name: "unix_cut",
+  description: "Cut out fields/columns.",
+  when: ["Need column extraction"],
+  when_not: ["Simple delimiter split"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: cut -d, -f1 file.csv | Sample: col1",
+  sample_usage: "cut -d, -f1 file.csv",
+  sample_output: "col1",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/cut"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

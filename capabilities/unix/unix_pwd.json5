@@ -1,0 +1,15 @@
+{
+  name: "unix_pwd",
+  description: "Print working directory.",
+  when: ["Confirm sandbox cwd"],
+  when_not: ["Prefer pwd_print"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: pwd | Sample: /path/to/root",
+  sample_usage: "pwd",
+  sample_output: "/path/to/root",
+  argv: ["/bin/pwd"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

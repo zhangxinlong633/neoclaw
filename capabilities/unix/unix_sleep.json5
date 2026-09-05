@@ -1,0 +1,15 @@
+{
+  name: "unix_sleep",
+  description: "Sleep for N seconds.",
+  when: ["Need a short delay"],
+  when_not: ["Do not sleep long"],
+  tags: ["unix", "process", "safeish"],
+  outcome: "Usage: sleep 1 | Sample: (empty)",
+  sample_usage: "sleep 1",
+  sample_output: "(empty)",
+  argv: ["./scripts/tools/unix-exec.sh", "/bin/sleep"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

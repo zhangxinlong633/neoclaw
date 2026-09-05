@@ -79,12 +79,14 @@ workflow_directory: "dags",
 
 ```
 dags/
-  manifest.json5       # load: ["library"]
-  library/*.json5      # 每个文件一个 workflow（须含 description + when 等选型元数据）
-  proposed/            # 预留；默认不加载
+  manifest.json5          # load: ["baseline", "workspace"]；不递归
+  baseline/*.json5        # 基础层多步编排示范
+  workspace/*.json5       # 工作区旁路助手
+  edge/                   # 预留；默认不在 load 中
+  proposed/               # 预留；默认不加载
 ```
 
-每个 DAG 文件建议写：`description`、`when`、`when_not`、`requires`、`outcome`（见 AGENTS.md §4.1）。这些字段会出现在 planner 的 catalog listing。
+每个 DAG 文件建议写：`description`、`when`、`when_not`、`requires`、`outcome`（见 AGENTS.md §4.1）。这些字段会出现在 planner 的 catalog listing。场景分层见 [`applications.md`](applications.md) 与 [`dags/README.md`](../dags/README.md)。
 
 Planner **优先**输出 `{"use":["catalog_name"]}` 选用目录中的图；没有合适的再现编 `{"workflows":[...]}`。执行期仍是确定性 runner。
 

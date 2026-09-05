@@ -1,0 +1,15 @@
+{
+  name: "unix_unzip",
+  description: "List/extract zip archives.",
+  when: ["Need zip listing/extract"],
+  when_not: ["Extract writes", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "archive", "dangerous"],
+  outcome: "Usage: unzip -l a.zip | Sample: Archive: ...",
+  sample_usage: "unzip -l a.zip",
+  sample_output: "Archive: ...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/unzip"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

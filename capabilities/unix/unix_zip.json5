@@ -1,0 +1,15 @@
+{
+  name: "unix_zip",
+  description: "Create zip archives.",
+  when: ["Need zip"],
+  when_not: ["Keep disabled", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "archive", "dangerous"],
+  outcome: "Usage: zip out.zip a b | Sample: ",
+  sample_usage: "zip out.zip a b",
+  sample_output: "",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/zip"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

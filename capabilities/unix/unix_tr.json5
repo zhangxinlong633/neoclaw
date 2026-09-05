@@ -1,0 +1,15 @@
+{
+  name: "unix_tr",
+  description: "Translate or delete characters.",
+  when: ["Need character mapping"],
+  when_not: ["Pipelines limited"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: tr a-z A-Z | Sample: HELLO",
+  sample_usage: "tr a-z A-Z",
+  sample_output: "HELLO",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/tr"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

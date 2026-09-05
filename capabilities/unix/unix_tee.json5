@@ -1,0 +1,15 @@
+{
+  name: "unix_tee",
+  description: "Copy stdin to files and stdout.",
+  when: ["Need tee write"],
+  when_not: ["Writes; keep disabled", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "text", "dangerous"],
+  outcome: "Usage: tee out.txt | Sample: ...",
+  sample_usage: "tee out.txt",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/tee"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

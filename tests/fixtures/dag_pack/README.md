@@ -1,6 +1,6 @@
 # tests/fixtures/dag_pack/
 
-用于验证 `workflow_directory` 加载路径的 DAG 包，目录布局与仓库根 `dags/` 对齐。
+用于验证 `workflow_directory` 加载路径的 DAG 包。夹具使用扁平 `library/`；**生产示例包**见仓库根 [`dags/README.md`](../../dags/README.md)（`baseline/`、`workspace/` 等直接挂在包根下）。
 
 ## 子目录
 

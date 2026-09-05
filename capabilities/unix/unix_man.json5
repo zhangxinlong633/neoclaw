@@ -1,0 +1,15 @@
+{
+  name: "unix_man",
+  description: "Display manuals (pager).",
+  when: ["Need man page"],
+  when_not: ["Interactive; keep disabled", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "util", "dangerous"],
+  outcome: "Usage: man ls | Sample: ...",
+  sample_usage: "man ls",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/man"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

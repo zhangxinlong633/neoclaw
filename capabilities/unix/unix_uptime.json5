@@ -1,0 +1,15 @@
+{
+  name: "unix_uptime",
+  description: "Print uptime and load averages.",
+  when: ["Need load/uptime snapshot"],
+  when_not: ["Not a profiler"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: uptime | Sample: up 3 days, ...",
+  sample_usage: "uptime",
+  sample_output: "up 3 days, ...",
+  argv: ["/usr/bin/uptime"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

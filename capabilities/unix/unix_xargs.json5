@@ -1,0 +1,15 @@
+{
+  name: "unix_xargs",
+  description: "Build command lines from stdin.",
+  when: ["Need xargs"],
+  when_not: ["Injection risk", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "util", "dangerous"],
+  outcome: "Usage: xargs | Sample: ",
+  sample_usage: "xargs",
+  sample_output: "",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/xargs"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

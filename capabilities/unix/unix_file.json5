@@ -1,0 +1,15 @@
+{
+  name: "unix_file",
+  description: "Guess file type of a relative path.",
+  when: ["Need type guess"],
+  when_not: ["Not a security scanner"],
+  tags: ["unix", "fs", "safeish"],
+  outcome: "Usage: file README.md | Sample: UTF-8 text",
+  sample_usage: "file README.md",
+  sample_output: "UTF-8 text",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/file"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

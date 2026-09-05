@@ -1,0 +1,15 @@
+{
+  name: "unix_iconv",
+  description: "Convert character encodings.",
+  when: ["Need encoding conversion"],
+  when_not: ["Need correct from/to"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: iconv -f utf-8 -t utf-8 file | Sample: ...",
+  sample_usage: "iconv -f utf-8 -t utf-8 file",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/iconv"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

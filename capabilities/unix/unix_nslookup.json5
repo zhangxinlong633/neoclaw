@@ -1,0 +1,15 @@
+{
+  name: "unix_nslookup",
+  description: "DNS query utility.",
+  when: ["Need nslookup"],
+  when_not: ["Prefer dig/host", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "net", "dangerous"],
+  outcome: "Usage: nslookup example.com | Sample: ...",
+  sample_usage: "nslookup example.com",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/nslookup"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

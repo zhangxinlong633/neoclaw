@@ -12,8 +12,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define CAP_DIR_MAX_COMMANDS 32
+#define CAP_DIR_MAX_COMMANDS 128
 #define CAP_DIR_MAX_ARGV 16
+#define CAP_DIR_MAX_ENABLED 128
 
 static char *dup_s(const char *s) {
   size_t n;
@@ -270,30 +271,143 @@ static int load_one_file(agent_config_t *conf, const char *path) {
   return 0;
 }
 
+/* 读取子目录 enabled.json5：若存在则仅装载 load[] 中列出的能力名（与文件名茎一致）。 */
+static int read_enabled_names(const char *dir_abs, char ***names, int *n_out) {
+  char path[PATH_MAX];
+  yyjson_doc *doc;
+  yyjson_val *root, *load;
+  yyjson_read_err err;
+  size_t i, n;
+  char **a;
+
+  *names = NULL;
+  *n_out = 0;
+  if (snprintf(path, sizeof(path), "%s/enabled.json5", dir_abs) >= (int)sizeof(path)) return -1;
+  if (access(path, R_OK) != 0) return 0; /* 无白名单文件 → 全量加载 */
+
+  doc = yyjson_read_file(path, YYJSON_READ_JSON5, NULL, &err);
+  if (!doc) {
+    fprintf(stderr, "neo: capability dir: bad enabled.json5 in %s\n", dir_abs);
+    return -1;
+  }
+  root = yyjson_doc_get_root(doc);
+  if (!yyjson_is_obj(root)) {
+    yyjson_doc_free(doc);
+    fprintf(stderr, "neo: capability dir: enabled.json5 must be object\n");
+    return -1;
+  }
+  load = yyjson_obj_get(root, "load");
+  if (!yyjson_is_arr(load)) {
+    yyjson_doc_free(doc);
+    fprintf(stderr, "neo: capability dir: enabled.json5.load must be array\n");
+    return -1;
+  }
+  n = yyjson_arr_size(load);
+  if ((int)n > CAP_DIR_MAX_ENABLED) {
+    yyjson_doc_free(doc);
+    fprintf(stderr, "neo: capability dir: enabled.json5.load too long\n");
+    return -1;
+  }
+  a = calloc(n ? n : 1, sizeof(char *));
+  if (!a) {
+    yyjson_doc_free(doc);
+    return -1;
+  }
+  for (i = 0; i < n; i++) {
+    yyjson_val *el = yyjson_arr_get(load, i);
+    if (!yyjson_is_str(el) || !yyjson_get_str(el) || !yyjson_get_str(el)[0]) {
+      size_t j;
+      for (j = 0; j < i; j++) free(a[j]);
+      free(a);
+      yyjson_doc_free(doc);
+      fprintf(stderr, "neo: capability dir: bad enabled.json5.load entry\n");
+      return -1;
+    }
+    a[i] = dup_s(yyjson_get_str(el));
+    if (!a[i]) {
+      size_t j;
+      for (j = 0; j < i; j++) free(a[j]);
+      free(a);
+      yyjson_doc_free(doc);
+      return -1;
+    }
+  }
+  yyjson_doc_free(doc);
+  *names = a;
+  *n_out = (int)n;
+  return 0;
+}
+
+static int name_in_enabled(char **names, int n, const char *stem) {
+  int i;
+  if (!names || n <= 0) return 1; /* 无白名单则放行 */
+  for (i = 0; i < n; i++) {
+    if (names[i] && strcmp(names[i], stem) == 0) return 1;
+  }
+  return 0;
+}
+
+static void free_names(char **names, int n) {
+  int i;
+  if (!names) return;
+  for (i = 0; i < n; i++) free(names[i]);
+  free(names);
+}
+
+/* 从路径取文件名茎：foo/bar/unix_wc.json5 → unix_wc */
+static int file_stem(const char *path, char *out, size_t out_sz) {
+  const char *base, *dot;
+  size_t n;
+  if (!path || !out || out_sz < 2) return -1;
+  base = strrchr(path, '/');
+  base = base ? base + 1 : path;
+  dot = strrchr(base, '.');
+  if (!dot || dot == base) return -1;
+  n = (size_t)(dot - base);
+  if (n + 1 > out_sz) return -1;
+  memcpy(out, base, n);
+  out[n] = '\0';
+  return 0;
+}
+
 static int load_subdir(agent_config_t *conf, const char *dir_abs) {
   DIR *d;
   struct dirent *de;
+  char **enabled = NULL;
+  int enabled_n = 0;
+
+  /* 若存在 enabled.json5，则只装载其中列出的能力定义（其余 json5 保留作目录内参考，不进矩阵）。 */
+  if (read_enabled_names(dir_abs, &enabled, &enabled_n) != 0) return -1;
+
   d = opendir(dir_abs);
   if (!d) {
+    free_names(enabled, enabled_n);
     fprintf(stderr, "neo: capability dir: cannot open %s: %s\n", dir_abs, strerror(errno));
     return -1;
   }
   while ((de = readdir(d)) != NULL) {
     char path[PATH_MAX];
+    char stem[128];
     struct stat st;
     if (de->d_name[0] == '.') continue;
+    if (strcmp(de->d_name, "enabled.json5") == 0 || strcmp(de->d_name, "enabled.json") == 0) continue;
     if (!ends_with(de->d_name, ".json5") && !ends_with(de->d_name, ".json")) continue;
     if (snprintf(path, sizeof(path), "%s/%s", dir_abs, de->d_name) >= (int)sizeof(path)) {
       closedir(d);
+      free_names(enabled, enabled_n);
       return -1;
     }
     if (stat(path, &st) != 0 || !S_ISREG(st.st_mode)) continue;
+    if (file_stem(path, stem, sizeof(stem)) != 0) continue;
+    if (!name_in_enabled(enabled, enabled_n, stem)) continue;
     if (load_one_file(conf, path) != 0) {
       closedir(d);
+      free_names(enabled, enabled_n);
       return -1;
     }
   }
   closedir(d);
+  free_names(enabled, enabled_n);
   return 0;
 }
 
@@ -471,7 +585,7 @@ char *capability_dir_proposed_subdir(const agent_config_t *conf) {
 }
 
 int capability_dir_propose(const agent_config_t *conf, const char *args_json, char **out_text) {
-  /* 方案 A：只写 proposed/<name>.json5，不 append 进当前矩阵；提示用户挪到 commands/ 后重启。 */
+  /* 方案 A：只写 proposed/<name>.json5，不 append 进当前矩阵；提示挪到 load[] 场景子目录后重启。 */
   yyjson_doc *doc;
   yyjson_val *root, *argv, *params, *v;
   const char *name, *desc;
@@ -650,8 +764,8 @@ int capability_dir_propose(const agent_config_t *conf, const char *args_json, ch
 
   snprintf(rel_out, sizeof(rel_out), "%s/%s/%s.json5", conf->tools.directory, proposed_sub, name);
   snprintf(msg, sizeof(msg),
-           "proposed: %s\nNot loaded this session. Move into a load[] subdir (e.g. commands/) "
-           "and restart neo to enable.",
+           "proposed: %s\nNot loaded this session. Move into a load[] scenario subdir "
+           "(e.g. local/) and restart neo to enable.",
            rel_out);
   free(proposed_sub);
   *out_text = dup_s(msg);

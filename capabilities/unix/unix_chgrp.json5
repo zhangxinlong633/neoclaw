@@ -1,0 +1,15 @@
+{
+  name: "unix_chgrp",
+  description: "Change file group.",
+  when: ["Need chgrp"],
+  when_not: ["Keep disabled", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "perm", "dangerous"],
+  outcome: "Usage: chgrp staff file | Sample: ",
+  sample_usage: "chgrp staff file",
+  sample_output: "",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/chgrp"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

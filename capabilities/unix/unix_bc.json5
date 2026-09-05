@@ -1,0 +1,15 @@
+{
+  name: "unix_bc",
+  description: "Arbitrary-precision calculator.",
+  when: ["Need calculator"],
+  when_not: ["Interactive awkward"],
+  tags: ["unix", "util", "safeish"],
+  outcome: "Usage: echo 2+2 | bc | Sample: 4",
+  sample_usage: "echo 2+2 | bc",
+  sample_output: "4",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/bc"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

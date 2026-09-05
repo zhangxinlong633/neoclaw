@@ -1,0 +1,15 @@
+{
+  name: "unix_base64",
+  description: "Base64 encode/decode.",
+  when: ["Need base64"],
+  when_not: ["Watch output size"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: base64 README.md | Sample: IyBOZW8K...",
+  sample_usage: "base64 README.md",
+  sample_output: "IyBOZW8K...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/base64"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

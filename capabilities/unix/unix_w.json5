@@ -1,0 +1,15 @@
+{
+  name: "unix_w",
+  description: "Show who is logged on and activity.",
+  when: ["Need w(1)"],
+  when_not: ["Noisy"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: w | Sample: ...",
+  sample_usage: "w",
+  sample_output: "...",
+  argv: ["/usr/bin/w"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

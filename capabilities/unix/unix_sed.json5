@@ -1,0 +1,15 @@
+{
+  name: "unix_sed",
+  description: "Stream editor.",
+  when: ["Need sed on a relative file"],
+  when_not: ["Easy to get wrong"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: sed -n 1,5p README.md | Sample: lines...",
+  sample_usage: "sed -n 1,5p README.md",
+  sample_output: "lines...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/sed"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

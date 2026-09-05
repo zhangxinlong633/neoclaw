@@ -1,0 +1,15 @@
+{
+  name: "unix_groups",
+  description: "Print group memberships.",
+  when: ["Need groups list"],
+  when_not: ["Informational"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: groups | Sample: staff everyone",
+  sample_usage: "groups",
+  sample_output: "staff everyone",
+  argv: ["/usr/bin/groups"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

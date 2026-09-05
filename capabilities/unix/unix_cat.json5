@@ -1,0 +1,15 @@
+{
+  name: "unix_cat",
+  description: "Concatenate and print files.",
+  when: ["Need full small file dump"],
+  when_not: ["Prefer read_file for limits"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: cat small.txt | Sample: contents",
+  sample_usage: "cat small.txt",
+  sample_output: "contents",
+  argv: ["./scripts/tools/unix-exec.sh", "/bin/cat"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

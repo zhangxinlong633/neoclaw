@@ -1,0 +1,15 @@
+{
+  name: "unix_sw_vers",
+  description: "Print macOS product version.",
+  when: ["Need macOS version"],
+  when_not: ["Not on Linux"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: sw_vers | Sample: ProductName: macOS",
+  sample_usage: "sw_vers",
+  sample_output: "ProductName: macOS",
+  argv: ["/usr/bin/sw_vers"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

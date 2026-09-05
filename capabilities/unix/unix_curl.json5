@@ -1,0 +1,15 @@
+{
+  name: "unix_curl",
+  description: "Transfer URLs (prefer http_get).",
+  when: ["Need curl options"],
+  when_not: ["Prefer http_get", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "net", "dangerous"],
+  outcome: "Usage: curl -I https://example.com | Sample: HTTP/2 200",
+  sample_usage: "curl -I https://example.com",
+  sample_output: "HTTP/2 200",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/curl"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

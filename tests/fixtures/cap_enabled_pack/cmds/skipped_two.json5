@@ -1,0 +1,7 @@
+{
+  name: "skipped_two",
+  description: "not loaded",
+  argv: ["/usr/bin/true"],
+  pass_args: "env",
+  parameters: { type: "object", properties: {} },
+}

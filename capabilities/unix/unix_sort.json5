@@ -1,0 +1,15 @@
+{
+  name: "unix_sort",
+  description: "Sort lines of files.",
+  when: ["Need sorted lines"],
+  when_not: ["Memory-bound on huge inputs"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: sort names.txt | Sample: a b c",
+  sample_usage: "sort names.txt",
+  sample_output: "a b c",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/sort"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

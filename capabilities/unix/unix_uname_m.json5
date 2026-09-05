@@ -1,0 +1,15 @@
+{
+  name: "unix_uname_m",
+  description: "Print machine hardware name (uname -m).",
+  when: ["Need machine hardware name"],
+  when_not: ["Similar to arch"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: uname -m | Sample: arm64",
+  sample_usage: "uname -m",
+  sample_output: "arm64",
+  argv: ["/usr/bin/uname", "-m"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

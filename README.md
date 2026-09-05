@@ -90,8 +90,8 @@ cp config/config.json5.example config/config.json5
 |------|------|
 | `src/` | C 源码（`cli` / `core` / `llm` / `capability` / `workflow` / `vendor`）；对象文件在 `build/` |
 | `config/` | 默认配置示例与 profiles |
-| `capabilities/` | 能力目录包（一能力一文件） |
-| `dags/` | DAG 目录包（一图一文件） |
+| `capabilities/` | 能力目录包（`local/`、`git/`、`unix/` 等；见目录 README） |
+| `dags/` | DAG 目录包（`baseline/`、`workspace/` 等场景子目录；见目录 README） |
 | `rules/` | claw Rules：身份、领域必引数据、答法手册 |
 | `docs/` | 用户文档与架构说明（含 `architecture.md`、`applications.md`） |
 | `tests/` | 单元测试与 CLI 冒烟；夹具在 `fixtures/` |

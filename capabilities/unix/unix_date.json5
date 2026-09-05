@@ -1,0 +1,15 @@
+{
+  name: "unix_date",
+  description: "Print local date/time.",
+  when: ["Need local wall clock"],
+  when_not: ["Prefer date_iso for UTC ISO"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: date | Sample: Sat Sep 5 ...",
+  sample_usage: "date",
+  sample_output: "Sat Sep 5 ...",
+  argv: ["/bin/date"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

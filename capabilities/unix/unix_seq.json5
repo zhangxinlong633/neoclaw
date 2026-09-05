@@ -1,0 +1,15 @@
+{
+  name: "unix_seq",
+  description: "Print a sequence of numbers.",
+  when: ["Need numeric sequences"],
+  when_not: ["Avoid huge ranges"],
+  tags: ["unix", "util", "safeish"],
+  outcome: "Usage: seq 1 3 | Sample: 1 2 3",
+  sample_usage: "seq 1 3",
+  sample_output: "1 2 3",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/seq"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

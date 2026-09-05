@@ -1,0 +1,15 @@
+{
+  name: "unix_users",
+  description: "Print users currently logged in.",
+  when: ["Need logged-in users"],
+  when_not: ["May be empty"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: users | Sample: user",
+  sample_usage: "users",
+  sample_output: "user",
+  argv: ["/usr/bin/users"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

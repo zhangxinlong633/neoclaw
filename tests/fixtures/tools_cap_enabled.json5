@@ -1,0 +1,8 @@
+{
+  model: { base_url: "http://127.0.0.1:9/v1", name: "x", api_key: "x" },
+  capability_matrix: {
+    enabled: true,
+    root: ".",
+    directory: "tests/fixtures/cap_enabled_pack",
+  },
+}

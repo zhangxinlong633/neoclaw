@@ -1,0 +1,15 @@
+{
+  name: "unix_tty",
+  description: "Print the terminal device name.",
+  when: ["Need tty path"],
+  when_not: ["May fail when not a tty"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: tty | Sample: not a tty",
+  sample_usage: "tty",
+  sample_output: "not a tty",
+  argv: ["/usr/bin/tty"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

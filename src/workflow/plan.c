@@ -18,6 +18,64 @@ static yyjson_mut_val *mut_str(yyjson_mut_doc *doc, const char *s) {
   return yyjson_mut_str(doc, s ? s : "");
 }
 
+/* 名称是否在能力矩阵中（builtin / command / MCP），用于纠正模型把 tool 名写进 use 的情况。 */
+static int plan_name_is_capability(const agent_config_t *conf, const char *name) {
+  capability_matrix_t mx;
+  const cap_row_t *row;
+  int ok = 0;
+  if (!conf || !name || !name[0] || !conf->tools.enabled) return 0;
+  capability_matrix_init(&mx);
+  if (capability_matrix_build_from_config(&mx, conf) != 0) {
+    capability_matrix_free(&mx);
+    return 0;
+  }
+  row = capability_matrix_find(&mx, name);
+  ok = row != NULL;
+  capability_matrix_free(&mx);
+  return ok;
+}
+
+/* 把误放入 use 的能力名降级成单图多 tool 步，供 materialize / 执行。调用方 free。 */
+static char *plan_workflows_json_for_tools(char **names, int n) {
+  yyjson_mut_doc *doc;
+  yyjson_mut_val *root, *wfs, *wf, *steps, *st, *deps;
+  char *out;
+  int i;
+  char idbuf[32];
+  if (!names || n < 1) return NULL;
+  doc = yyjson_mut_doc_new(NULL);
+  if (!doc) return NULL;
+  root = yyjson_mut_obj(doc);
+  yyjson_mut_doc_set_root(doc, root);
+  wfs = yyjson_mut_arr(doc);
+  yyjson_mut_obj_add_val(doc, root, "workflows", wfs);
+  wf = yyjson_mut_obj(doc);
+  yyjson_mut_arr_add_val(wfs, wf);
+  yyjson_mut_obj_add_strcpy(doc, wf, "name", "adhoc_tools");
+  yyjson_mut_obj_add_strcpy(doc, wf, "description", "Ad-hoc tool steps synthesized from capability names");
+  steps = yyjson_mut_arr(doc);
+  yyjson_mut_obj_add_val(doc, wf, "steps", steps);
+  for (i = 0; i < n; i++) {
+    st = yyjson_mut_obj(doc);
+    yyjson_mut_arr_add_val(steps, st);
+    snprintf(idbuf, sizeof(idbuf), "t%d", i);
+    yyjson_mut_obj_add_strcpy(doc, st, "id", idbuf);
+    yyjson_mut_obj_add_strcpy(doc, st, "type", "tool");
+    yyjson_mut_obj_add_strcpy(doc, st, "tool", names[i] ? names[i] : "");
+    yyjson_mut_obj_add_val(doc, st, "args", yyjson_mut_obj(doc));
+    if (i > 0) {
+      char prev[32];
+      snprintf(prev, sizeof(prev), "t%d", i - 1);
+      deps = yyjson_mut_arr(doc);
+      yyjson_mut_arr_add_strcpy(doc, deps, prev);
+      yyjson_mut_obj_add_val(doc, st, "depends_on", deps);
+    }
+  }
+  out = yyjson_mut_write(doc, 0, NULL);
+  yyjson_mut_doc_free(doc);
+  return out;
+}
+
 int plan_extract_workflows_json(const char *llm_text, char **out_json) {
   const char *p, *start = NULL, *end = NULL;
   char *slice = NULL;
@@ -224,6 +282,9 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "- Prefer selecting an existing DAG from the catalog below when it fits.\n"
       "- Selection output (preferred):\n```json\n{\"use\":[\"catalog_name\"]}\n```\n"
       "  (\"use\" may also be a single string.)\n"
+      "- CRITICAL: names in \"use\" MUST be DAG catalog names only. "
+      "Never put Capability Matrix tool names (e.g. date_iso, read_file, unix_wc) in \"use\". "
+      "Those belong only in invented steps with \"type\":\"tool\" and a \"tool\" field.\n"
       "- Only invent a full workflows array if no catalog entry fits.\n"
       "- Topology is fixed after you emit it; workers do not replan.\n"
       "- When inventing: use steps with id, type, depends_on, and type-specific fields.\n"
@@ -242,6 +303,9 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "  Do not invent implement/write_file/coding work. Do not pad knowledge "
       "graphs to %d with fake engineering roles. If soft target is 1, emit a "
       "single llm step only.\n"
+      "- For tiny factual probes answerable by one allowlisted tool (time, hostname, "
+      "pwd, short git status): invent a 1-step {\"type\":\"tool\"} workflow "
+      "(or pick a matching catalog DAG). Do not emit {\"use\":[\"tool_name\"]}.\n"
       "- engineering tasks (implement, fix bugs, write/edit files, scripts, "
       "multi-tool pipelines, build features): use a small software R&D team "
       "pipeline scaled to about %d steps.\n"
@@ -286,8 +350,8 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
     }
   }
   n += (size_t)snprintf(s + n, cap - n,
-                        "\nAllowed capabilities (Capability Matrix — use these exact names in type:tool "
-                        "steps):\n");
+                        "\nAllowed capabilities (Capability Matrix — NEVER put these names in \"use\"; "
+                        "only in type:tool steps as the \"tool\" field):\n");
   if (conf && conf->tools.enabled) {
     capability_matrix_t mx;
     char *listing;
@@ -488,14 +552,15 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
   steps = plan_resolve_target_steps(conf, target_steps);
   sys = plan_build_system_prompt(conf, steps);
   if (!sys) return -1;
-  user = malloc(strlen(task) + 128);
+  user = malloc(strlen(task) + 256);
   if (!user) {
     free(sys);
     return -1;
   }
-  snprintf(user, strlen(task) + 128,
-           "Task:\n%s\n\nPrefer {\"use\":[\"catalog_name\"]} if a catalog DAG fits; "
-           "otherwise emit workflows JSON.",
+  snprintf(user, strlen(task) + 256,
+           "Task:\n%s\n\nPrefer {\"use\":[\"catalog_DAG_name\"]} only for names listed in the "
+           "DAG catalog. Capability/tool names must NOT appear in \"use\"; put them in "
+           "invented type:tool steps instead. If no catalog DAG fits, emit workflows JSON.",
            task);
   if (debug) {
     fprintf(stderr, "neo %s: calling LLM to build DAG...\n", do_run ? "run" : "plan");
@@ -518,17 +583,48 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
     int use_n = 0;
     if (plan_extract_use(resp.data ? resp.data : "", &use_names, &use_n) == 0 && use_n > 0) {
       int ui;
+      int n_wf = 0, n_cap = 0, n_bad = 0;
       yyjson_mut_doc *mdoc;
       yyjson_mut_val *mroot, *marr;
       char *use_json = NULL;
       llm_response_free(&resp);
       for (ui = 0; ui < use_n; ui++) {
-        if (!config_find_workflow(conf, use_names[ui])) {
-          fprintf(stderr, "neo %s: unknown catalog DAG '%s'\n", do_run ? "run" : "plan",
-                  use_names[ui]);
-          plan_free_use(use_names, use_n);
-          return -1;
+        if (config_find_workflow(conf, use_names[ui]))
+          n_wf++;
+        else if (plan_name_is_capability(conf, use_names[ui]))
+          n_cap++;
+        else
+          n_bad++;
+      }
+      if (n_bad > 0) {
+        for (ui = 0; ui < use_n; ui++) {
+          if (!config_find_workflow(conf, use_names[ui]) &&
+              !plan_name_is_capability(conf, use_names[ui])) {
+            fprintf(stderr, "neo %s: unknown catalog DAG '%s'\n", do_run ? "run" : "plan",
+                    use_names[ui]);
+          }
         }
+        plan_free_use(use_names, use_n);
+        return -1;
+      }
+      /* 模型把能力名误写入 use：降级为单图 tool 步，走现编 materialize 路径。 */
+      if (n_cap > 0 && n_wf == 0) {
+        json = plan_workflows_json_for_tools(use_names, use_n);
+        plan_free_use(use_names, use_n);
+        if (!json) return -1;
+        fprintf(stderr,
+                "neo %s: treating capability name(s) in \"use\" as ad-hoc tool workflow "
+                "(prefer catalog DAG or type:tool invent next time)\n",
+                do_run ? "run" : "plan");
+        goto materialize_from_json;
+      }
+      if (n_cap > 0 && n_wf > 0) {
+        fprintf(stderr,
+                "neo %s: \"use\" mixes catalog DAGs and capability names; "
+                "emit separate catalog use or type:tool invent instead\n",
+                do_run ? "run" : "plan");
+        plan_free_use(use_names, use_n);
+        return -1;
       }
       mdoc = yyjson_mut_doc_new(NULL);
       mroot = yyjson_mut_obj(mdoc);
@@ -595,6 +691,8 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
     return -1;
   }
   llm_response_free(&resp);
+
+materialize_from_json:
 
   if (!quiet_plan) {
     fputs(json, stdout);

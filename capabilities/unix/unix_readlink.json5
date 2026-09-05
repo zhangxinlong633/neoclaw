@@ -1,0 +1,15 @@
+{
+  name: "unix_readlink",
+  description: "Display symlink value.",
+  when: ["Need symlink target"],
+  when_not: ["Fails on non-symlinks"],
+  tags: ["unix", "fs", "safeish"],
+  outcome: "Usage: readlink link | Sample: ../foo",
+  sample_usage: "readlink link",
+  sample_output: "../foo",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/readlink"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

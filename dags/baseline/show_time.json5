@@ -1,0 +1,23 @@
+{
+  name: "show_time",
+  description: "Print the current UTC time as an ISO-8601 timestamp via date_iso.",
+  when: [
+    "User asks for the current time or date",
+    "系统时间 / 几点了 / wall-clock UTC stamp",
+  ],
+  when_not: [
+    "Timezone conversion beyond UTC",
+    "Scheduling or calendar layout (prefer unix_cal if enabled)",
+  ],
+  tags: ["time", "system", "baseline"],
+  requires: ["date_iso"],
+  outcome: "Single line like 2026-09-05T13:51:00Z",
+  steps: [
+    {
+      id: "t",
+      type: "tool",
+      tool: "date_iso",
+      args: {},
+    },
+  ],
+}

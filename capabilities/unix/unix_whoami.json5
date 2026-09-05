@@ -1,0 +1,15 @@
+{
+  name: "unix_whoami",
+  description: "Print the effective username.",
+  when: ["Need current user name"],
+  when_not: ["Do not use for authorization alone"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: whoami | Sample: user",
+  sample_usage: "whoami",
+  sample_output: "user",
+  argv: ["/usr/bin/whoami"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

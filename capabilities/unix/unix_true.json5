@@ -1,0 +1,15 @@
+{
+  name: "unix_true",
+  description: "Exit successfully with no output.",
+  when: ["Need a no-op success probe"],
+  when_not: ["Do not use for real work"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: true | Sample: (empty; exit 0)",
+  sample_usage: "true",
+  sample_output: "(empty; exit 0)",
+  argv: ["/usr/bin/true"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

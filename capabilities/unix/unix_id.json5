@@ -1,0 +1,15 @@
+{
+  name: "unix_id",
+  description: "Print user and group IDs.",
+  when: ["Need uid/gid summary"],
+  when_not: ["Do not modify credentials"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: id | Sample: uid=501(...)",
+  sample_usage: "id",
+  sample_output: "uid=501(...)",
+  argv: ["/usr/bin/id"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

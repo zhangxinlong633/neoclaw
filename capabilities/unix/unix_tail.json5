@@ -1,0 +1,15 @@
+{
+  name: "unix_tail",
+  description: "Print last lines of a file.",
+  when: ["Need file suffix"],
+  when_not: ["Avoid -f follow"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: tail -n 5 README.md | Sample: last lines",
+  sample_usage: "tail -n 5 README.md",
+  sample_output: "last lines",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/tail"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

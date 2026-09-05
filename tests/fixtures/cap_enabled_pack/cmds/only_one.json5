@@ -1,0 +1,7 @@
+{
+  name: "only_one",
+  description: "loaded",
+  argv: ["/usr/bin/true"],
+  pass_args: "env",
+  parameters: { type: "object", properties: {} },
+}

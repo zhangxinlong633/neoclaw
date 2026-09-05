@@ -1,6 +1,6 @@
 # tests/fixtures/cap_pack/
 
-用于验证 `capability_matrix.directory` 加载路径的能力包，目录布局与仓库根 `capabilities/` 对齐。
+用于验证 `capability_matrix.directory` 加载路径的能力包。夹具使用扁平 `commands/`（无场景分层），以便单测简单；**生产示例包**见仓库根 [`capabilities/README.md`](../../capabilities/README.md)（`local/`、`git/` 等直接挂在包根下）。
 
 ## 子目录
 

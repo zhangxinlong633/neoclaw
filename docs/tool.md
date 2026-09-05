@@ -88,13 +88,18 @@ capability_matrix: {
 
 ```
 capabilities/
-  manifest.json5          # load: ["commands"], proposed: "proposed"
-  commands/echo_args.json5
-  proposed/               # propose_capability 写出草稿；默认不加载
+  manifest.json5       # load: ["local", "git", "unix"]；不递归
+  local/*.json5        # 本机轻处理
+  git/*.json5          # 仓库探针
+  unix/                # Unix 工具集：全量 unix_*.json5 + enabled.json5 白名单 + CATALOG.md
+  industry/            # 预留；默认不在 load 中
+  proposed/            # propose_capability 草稿；默认不加载
 ```
 
-- **`propose_capability`**：仅当配置了 `directory` 时出现在矩阵中。把新能力写到 `proposed/`，**当轮不生效**；把文件移到 `commands/`（或其它 `load` 子目录）并重启 `neo` 后可用。
+- **`propose_capability`**：仅当配置了 `directory` 时出现在矩阵中。把新能力写到 `proposed/`，**当轮不生效**；移到已列入 `load` 的场景子目录（如 `local/`）并重启 `neo` 后可用。
+- 场景目录内若存在 **`enabled.json5`**（`{ load: ["cap_name", ...] }`），则只装载名单中的能力定义；文件名茎须与能力 `name` 一致。用于 `unix/` 这类「百余定义、只启用二三十个」的包。
 - 内联 `commands` 与目录加载可并存；重名会报错。
+- 场景分层与应用定位见 [`applications.md`](applications.md)；目录契约见 [`capabilities/README.md`](../capabilities/README.md)。
 
 ### 1.5 `capability_matrix.commands`（自定义命令工具）
 
@@ -123,7 +128,7 @@ capabilities/
 - 读写类 builtin（`read_file` 等）仍只允许相对 root 的路径。
 - `pass_args: stdin_json`：arguments JSON 写入子进程 stdin；`pass_args: env`：写入 `NEO_TOOL_ARGS`。`NEO_TOOL_NAME` 始终设置。
 - 非 0 退出码：结果前缀 `EXIT:<code>\n`。
-- 仓库示例能力包：`capabilities/commands/`（需配置 `capability_matrix.directory`）。
+- 仓库示例能力包：`capabilities/{local,git,unix}/`（`unix/` 另见 `enabled.json5`）。
 
 ---
 

@@ -1,0 +1,15 @@
+{
+  name: "unix_arch",
+  description: "Print machine architecture.",
+  when: ["Need cpu arch string"],
+  when_not: ["Do not confuse with OS version"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: arch | Sample: arm64",
+  sample_usage: "arch",
+  sample_output: "arm64",
+  argv: ["/usr/bin/arch"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

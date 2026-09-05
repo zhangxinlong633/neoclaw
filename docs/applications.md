@@ -134,10 +134,11 @@ Neo 的差异化不在于追求单一场景下的模型上限，而在于：
 
 | 场景层次 | 与现行仓库的相关性 | 主要依托 |
 |----------|--------------------|----------|
-| 基础层：多步骤确定性任务 | 高 | `workflow`、`dags/`、`neo plan` / `neo run` |
-| 基础层：工具工程化 | 高 | `capability_matrix`、`capabilities/`、MCP |
-| 基础层：成本与时延优化 | 中（部分） | 本机工具 + 远端模型；计算漂移为路线图 |
-| 行业层：边缘 / 具身 / 物联网 | 低至中（方向正确，部署形态未完备） | 架构目标见 [`architecture.md`](architecture.md) 第 4 章 |
+| 基础层：多步骤确定性任务 | 高 | `dags/baseline/`、`neo plan` / `neo run` |
+| 基础层：工作区旁路助手 | 高 | `dags/workspace/` |
+| 基础层：工具工程化 | 高 | `capability_matrix`、`capabilities/git/`、`capabilities/unix/`（白名单）、MCP |
+| 基础层：成本与时延优化 | 中（部分） | `capabilities/local/` + 远端模型；计算漂移为路线图 |
+| 行业层：边缘 / 具身 / 物联网 | 低（方向正确） | 预留 `capabilities/industry/`、`dags/edge/`（默认不加载）；架构见 [`architecture.md`](architecture.md) |
 | 未来层：操作系统化 / 分发标准 | 愿景 | 非现行交付范围 |
 
 ---
@@ -148,7 +149,9 @@ Neo 的差异化不在于追求单一场景下的模型上限，而在于：
 |------|------|
 | [`architecture.md`](architecture.md) | 目标架构、成熟度与路线图 |
 | [`tool.md`](tool.md) | 能力矩阵与工具 |
+| [`../capabilities/README.md`](../capabilities/README.md) | 能力目录场景分层契约 |
 | [`workflow.md`](workflow.md) | DAG 与规划执行 |
+| [`../dags/README.md`](../dags/README.md) | DAG 目录场景分层契约 |
 | [`claw.md`](claw.md) | 身份、规则与记忆 |
 | [`README.md`](../README.md) | 产品概述 |
 | [`AGENTS.md`](../AGENTS.md) | 开发约束与非目标 |

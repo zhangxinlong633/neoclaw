@@ -1,0 +1,15 @@
+{
+  name: "unix_tar",
+  description: "Tape archive create/extract.",
+  when: ["Need archive ops"],
+  when_not: ["Can overwrite trees", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "archive", "dangerous"],
+  outcome: "Usage: tar -tf a.tar | Sample: file1",
+  sample_usage: "tar -tf a.tar",
+  sample_output: "file1",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/tar"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

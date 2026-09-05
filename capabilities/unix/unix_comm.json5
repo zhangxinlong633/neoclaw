@@ -1,0 +1,15 @@
+{
+  name: "unix_comm",
+  description: "Compare two sorted files.",
+  when: ["Need set-like compare"],
+  when_not: ["Inputs must be sorted"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: comm a b | Sample: ...",
+  sample_usage: "comm a b",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/comm"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

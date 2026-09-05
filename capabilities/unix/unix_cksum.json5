@@ -1,0 +1,15 @@
+{
+  name: "unix_cksum",
+  description: "POSIX checksum and byte count.",
+  when: ["Need cksum"],
+  when_not: ["Weaker than sha256"],
+  tags: ["unix", "hash", "safeish"],
+  outcome: "Usage: cksum README.md | Sample: 123 456 README.md",
+  sample_usage: "cksum README.md",
+  sample_output: "123 456 README.md",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/cksum"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

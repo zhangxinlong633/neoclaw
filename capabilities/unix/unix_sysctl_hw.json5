@@ -1,0 +1,15 @@
+{
+  name: "unix_sysctl_hw",
+  description: "Read kernel state (e.g. hw.ncpu).",
+  when: ["Need sysctl read"],
+  when_not: ["Avoid privileged writes"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: sysctl hw.ncpu | Sample: hw.ncpu: 8",
+  sample_usage: "sysctl hw.ncpu",
+  sample_output: "hw.ncpu: 8",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/sbin/sysctl"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

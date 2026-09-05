@@ -1,0 +1,15 @@
+{
+  name: "unix_paste",
+  description: "Merge lines side by side.",
+  when: ["Need columnar merge"],
+  when_not: ["Not SQL join"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: paste a b | Sample: a1 b1",
+  sample_usage: "paste a b",
+  sample_output: "a1 b1",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/paste"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

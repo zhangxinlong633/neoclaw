@@ -1,0 +1,15 @@
+{
+  name: "unix_cal",
+  description: "Print a calendar for the current month.",
+  when: ["Need a month calendar"],
+  when_not: ["Not a scheduling DB"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: cal | Sample: September 2026",
+  sample_usage: "cal",
+  sample_output: "September 2026",
+  argv: ["/usr/bin/cal"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

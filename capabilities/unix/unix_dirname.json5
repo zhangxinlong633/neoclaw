@@ -1,0 +1,15 @@
+{
+  name: "unix_dirname",
+  description: "Strip last path component.",
+  when: ["Need parent directory string"],
+  when_not: ["Path need not exist"],
+  tags: ["unix", "fs", "safeish"],
+  outcome: "Usage: dirname a/b/c | Sample: a/b",
+  sample_usage: "dirname a/b/c",
+  sample_output: "a/b",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/dirname"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

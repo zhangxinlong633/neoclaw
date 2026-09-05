@@ -1,0 +1,15 @@
+{
+  name: "unix_strings",
+  description: "Extract printable strings.",
+  when: ["Need strings from binary"],
+  when_not: ["Not a secret scanner"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: strings bin | Sample: Hello",
+  sample_usage: "strings bin",
+  sample_output: "Hello",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/strings"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

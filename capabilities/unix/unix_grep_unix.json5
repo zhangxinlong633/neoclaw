@@ -1,0 +1,15 @@
+{
+  name: "unix_grep_unix",
+  description: "Search with regex (prefer builtin grep).",
+  when: ["Need grep binary features"],
+  when_not: ["Prefer builtin grep"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: grep pattern file | Sample: ...",
+  sample_usage: "grep pattern file",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/grep"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

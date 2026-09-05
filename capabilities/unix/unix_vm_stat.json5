@@ -1,0 +1,15 @@
+{
+  name: "unix_vm_stat",
+  description: "mach virtual memory statistics (macOS).",
+  when: ["Need VM stats on macOS"],
+  when_not: ["Not on Linux"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: vm_stat | Sample: Pages free: ...",
+  sample_usage: "vm_stat",
+  sample_output: "Pages free: ...",
+  argv: ["/usr/bin/vm_stat"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

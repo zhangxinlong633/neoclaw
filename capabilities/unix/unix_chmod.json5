@@ -1,0 +1,15 @@
+{
+  name: "unix_chmod",
+  description: "Change file modes.",
+  when: ["Need chmod"],
+  when_not: ["Mutates permissions", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "perm", "dangerous"],
+  outcome: "Usage: chmod 644 file | Sample: ",
+  sample_usage: "chmod 644 file",
+  sample_output: "",
+  argv: ["./scripts/tools/unix-exec.sh", "/bin/chmod"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

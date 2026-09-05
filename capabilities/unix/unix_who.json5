@@ -1,0 +1,15 @@
+{
+  name: "unix_who",
+  description: "Show who is logged on.",
+  when: ["Need who(1)"],
+  when_not: ["Informational"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: who | Sample: user console",
+  sample_usage: "who",
+  sample_output: "user console",
+  argv: ["/usr/bin/who"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

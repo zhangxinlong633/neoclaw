@@ -1,0 +1,15 @@
+{
+  name: "unix_bzip2",
+  description: "bzip2 compress.",
+  when: ["Need bzip2"],
+  when_not: ["Keep disabled", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "archive", "dangerous"],
+  outcome: "Usage: bzip2 -c file | Sample: ...",
+  sample_usage: "bzip2 -c file",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/bzip2"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

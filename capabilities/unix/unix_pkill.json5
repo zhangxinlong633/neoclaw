@@ -1,0 +1,15 @@
+{
+  name: "unix_pkill",
+  description: "Signal processes by name.",
+  when: ["Need name-based signals"],
+  when_not: ["Dangerous", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "process", "dangerous"],
+  outcome: "Usage: pkill -l | Sample: ",
+  sample_usage: "pkill -l",
+  sample_output: "",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/pkill"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

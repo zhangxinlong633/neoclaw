@@ -1,0 +1,15 @@
+{
+  name: "unix_expr",
+  description: "Evaluate expressions.",
+  when: ["Need simple arithmetic"],
+  when_not: ["Prefer host language"],
+  tags: ["unix", "util", "safeish"],
+  outcome: "Usage: expr 1 + 1 | Sample: 2",
+  sample_usage: "expr 1 + 1",
+  sample_output: "2",
+  argv: ["./scripts/tools/unix-exec.sh", "/bin/expr"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

@@ -8,7 +8,7 @@
 
 #define MAX_STR 512
 #define MAX_PATHS 32
-#define MAX_COMMANDS 32
+#define MAX_COMMANDS 128
 #define MAX_ARGV 16
 
 static char *dup_str(const char *s) {

@@ -1,0 +1,15 @@
+{
+  name: "unix_uname",
+  description: "Print system name via uname -a.",
+  when: ["Need kernel/OS identity"],
+  when_not: ["Prefer local uname_info"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: uname -a | Sample: Darwin ... arm64",
+  sample_usage: "uname -a",
+  sample_output: "Darwin ... arm64",
+  argv: ["/usr/bin/uname", "-a"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

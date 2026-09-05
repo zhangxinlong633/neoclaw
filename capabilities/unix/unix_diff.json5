@@ -1,0 +1,15 @@
+{
+  name: "unix_diff",
+  description: "Show line differences.",
+  when: ["Need unified/diff view"],
+  when_not: ["Not a merge tool"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: diff -u a b | Sample: --- a +++ b",
+  sample_usage: "diff -u a b",
+  sample_output: "--- a +++ b",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/diff"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

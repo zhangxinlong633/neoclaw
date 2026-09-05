@@ -1,0 +1,15 @@
+{
+  name: "unix_unexpand",
+  description: "Convert spaces to tabs.",
+  when: ["Need tabified text"],
+  when_not: ["Inverse of expand"],
+  tags: ["unix", "text", "safeish"],
+  outcome: "Usage: unexpand file | Sample: ...",
+  sample_usage: "unexpand file",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/unexpand"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

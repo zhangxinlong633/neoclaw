@@ -1,0 +1,15 @@
+{
+  name: "unix_getent",
+  description: "Get entries from NSS databases.",
+  when: ["Need getent"],
+  when_not: ["May be absent on macOS"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: getent passwd | Sample: ...",
+  sample_usage: "getent passwd",
+  sample_output: "...",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/getent"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

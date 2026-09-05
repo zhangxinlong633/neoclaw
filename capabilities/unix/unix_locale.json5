@@ -1,0 +1,15 @@
+{
+  name: "unix_locale",
+  description: "Print locale settings.",
+  when: ["Need LANG/LC_* summary"],
+  when_not: ["Do not change locales"],
+  tags: ["unix", "system", "safeish"],
+  outcome: "Usage: locale | Sample: LANG=...",
+  sample_usage: "locale",
+  sample_output: "LANG=...",
+  argv: ["/usr/bin/locale"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

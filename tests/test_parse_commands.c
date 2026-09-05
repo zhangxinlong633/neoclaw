@@ -39,5 +39,18 @@ int main(void) {
     return 1;
   }
   config_free(&c);
+  config_init(&c);
+  if (config_load_file(&c, "tests/fixtures/tools_cap_enabled.json5") != 0) {
+    fprintf(stderr, "enabled pack load failed\n");
+    return 1;
+  }
+  if (c.tools.command_count != 1 || !c.tools.commands[0].name ||
+      strcmp(c.tools.commands[0].name, "only_one") != 0) {
+    fprintf(stderr, "enabled.json5 filter failed count=%d\n", c.tools.command_count);
+    config_free(&c);
+    return 1;
+  }
+  config_free(&c);
+
   return 0;
 }

@@ -1,0 +1,15 @@
+{
+  name: "unix_sync",
+  description: "Flush filesystem buffers.",
+  when: ["Need sync"],
+  when_not: ["Usually unnecessary"],
+  tags: ["unix", "fs", "safeish"],
+  outcome: "Usage: sync | Sample: ",
+  sample_usage: "sync",
+  sample_output: "",
+  argv: ["/bin/sync"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {}},
+}

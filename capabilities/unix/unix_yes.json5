@@ -1,0 +1,15 @@
+{
+  name: "unix_yes",
+  description: "Repeat a string until killed.",
+  when: ["Rare generators"],
+  when_not: ["Floods output", "Not in default enabled.json5; enable only after Policy review"],
+  tags: ["unix", "util", "dangerous"],
+  outcome: "Usage: yes | Sample: y y y",
+  sample_usage: "yes",
+  sample_output: "y y y",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/yes"],
+  timeout_sec: 15,
+  max_output_bytes: 32768,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

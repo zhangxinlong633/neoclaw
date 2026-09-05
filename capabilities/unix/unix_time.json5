@@ -1,0 +1,15 @@
+{
+  name: "unix_time",
+  description: "Time a command.",
+  when: ["Need rough timing"],
+  when_not: ["Prefer profilers"],
+  tags: ["unix", "process", "safeish"],
+  outcome: "Usage: time true | Sample: real 0m0.001s",
+  sample_usage: "time true",
+  sample_output: "real 0m0.001s",
+  argv: ["./scripts/tools/unix-exec.sh", "/usr/bin/time"],
+  timeout_sec: 10,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: {"type": "object", "properties": {"argv": {"type": "array", "items": {"type": "string"}, "description": "Extra argv after the binary. Relative paths only; no ..; simple -x/--long flags."}}},
+}

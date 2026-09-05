@@ -1,5 +1,6 @@
 {
   version: 1,
-  load: ["library"],
+  // load 每项为一层扫描目录（不递归）。
+  load: ["baseline", "workspace"],
   proposed: "proposed",
 }
