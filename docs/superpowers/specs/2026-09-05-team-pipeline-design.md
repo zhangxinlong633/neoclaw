@@ -5,14 +5,14 @@ Status: approved for implementation
 
 ## Goal
 
-By default, `neo plan` / `neo run` plan a **~10-step software R&D team pipeline** (requirements → decompose → implement → verify with limited retry → summarize), via **planner prompt only** (no new runner).
+For **engineering** tasks, `neo plan` / `neo run` plan a **~10-step software R&D team pipeline** (requirements → decompose → implement → verify with limited retry → summarize), via **planner prompt only** (no new runner). Knowledge/Q&A tasks prefer a short llm DAG — see `2026-09-05-plan-task-routing-design.md`.
 
 ## Decisions
 
 | Topic | Choice |
 |-------|--------|
 | Retry on verify fail | **A** — frozen DAG with `route`/`loop`, max ~2 retries back to implement/decompose |
-| When enabled | **A** — default for all plan/run |
+| When enabled | **A** — default for **engineering** plan/run; knowledge/Q&A use short DAGs (see `2026-09-05-plan-task-routing-design.md`) |
 | Implementation | **1** — prompt convention only |
 
 ## Default step roles (~10)

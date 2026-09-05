@@ -86,6 +86,24 @@ int main(void) {
       config_free(&base);
       return 1;
     }
+    if (!strstr(prompt, "knowledge") || !strstr(prompt, "engineering")) {
+      fprintf(stderr, "prompt missing knowledge/engineering routing\n");
+      free(prompt);
+      config_free(&base);
+      return 1;
+    }
+    if (strstr(prompt, "Even for Q&A")) {
+      fprintf(stderr, "prompt still forces Q&A team flow\n");
+      free(prompt);
+      config_free(&base);
+      return 1;
+    }
+    if (!strstr(prompt, "do not pad") && !strstr(prompt, "Do not pad")) {
+      fprintf(stderr, "prompt missing do-not-pad guidance\n");
+      free(prompt);
+      config_free(&base);
+      return 1;
+    }
     free(prompt);
   }
 

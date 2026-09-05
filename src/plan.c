@@ -116,7 +116,15 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "- Use steps with id, type, depends_on, and type-specific fields.\n"
       "- Allowed types: tool, llm, loop, route.\n"
       "- Every step MUST set type explicitly (tool|llm|loop|route).\n"
-      "- Default shape: a small software R&D team pipeline scaled to about %d steps.\n"
+      "- First classify the task as knowledge or engineering.\n"
+      "- knowledge tasks (explain, compare, define, summarize, Q&A, "
+      "\"说明一下\" / \"对比一下\" style): prefer exactly 1 llm step with "
+      "tools \"off\"; at most 3 llm steps. Do not pad to %d. Do not invent "
+      "implement/verify/write_file work. The single (or last) step must "
+      "answer the user's question directly in their language.\n"
+      "- engineering tasks (implement, fix bugs, write/edit files, scripts, "
+      "multi-tool pipelines, build features): use a small software R&D team "
+      "pipeline scaled to about %d steps.\n"
       "  Role map (merge/split roles if N differs, but keep the phase order):\n"
       "  1) understand requirements (llm)\n"
       "  2-3) decompose / design (llm; optional tool)\n"
@@ -124,9 +132,8 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "  8-9) verify (llm/tool); on failure route/loop back to implement or decompose "
       "at most 2 times (use match PASS/FAIL or similar; no unbounded goto)\n"
       "  10) summarize deliverable (llm; this should be the final useful output)\n"
-      "- Even for Q&A, use a scaled-down team flow (e.g. requirements → draft → "
-      "self-check → summarize), not a single undifferentiated dump — unless "
-      "target steps is 1.\n"
+      "- Soft step target %d applies to engineering sizing; for knowledge, "
+      "do not pad.\n"
       "- tool: only use tool names from the allowlist below (or read_file, "
       "write_file, list_dir). type tool requires a tool field.\n"
       "- llm: set prompt; tools on or off as a step field string "
@@ -134,11 +141,11 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "- tool args: JSON object, e.g. \"args\": {\"msg\":\"hi\"}.\n"
       "- route: \"on\" template like \"{{steps.verify_id}}\"; match substring; "
       "then/else MUST be JSON arrays of step ids.\n"
-      "- Aim for about %d steps. Use depends_on arrays for ordering.\n"
+      "- Use depends_on arrays for ordering when there is more than one step.\n"
       "- Output format:\n```json\n{\"workflows\":[{\"name\":\"planned\",\"steps\":["
-      "{\"id\":\"...\",\"type\":\"llm\",\"prompt\":\"...\"}]}]}\n```\n\n"
+      "{\"id\":\"...\",\"type\":\"llm\",\"prompt\":\"...\",\"tools\":\"off\"}]}]}\n```\n\n"
       "Allowed command tools:\n",
-      target_steps, target_steps);
+      target_steps, target_steps, target_steps);
   if (conf) {
     for (i = 0; i < conf->tools.command_count; i++) {
       const tool_command_t *cmd = &conf->tools.commands[i];
