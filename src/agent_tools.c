@@ -4,6 +4,7 @@
 #include "agent_tools.h"
 #include "capability_matrix.h"
 #include "command_tools.h"
+#include "mcp_stdio.h"
 #include "yyjson.h"
 #include <curl/curl.h>
 #include <ctype.h>
@@ -654,6 +655,31 @@ static int run_one_tool(const agent_config_t *conf, const char *root_real, NeoTo
     return tool_grep(conf, root_real, tc->arguments, result);
   if (strcmp(tc->name, "http_get") == 0)
     return tool_http_get(conf, tc->arguments, result);
+  if (strncmp(tc->name, "mcp_", 4) == 0) {
+    capability_matrix_t mx;
+    const cap_row_t *row;
+    capability_matrix_init(&mx);
+    if (capability_matrix_build_from_config(&mx, conf) == 0) {
+      row = capability_matrix_find(&mx, tc->name);
+      if (row && row->source == CAP_SRC_MCP) {
+        char *out = NULL;
+        size_t out_len = 0;
+        int rc = mcp_stdio_call(conf, row, tc->arguments ? tc->arguments : "{}", &out, &out_len);
+        capability_matrix_free(&mx);
+        if (rc != 0) {
+          free(out);
+          return neo_buf_append(result, "ERROR: mcp dispatch failed", 0);
+        }
+        {
+          int r = neo_buf_append(result, out ? out : "", 0);
+          free(out);
+          return r;
+        }
+      }
+    }
+    capability_matrix_free(&mx);
+    return neo_buf_append(result, "ERROR: unknown mcp tool", 0);
+  }
   idx = command_tool_find(conf, tc->name);
   if (idx >= 0) {
     if (command_tool_run(conf, root_real, &conf->tools.commands[idx],

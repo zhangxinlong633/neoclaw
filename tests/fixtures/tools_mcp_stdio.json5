@@ -1,0 +1,18 @@
+{
+  model: {
+    base_url: "http://127.0.0.1:9",
+    name: "test",
+    api_key: "x",
+  },
+  tools: {
+    enabled: true,
+    root: ".",
+    mcp_servers: [
+      {
+        name: "mock",
+        command: "python3",
+        args: ["tests/fixtures/mock_mcp_echo.py"],
+      },
+    ],
+  },
+}

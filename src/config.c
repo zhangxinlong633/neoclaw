@@ -28,6 +28,21 @@ static void free_path_list(char **paths, int n) {
   free(paths);
 }
 
+static void free_mcp_servers(mcp_server_config_t *srvs, int n) {
+  int i, j;
+  if (!srvs) return;
+  for (i = 0; i < n; i++) {
+    free(srvs[i].name);
+    free(srvs[i].command);
+    free(srvs[i].url);
+    if (srvs[i].args) {
+      for (j = 0; j < srvs[i].args_count; j++) free(srvs[i].args[j]);
+      free(srvs[i].args);
+    }
+  }
+  free(srvs);
+}
+
 static void free_tool_commands(tool_command_t *cmds, int n) {
   int i, j;
   if (!cmds) return;
@@ -289,6 +304,9 @@ void config_free(agent_config_t *c) {
   free_tool_commands(c->tools.commands, c->tools.command_count);
   c->tools.commands = NULL;
   c->tools.command_count = 0;
+  free_mcp_servers(c->tools.mcp_servers, c->tools.mcp_server_count);
+  c->tools.mcp_servers = NULL;
+  c->tools.mcp_server_count = 0;
   free_workflows(c->workflows, c->workflow_count);
   c->workflows = NULL;
   c->workflow_count = 0;
@@ -582,7 +600,7 @@ static int fill_tools(agent_config_t *c, yyjson_val *obj) {
   if (yyjson_is_int(v) || yyjson_is_uint(v)) c->tools.http_fetch_max_bytes = (int)yyjson_get_sint(v);
 
   cmds = yyjson_obj_get(obj, "commands");
-  if (!cmds) return 0;
+  if (cmds) {
   if (!yyjson_is_arr(cmds)) {
     fprintf(stderr, "neo: config error at /tools/commands: expected array\n");
     return -1;
@@ -633,6 +651,54 @@ static int fill_tools(agent_config_t *c, yyjson_val *obj) {
       }
     }
     c->tools.command_count++;
+  }
+  } /* end commands */
+
+  {
+    yyjson_val *ms = yyjson_obj_get(obj, "mcp_servers");
+    size_t mi, mn;
+    if (!ms) return 0;
+    if (!yyjson_is_arr(ms)) {
+      fprintf(stderr, "neo: config error at /tools/mcp_servers: expected array\n");
+      return -1;
+    }
+    mn = yyjson_arr_size(ms);
+    for (mi = 0; mi < mn; mi++) {
+      mcp_server_config_t *srv;
+      mcp_server_config_t *np;
+      yyjson_val *el = yyjson_arr_get(ms, mi);
+      yyjson_val *args, *en;
+      char pathbuf[80];
+      int b;
+      if (!yyjson_is_obj(el)) {
+        fprintf(stderr, "neo: config error at /tools/mcp_servers/%zu: expected object\n", mi);
+        return -1;
+      }
+      if (c->tools.mcp_server_count >= MAX_COMMANDS) {
+        fprintf(stderr, "neo: tools.mcp_servers: too many entries\n");
+        return -1;
+      }
+      np = realloc(c->tools.mcp_servers, (c->tools.mcp_server_count + 1) * sizeof(mcp_server_config_t));
+      if (!np) return -1;
+      c->tools.mcp_servers = np;
+      srv = &c->tools.mcp_servers[c->tools.mcp_server_count];
+      memset(srv, 0, sizeof(*srv));
+      srv->enabled = 1;
+      srv->name = yy_dup_str(yyjson_obj_get(el, "name"));
+      srv->command = yy_dup_str(yyjson_obj_get(el, "command"));
+      srv->url = yy_dup_str(yyjson_obj_get(el, "url"));
+      en = yyjson_obj_get(el, "enabled");
+      if (en && yy_bool(en, &b) == 0) srv->enabled = b;
+      args = yyjson_obj_get(el, "args");
+      snprintf(pathbuf, sizeof(pathbuf), "/tools/mcp_servers/%zu/args", mi);
+      if (args && yy_string_array(args, &srv->args, &srv->args_count, MAX_ARGV, pathbuf) != 0)
+        return -1;
+      if (!srv->name || !srv->name[0] || !srv->command || !srv->command[0]) {
+        fprintf(stderr, "neo: tools.mcp_servers/%zu: name and command required\n", mi);
+        return -1;
+      }
+      c->tools.mcp_server_count++;
+    }
   }
   return 0;
 }

@@ -1,5 +1,8 @@
+#include "agent_tools.h"
 #include "capability_matrix.h"
 #include "config.h"
+#include "mcp_stdio.h"
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -121,6 +124,59 @@ int main(void) {
 
   capability_matrix_free(&m);
   config_free(&conf);
+
+  /* MCP stdio fixture */
+  config_init(&conf);
+  if (config_load_file(&conf, "tests/fixtures/tools_mcp_stdio.json5") != 0) {
+    fprintf(stderr, "load mcp fixture failed\n");
+    return 1;
+  }
+  if (conf.tools.mcp_server_count < 1) {
+    fprintf(stderr, "expected mcp_servers\n");
+    config_free(&conf);
+    return 1;
+  }
+  capability_matrix_init(&m);
+  if (capability_matrix_build_from_config(&m, &conf) != 0) {
+    fprintf(stderr, "mcp matrix build failed\n");
+    config_free(&conf);
+    return 1;
+  }
+  if (!capability_matrix_find(&m, "mcp_mock_echo")) {
+    fprintf(stderr, "missing mcp_mock_echo in matrix\n");
+    capability_matrix_free(&m);
+    config_free(&conf);
+    mcp_stdio_shutdown_all();
+    return 1;
+  }
+  {
+    char root[PATH_MAX];
+    char *out = NULL;
+    size_t out_len = 0;
+    if (!realpath(".", root)) {
+      fprintf(stderr, "realpath failed\n");
+      return 1;
+    }
+    if (neo_dispatch_tool(&conf, root, "mcp_mock_echo", "{\"text\":\"hi\"}", &out, &out_len) != 0) {
+      fprintf(stderr, "dispatch mcp failed\n");
+      capability_matrix_free(&m);
+      config_free(&conf);
+      mcp_stdio_shutdown_all();
+      return 1;
+    }
+    if (!out || !strstr(out, "hi")) {
+      fprintf(stderr, "mcp echo missing hi: %s\n", out ? out : "(null)");
+      free(out);
+      capability_matrix_free(&m);
+      config_free(&conf);
+      mcp_stdio_shutdown_all();
+      return 1;
+    }
+    free(out);
+  }
+  capability_matrix_free(&m);
+  config_free(&conf);
+  mcp_stdio_shutdown_all();
   printf("ok\n");
   return 0;
 }

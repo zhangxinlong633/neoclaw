@@ -1,4 +1,5 @@
 #include "capability_matrix.h"
+#include "mcp_stdio.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -154,6 +155,8 @@ int capability_matrix_build_from_config(capability_matrix_t *m, const agent_conf
                 cmd) != 0)
       return -1;
   }
+
+  mcp_stdio_load_into_matrix(conf, m);
   return 0;
 }
 
@@ -289,4 +292,34 @@ int capability_warn_tool_truncation(size_t n_calls, int max_per_turn, FILE *err)
   if (n_calls <= (size_t)max_per_turn) return 0;
   fprintf(err, "neo: tool_calls truncated to %d (got %zu)\n", max_per_turn, n_calls);
   return 1;
+}
+
+int capability_matrix_add_mcp(capability_matrix_t *m, const char *name, const char *description,
+                              const char *parameters_json, const char *mcp_server,
+                              const char *mcp_tool) {
+  cap_row_t *r;
+  if (!m || !name || !mcp_server || !mcp_tool) return -1;
+  if (capability_matrix_find(m, name)) {
+    fprintf(stderr, "neo: capability matrix: skip duplicate MCP name '%s'\n", name);
+    return 0;
+  }
+  if (ensure_cap(m) != 0) return -1;
+  r = &m->rows[m->count];
+  memset(r, 0, sizeof(*r));
+  r->name = dup_s(name);
+  r->description = dup_s(description ? description : name);
+  r->parameters_json = dup_s(parameters_json && parameters_json[0] ? parameters_json : DEFAULT_PARAMS);
+  r->source = CAP_SRC_MCP;
+  r->source_detail = dup_s(mcp_server);
+  r->mcp_server = dup_s(mcp_server);
+  r->mcp_tool = dup_s(mcp_tool);
+  r->effect = CAP_EFFECT_EXEC;
+  r->enabled = 1;
+  r->builtin_id = CAP_BUILTIN_NONE;
+  if (!r->name || !r->description || !r->parameters_json || !r->mcp_server || !r->mcp_tool) {
+    free_row(r);
+    return -1;
+  }
+  m->count++;
+  return 0;
 }

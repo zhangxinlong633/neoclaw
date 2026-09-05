@@ -49,8 +49,12 @@
   //       timeout_sec: 30,
   //       max_output_bytes: 65536,
   //       pass_args: "stdin_json",
+  //       // parameters: { type: "object", properties: { msg: { type: "string" } } },
   //     },
   //   ],
+  //   // mcp_servers: [
+  //   //   { name: "mock", command: "python3", args: ["tests/fixtures/mock_mcp_echo.py"] },
+  //   // ],
   // },
 
   // plan: { target_steps: 10 },

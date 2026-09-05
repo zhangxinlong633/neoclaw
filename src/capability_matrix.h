@@ -67,4 +67,9 @@ int capability_matrix_build_from_config(capability_matrix_t *m, const agent_conf
 /* If n_calls > max_per_turn, print truncation warning to err. Returns 1 if warned. */
 int capability_warn_tool_truncation(size_t n_calls, int max_per_turn, FILE *err);
 
+/* Append an MCP-sourced capability row. name should already be sanitized (mcp_server_tool). */
+int capability_matrix_add_mcp(capability_matrix_t *m, const char *name, const char *description,
+                              const char *parameters_json, const char *mcp_server,
+                              const char *mcp_tool);
+
 #endif

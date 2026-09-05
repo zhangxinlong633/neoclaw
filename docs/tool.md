@@ -51,7 +51,29 @@ Neo 在 `config.json5` 启用 `tools` 后，会构建一张 **Capability Matrix�
 | `grep` | 参数 `pattern`（必填）、可选 `path`（默认 `.`）、可选 `glob`（如 `*.md`）；在 `tools.root` 下按行做字面量匹配，有匹配数上限。 |
 | `http_get` | 仅当 `http_fetch_enabled: true` 且配置了 `http_allow_hosts`；HTTPS、无重定向。 |
 
-### 1.2 `tools.commands`（自定义命令工具）
+### 1.2 MCP stdio（能力矩阵 loader）
+
+在 `tools.mcp_servers` 声明本地 MCP 子进程（**仅 stdio**；`url` 字段若填写会告警并跳过）：
+
+```json5
+tools: {
+  enabled: true,
+  root: ".",
+  mcp_servers: [
+    {
+      name: "mock",
+      command: "python3",
+      args: ["tests/fixtures/mock_mcp_echo.py"],
+    },
+  ],
+}
+```
+
+- 启动时：`initialize` → `tools/list`，工具进入矩阵，对外名为 `mcp_<server>_<tool>`（非法字符变为 `_`）。
+- 调用：与其它能力相同，经 OpenAI `tool_calls` 或 DAG `type: tool`。
+- 失败：单个 server 跳过，不影响 builtin / commands。
+
+### 1.3 `tools.commands`（自定义命令工具）
 
 在 `tools:` 下声明 `commands`，无需改 C / 重新 `make`。模型通过 `tool_calls` 调用；Neo 在 `tools.root` 下 `exec` 已声明的 `argv`（不拼 shell）。
 

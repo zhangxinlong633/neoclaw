@@ -62,6 +62,15 @@ typedef struct {
 } tool_command_t;
 
 typedef struct {
+  char *name;
+  char *command;
+  char **args;
+  int args_count;
+  char *url; /* reserved; nonempty → warn and skip in v1 */
+  int enabled; /* default 1 */
+} mcp_server_config_t;
+
+typedef struct {
   int enabled;       /* 0 off, 1 on (read_file / write_file under root) */
   char *root;        /* sandbox root directory (default ".") */
   int max_rounds;    /* max tool API rounds (default 16) */
@@ -72,6 +81,8 @@ typedef struct {
   int http_fetch_max_bytes; /* cap response body (default 262144) */
   tool_command_t *commands;
   int command_count;
+  mcp_server_config_t *mcp_servers;
+  int mcp_server_count;
 } tools_config_t;
 
 typedef enum {
