@@ -66,7 +66,7 @@ Behavior unchanged otherwise: LLM plan → extract YAML → optional `-o` → ma
 
 ## Docs
 
-- `doc/workflow.md`: document `neo run`; show `plan` as plan-only; remove `plan --run` examples.
+- `docs/workflow.md`: document `neo run`; show `plan` as plan-only; remove `plan --run` examples.
 - `README.md`: one-line entry for `neo run`.
 
 ## Testing

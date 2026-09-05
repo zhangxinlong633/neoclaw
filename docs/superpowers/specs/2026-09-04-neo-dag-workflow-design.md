@@ -95,5 +95,5 @@ workflows:
 
 - `src/config.h` / `config.c` — 字段与解析、校验（环、未知 id）
 - `src/workflow.c` — DAG runner
-- `doc/workflow.md` / `README.md` — 定位与用法
+- `docs/workflow.md` / `README.md` — 定位与用法
 - `tests/test_workflow_dag.c` 等

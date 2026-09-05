@@ -61,6 +61,22 @@ int main(void) {
     return 1;
   }
 
+  unlink("tests/fixtures/count.out");
+  out = NULL;
+  if (workflow_run(&c, "route_merge", &out) != 0) {
+    fprintf(stderr, "route_merge run failed\n");
+    free(out);
+    config_free(&c);
+    return 1;
+  }
+  free(out);
+  /* seed + join (fix_branch skipped on PASS) */
+  if (count_lines("tests/fixtures/count.out") != 2) {
+    fprintf(stderr, "route_merge want 2 lines got %d\n", count_lines("tests/fixtures/count.out"));
+    config_free(&c);
+    return 1;
+  }
+
   config_free(&c);
   printf("ok\n");
   return 0;

@@ -230,7 +230,7 @@ echo "摘要这段" | ./scripts/neo-ask -p ops --stdin
 | workflow 引擎 | 新建 `src/workflow.c` / `src/workflow.h` |
 | CLI：`-p`、`workflow run` | `src/main.c` |
 | 样例脚本 / profile | `scripts/tools/`、`profiles/demo/`、`scripts/neo-ask` |
-| 用户文档 | `README.md`、`doc/tool.md`、可选 `doc/workflow.md` |
+| 用户文档 | `README.md`、`docs/tool.md`、可选 `docs/workflow.md` |
 
 ---
 

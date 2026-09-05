@@ -7,7 +7,7 @@
 - **强在接缝，不在堆能力**：刀刃用 YAML + 脚本挂上（`tools.commands`、skills、**确定性 DAG workflow**），换机器拷配置就能用。
 - **编排确定性**：`neo workflow run` 的拓扑由配置声明，LLM **只当图中的 Worker**，不参与流程控制；自然语言对话仍可用 `./neo "..."`。
 - **强在入口，不在生态锁**：终端、daemon / socket、管道与 cron（`neo-ask`）、`neo-team` 都能唤起同一核心。
-- **强在轻量，不在全家桶**：单二进制 + libcurl；不做 Temporal / 重插件 / 完整 MCP 宿主。
+- **强在轻量，不在全家桶**：单二进制 + libcurl + 内置 yyjson；不做 Temporal / 重插件 / 完整 MCP 宿主。
 
 一句话：**能塞进 shell、CI、IoT 和仓库旁路的小助手**——能力按需配置，而不是预装巨无。
 
@@ -71,8 +71,9 @@ cp config/config.yaml.example config/config.yaml
 
 ### Workflow / Profile / neo-ask
 
-- **自定义命令工具**：见 `doc/tool.md`（`tools.commands`）。
-- **声明式 workflow**：`./neo workflow run NAME`，说明见 `doc/workflow.md`。
+- **自定义命令工具**：见 `docs/tool.md`（`tools.commands`）。
+- **声明式 workflow**：`./neo workflow run NAME`，说明见 `docs/workflow.md`。
+- **Plan then Run**：`./neo run [--steps N] [-o FILE] "task"` — 默认按约 10 步「研发团队」流水线规划并执行；`./neo plan` 只规划。
 - **Profile**：`./neo -p demo ...` 使用 `config/profiles/demo/neo.yaml`（兼容旧路径 `profiles/demo/`）。
 - **管道/cron**：`./scripts/neo-ask -p demo --workflow demo_loop`。
 

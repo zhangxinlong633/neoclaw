@@ -17,12 +17,13 @@ int main(void) {
     return 1;
   }
   free(out);
-  out = workflow_expand_template("bad {{steps.missing}}", "", ids, texts, 1);
-  if (out) {
-    fprintf(stderr, "should fail unknown step\n");
+  out = workflow_expand_template("bad {{steps.missing}} end", "", ids, texts, 1);
+  if (!out || strcmp(out, "bad  end") != 0) {
+    fprintf(stderr, "missing step should expand empty, got [%s]\n", out ? out : "null");
     free(out);
     return 1;
   }
+  free(out);
   printf("ok\n");
   return 0;
 }

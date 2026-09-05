@@ -33,7 +33,7 @@ Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdo
 | **自动化** | 定时唤醒、Webhook、多代理编排等 | ⚠️ **轻量**：daemon、**`neo-ask`**（cron/管道）、**`neo-team`** 多配置；**workflow** 声明式短循环；**无**内置通用 hooks / 重编排平台 |
 | **可审计** | 依产品 | ✅ 用 **`./neo -d`** 可在 stderr 看到**完整 system prompt**，claw 相关段落是否出现一目了然 |
 
-**一句话**：`doc/claw.md` 描述的是 **Neo 里真实存在的读配置、读文件、拼 prompt 等操作**；「OpenClaw 式」指 **习惯与结构上的类比**，不是与某一上游产品 **1:1 行为兼容** 的声明。若你本地另有 OpenClaw 发行版，需自行对照其文档，不要把 Neo 当成该产品的子进程或插件。
+**一句话**：`docs/claw.md` 描述的是 **Neo 里真实存在的读配置、读文件、拼 prompt 等操作**；「OpenClaw 式」指 **习惯与结构上的类比**，不是与某一上游产品 **1:1 行为兼容** 的声明。若你本地另有 OpenClaw 发行版，需自行对照其文档，不要把 Neo 当成该产品的子进程或插件。
 
 ---
 
@@ -318,7 +318,7 @@ memory:
 
 - C 源码在 `src/`；构建命令为仓库根执行 `make`，产物为同目录下的 `neo` 二进制。
 - 本地密钥与网关配置放在 `config.yaml`（该文件名在仓库 `.gitignore` 中，勿提交）。
-- 技能 Markdown 位于 `skills/<name>/SKILL.md`；与 OpenClaw 相关的说明见 `doc/claw.md`，工具说明见 `doc/tool.md`。
+- 技能 Markdown 位于 `skills/<name>/SKILL.md`；与 OpenClaw 相关的说明见 `docs/claw.md`，工具说明见 `docs/tool.md`。
 ```
 
 以上三条与当前 **`.gitignore`**（含 `config.yaml`）、**`Makefile`**（生成 `neo`）、目录布局一致。
@@ -367,7 +367,7 @@ NEO_DISABLE_TOOLS=1 ./neo -d "ping" 2>&1 | head -45
 # 若已按 5.1 启用 workspace：stderr 中应出现 ## Workspace 与本机 cwd
 ./neo -d "只回复：ok" 2>&1 | grep -E '## Workspace|working directory'
 
-# 与 doc/tool.md 一致：临时关闭工具时的单次对话
+# 与 docs/tool.md 一致：临时关闭工具时的单次对话
 NEO_DISABLE_TOOLS=1 ./neo "只回复一个词：pong" 2>&1
 ```
 

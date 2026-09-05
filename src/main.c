@@ -9,6 +9,7 @@
 #include "config.h"
 #include "daemon.h"
 #include "llm.h"
+#include "plan.h"
 #include "skills.h"
 #include "workflow.h"
 #include <limits.h>
@@ -61,15 +62,21 @@ static void print_usage(const char *prog) {
   fprintf(stderr, "Usage: %s [OPTIONS] \"your message\"\n", prog);
   fprintf(stderr, "       %s [OPTIONS] daemon [--socket PATH]\n", prog);
   fprintf(stderr, "       %s [OPTIONS] workflow run NAME\n", prog);
+  fprintf(stderr, "       %s [OPTIONS] plan [--steps N] [-o FILE] \"task\"\n", prog);
+  fprintf(stderr, "       %s [OPTIONS] run [--steps N] [-o FILE] \"task\"\n", prog);
   fprintf(stderr, "Options:\n");
   fprintf(stderr, "  -c, --config PATH   Config file (default: config/config.yaml, else config.yaml)\n");
   fprintf(stderr, "  -p, --profile NAME  Use config/profiles/NAME/ (fallback: profiles/NAME/)\n");
   fprintf(stderr, "  -m, --model NAME    Override model name\n");
   fprintf(stderr, "  -d, --debug         Print system prompt, user message and request params to stderr\n");
+  fprintf(stderr, "  -o, --output FILE   (with plan/run) Save planned workflows YAML\n");
+  fprintf(stderr, "  --steps N           (with plan/run) Soft target step count (default 10, max 32)\n");
   fprintf(stderr, "  -h, --help          Show this help\n");
   fprintf(stderr, "  daemon              Run as daemon: read from stdin, reply to stdout\n");
   fprintf(stderr, "  --socket PATH       (with daemon) Listen on Unix socket instead of stdin\n");
   fprintf(stderr, "  workflow run NAME   Run a declarative workflow from config\n");
+  fprintf(stderr, "  plan \"task\"         LLM emits a DAG (validate only; YAML on stdout)\n");
+  fprintf(stderr, "  run \"task\"          Plan then execute the DAG (result on stdout)\n");
 }
 
 /* Prefer config/ layout; keep repo-root paths as fallback. */
@@ -156,6 +163,11 @@ int main(int argc, char **argv) {
   int debug = 0;
   int workflow_mode = 0;
   const char *workflow_name = NULL;
+  int plan_mode = 0;
+  int run_mode = 0;
+  int legacy_plan_run = 0;
+  const char *plan_out = NULL;
+  int cli_steps = 0; /* 0 = unset; resolved later */
 
   while (arg_start < argc) {
     if (strcmp(argv[arg_start], "--help") == 0 || strcmp(argv[arg_start], "-h") == 0) {
@@ -181,8 +193,42 @@ int main(int argc, char **argv) {
       arg_start += 2;
       continue;
     }
+    if (strcmp(argv[arg_start], "--output") == 0 || strcmp(argv[arg_start], "-o") == 0) {
+      if (arg_start + 1 >= argc) { fprintf(stderr, "neo: --output requires FILE\n"); return 1; }
+      plan_out = argv[arg_start + 1];
+      arg_start += 2;
+      continue;
+    }
+    if (strcmp(argv[arg_start], "--steps") == 0) {
+      char *end = NULL;
+      long v;
+      if (arg_start + 1 >= argc) { fprintf(stderr, "neo: --steps requires N\n"); return 1; }
+      v = strtol(argv[arg_start + 1], &end, 10);
+      if (!end || *end || v < 1 || v > PLAN_MAX_TARGET_STEPS) {
+        fprintf(stderr, "neo: --steps must be an integer 1..%d\n", PLAN_MAX_TARGET_STEPS);
+        return 1;
+      }
+      cli_steps = (int)v;
+      arg_start += 2;
+      continue;
+    }
+    if (strcmp(argv[arg_start], "--run") == 0) {
+      legacy_plan_run = 1;
+      arg_start++;
+      continue;
+    }
     if (strcmp(argv[arg_start], "daemon") == 0) {
       daemon_mode = 1;
+      arg_start++;
+      continue;
+    }
+    if (strcmp(argv[arg_start], "plan") == 0) {
+      plan_mode = 1;
+      arg_start++;
+      continue;
+    }
+    if (strcmp(argv[arg_start], "run") == 0) {
+      run_mode = 1;
       arg_start++;
       continue;
     }
@@ -275,8 +321,43 @@ int main(int argc, char **argv) {
     return r != 0;
   }
 
+  if (legacy_plan_run && !plan_mode && !run_mode) {
+    fprintf(stderr, "neo: use 'neo run' instead of '--run'\n");
+    return 1;
+  }
+
+  if (plan_mode || run_mode) {
+    agent_config_t conf;
+    int r;
+    if (legacy_plan_run) {
+      fprintf(stderr, "neo: use 'neo run' instead of 'plan --run'\n");
+      return 1;
+    }
+    if (arg_start >= argc) {
+      fprintf(stderr, "neo: %s requires a task string\n", run_mode ? "run" : "plan");
+      return 1;
+    }
+    config_init(&conf);
+    if (config_load_file(&conf, config_path) != 0) {
+      fprintf(stderr, "neo: failed to load config from %s\n", config_path);
+      config_free(&conf);
+      return 1;
+    }
+    config_apply_env(&conf);
+    if (model_override) {
+      free(conf.model.name);
+      conf.model.name = malloc(strlen(model_override) + 1);
+      if (conf.model.name) strcpy(conf.model.name, model_override);
+    }
+    /* plan: YAML on stdout; run: execute only (quiet_yaml) */
+    r = plan_run(&conf, argv[arg_start], run_mode ? 1 : 0, run_mode ? 1 : 0, cli_steps, plan_out,
+                 debug);
+    config_free(&conf);
+    return r != 0;
+  }
+
   if (arg_start >= argc) {
-    fprintf(stderr, "Usage: neo [OPTIONS] \"your message\" or neo daemon [--socket PATH]\n");
+    fprintf(stderr, "Usage: neo [OPTIONS] \"your message\" or neo run \"task\" or neo daemon\n");
     return 1;
   }
 

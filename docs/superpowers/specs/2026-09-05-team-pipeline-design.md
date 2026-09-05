@@ -40,7 +40,7 @@ By default, `neo plan` / `neo run` plan a **~10-step software R&D team pipeline*
 ## Code changes
 
 - `src/plan.c` — `plan_build_system_prompt`: embed team role table + retry rules; keep existing type/prompt/tool rules.
-- `doc/workflow.md` (+ brief README) — document default team pipeline.
+- `docs/workflow.md` (+ brief README) — document default team pipeline.
 - Unit: prompt contains role keywords / "retry" guidance (extend `test_plan_extract`).
 
 ## Non-goals

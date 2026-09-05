@@ -1,6 +1,6 @@
 # Neo claw 示例（`example/`）
 
-本目录演示 Neo **确实会读取** `soul` / `bootstrap` / `rules` / `memory` 所指向的 Markdown，并拼进 **system prompt**（与 `doc/claw.md` 描述一致）。
+本目录演示 Neo **确实会读取** `soul` / `bootstrap` / `rules` / `memory` 所指向的 Markdown，并拼进 **system prompt**（与 `docs/claw.md` 描述一致）。
 
 ## 前提
 

@@ -75,15 +75,12 @@ char *workflow_expand_template(const char *tmpl, const char *prev,
       } else if (strncmp(key, "steps.", 6) == 0) {
         const char *sid = key + 6;
         int i;
+        rep = ""; /* skipped / not-yet-run steps expand to empty */
         for (i = 0; i < n_maps; i++) {
           if (ids[i] && strcmp(ids[i], sid) == 0) {
             rep = texts[i] ? texts[i] : "";
             break;
           }
-        }
-        if (!rep) {
-          free(out);
-          return NULL;
         }
       } else {
         free(out);
@@ -159,12 +156,91 @@ static int wf_run_tool_step(const agent_config_t *conf, const char *root_real, c
   return 0;
 }
 
+/* Max byte length ending on a UTF-8 boundary. */
+static size_t utf8_prefix_len(const char *s, size_t max) {
+  size_t i, n;
+  if (!s || max == 0) return 0;
+  n = strlen(s);
+  if (n <= max) return n;
+  i = max;
+  while (i > 0 && ((unsigned char)s[i] & 0xC0) == 0x80) i--;
+  return i;
+}
+
+static char *wf_append_prior_outputs(char *prompt, const wf_out_map_t *map, int map_n) {
+  size_t cap, len, i;
+  size_t prior_budget = 20000; /* keep prompts bounded for LLM providers */
+  char *out;
+  if (!prompt) return NULL;
+  if (map_n <= 0) return prompt;
+  len = strlen(prompt);
+  cap = len + prior_budget + 256;
+  if (cap > 120000) cap = 120000;
+  out = realloc(prompt, cap);
+  if (!out) return prompt;
+  prompt = out;
+  len = strlen(prompt);
+  if (len + 80 < cap) {
+    snprintf(prompt + len, cap - len,
+             "\n\n---\nPrior step outputs (already available — do NOT ask the user to paste them):\n");
+    len = strlen(prompt);
+  }
+  for (i = 0; i < (size_t)map_n; i++) {
+    size_t idl, tl, room, take, max_take;
+    if (!map[i].id || !map[i].text || !map[i].text[0]) continue;
+    if (strcmp(map[i].text, "then") == 0 || strcmp(map[i].text, "else") == 0) continue;
+    idl = strlen(map[i].id);
+    tl = strlen(map[i].text);
+    /* Skip if template expand already inlined this output */
+    if (tl >= 48) {
+      char tip[64];
+      size_t tip_n = utf8_prefix_len(map[i].text, 48);
+      if (tip_n >= 24) {
+        memcpy(tip, map[i].text, tip_n);
+        tip[tip_n] = '\0';
+        if (strstr(prompt, tip)) continue;
+      }
+    }
+    room = (len + 1 < cap) ? (cap - len - 1) : 0;
+    if (room < idl + 32) break;
+    max_take = 6000;
+    if (prior_budget < max_take) max_take = prior_budget;
+    take = tl;
+    if (take > max_take) take = max_take;
+    if (idl + take + 16 > room) take = room > idl + 16 ? room - idl - 16 : 0;
+    take = utf8_prefix_len(map[i].text, take);
+    if (take == 0 && tl > 0) continue;
+    snprintf(prompt + len, cap - len, "\n### %s\n", map[i].id);
+    len = strlen(prompt);
+    if (take > 0 && len + take < cap) {
+      memcpy(prompt + len, map[i].text, take);
+      len += take;
+      prompt[len] = '\0';
+      if (prior_budget > take) prior_budget -= take;
+      else prior_budget = 0;
+      if (take < tl && len + 24 < cap) {
+        snprintf(prompt + len, cap - len, "\n...[truncated]...\n");
+        len = strlen(prompt);
+      } else if (len + 2 < cap) {
+        prompt[len++] = '\n';
+        prompt[len] = '\0';
+      }
+    }
+    if (prior_budget < 64) break;
+  }
+  return prompt;
+}
+
 static int wf_run_llm_step(const agent_config_t *conf, const char *wf_name, const workflow_step_t *st,
                            wf_out_map_t *map, int *map_n, char **prev_io) {
   const char *ids[WF_MAX_STEPS];
   const char *texts[WF_MAX_STEPS];
   char *prompt = NULL;
   llm_response_t resp;
+  const char *sys =
+      "You are a Neo workflow worker step. Follow the user instruction. "
+      "If prior step outputs are included below, treat them as given context and "
+      "never ask the human to paste or re-send earlier drafts.";
   int i;
   for (i = 0; i < *map_n; i++) {
     ids[i] = map[i].id;
@@ -175,26 +251,26 @@ static int wf_run_llm_step(const agent_config_t *conf, const char *wf_name, cons
     fprintf(stderr, "neo: workflow:%s step:%s: template expand failed\n", wf_name, st->id);
     return -1;
   }
+  prompt = wf_append_prior_outputs(prompt, map, *map_n);
   if (st->tools_on) {
-    char *sys = strdup("You are Neo workflow step. Follow the user instruction. Use tools if helpful.");
-    if (!sys) {
+    char *sys_tools = strdup(sys);
+    if (!sys_tools) {
       free(prompt);
       return -1;
     }
     memset(&resp, 0, sizeof(resp));
-    if (agent_run_with_tools(conf, sys, NULL, 0, prompt, &resp) != 0) {
+    if (agent_run_with_tools(conf, sys_tools, NULL, 0, prompt, &resp) != 0) {
       fprintf(stderr, "neo: workflow:%s step:%s: llm+tools failed\n", wf_name, st->id);
-      free(sys);
+      free(sys_tools);
       free(prompt);
       llm_response_free(&resp);
       return -1;
     }
-    free(sys);
+    free(sys_tools);
   } else {
     memset(&resp, 0, sizeof(resp));
     if (llm_chat(conf->model.base_url, conf->model.name, conf->model.api_key,
-                 conf->model.max_tokens, conf->model.temperature,
-                 "You are Neo workflow step. Follow the user instruction.", prompt, &resp) != 0) {
+                 conf->model.max_tokens, conf->model.temperature, sys, prompt, &resp) != 0) {
       fprintf(stderr, "neo: workflow:%s step:%s: llm failed\n", wf_name, st->id);
       free(prompt);
       llm_response_free(&resp);
@@ -329,13 +405,17 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
   for (oi = 0; oi < order_n; oi++) {
     int idx = order[oi];
     const workflow_step_t *st = &wf->steps[idx];
-    int dep_skip = 0;
+    int dep_all_skipped = 1;
+    int has_dep = 0;
 
     for (j = 0; j < st->depends_count; j++) {
       int d = wf_index_of(wf, st->depends_on[j]);
-      if (d >= 0 && skip[d]) dep_skip = 1;
+      if (d < 0) continue;
+      has_dep = 1;
+      if (!skip[d]) dep_all_skipped = 0;
     }
-    if (dep_skip) {
+    /* Route merge: skip only if every dependency was skipped (not if any was). */
+    if (has_dep && dep_all_skipped) {
       skip[idx] = 1;
       fprintf(stderr, "neo dag: %s skip %s\n", wf->name, st->id);
       continue;

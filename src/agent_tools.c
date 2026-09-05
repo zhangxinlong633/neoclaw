@@ -3,6 +3,7 @@
  */
 #include "agent_tools.h"
 #include "command_tools.h"
+#include "yyjson.h"
 #include <curl/curl.h>
 #include <ctype.h>
 #include <errno.h>
@@ -15,9 +16,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
-
-#define JSMN_STATIC
-#include "jsmn.h"
 
 #define NEO_MAX_TOOLS_PER_TURN 16
 #define NEO_BODY_INIT (256 * 1024)
@@ -121,177 +119,77 @@ static int neo_build_tools_json(NeoBuf *b, const agent_config_t *conf) {
   return neo_buf_append(b, "]", 0);
 }
 
-/*
- * Decode a JSON string token body as it appears on the wire (jsmn start..end
- * excludes quotes; sequences like \" and \\ are still escaped). Returns a
- * newly malloc'd C string; caller frees. Needed for tool "arguments" blobs.
- */
-static char *neo_json_unescape_slice(const char *src, int len) {
-  char *out;
-  size_t j;
-  int i;
-  if (!src || len <= 0) {
-    out = malloc(1);
-    if (out) out[0] = '\0';
-    return out;
+static char *yy_strdup_val(yyjson_val *v) {
+  const char *s;
+  size_t n;
+  char *o;
+  if (!yyjson_is_str(v)) return NULL;
+  s = yyjson_get_str(v);
+  n = yyjson_get_len(v);
+  o = malloc(n + 1);
+  if (!o) return NULL;
+  memcpy(o, s ? s : "", n);
+  o[n] = '\0';
+  return o;
+}
+
+static int extract_string_field(const char *obj, const char *key, char *out, size_t out_cap) {
+  yyjson_doc *doc;
+  yyjson_val *root, *v;
+  const char *s;
+  size_t n;
+  if (!obj || !key || !out || out_cap == 0) return -1;
+  doc = yyjson_read(obj, strlen(obj), 0);
+  if (!doc) return -1;
+  root = yyjson_doc_get_root(doc);
+  if (!yyjson_is_obj(root)) {
+    yyjson_doc_free(doc);
+    return -1;
   }
-  out = malloc((size_t)len + 1);
-  if (!out) return NULL;
-  j = 0;
-  i = 0;
-  while (i < len) {
-    unsigned char c = (unsigned char)src[i];
-    if (c != '\\') {
-      out[j++] = (char)c;
-      i++;
-      continue;
-    }
-    if (i + 1 >= len) break;
-    i++;
-    c = (unsigned char)src[i++];
-    switch (c) {
-    case '"': out[j++] = '"'; break;
-    case '\\': out[j++] = '\\'; break;
-    case '/': out[j++] = '/'; break;
-    case 'b': out[j++] = '\b'; break;
-    case 'f': out[j++] = '\f'; break;
-    case 'n': out[j++] = '\n'; break;
-    case 'r': out[j++] = '\r'; break;
-    case 't': out[j++] = '\t'; break;
-    case 'u': {
-      int k;
-      for (k = 0; k < 4 && i < len; k++) {
-        unsigned char h = (unsigned char)src[i];
-        if (!isxdigit((int)h)) break;
-        i++;
-      }
-      out[j++] = '?';
-      break;
-    }
-    default:
-      out[j++] = (char)c;
-      break;
-    }
+  v = yyjson_obj_get(root, key);
+  if (!yyjson_is_str(v)) {
+    yyjson_doc_free(doc);
+    return -1;
   }
-  out[j] = '\0';
-  return out;
-}
-
-static int neo_tok_skip(const jsmntok_t *t, int i) {
-  int next = i + 1;
-  int j;
-  switch (t[i].type) {
-  case JSMN_STRING:
-  case JSMN_PRIMITIVE:
-    return next;
-  case JSMN_ARRAY:
-    for (j = 0; j < t[i].size; j++)
-      next = neo_tok_skip(t, next);
-    return next;
-  case JSMN_OBJECT:
-    for (j = 0; j < t[i].size; j++) {
-      next = neo_tok_skip(t, next);
-      next = neo_tok_skip(t, next);
-    }
-    return next;
-  default:
-    return next;
+  s = yyjson_get_str(v);
+  n = yyjson_get_len(v);
+  if (n >= out_cap) {
+    yyjson_doc_free(doc);
+    return -1;
   }
+  memcpy(out, s ? s : "", n);
+  out[n] = '\0';
+  yyjson_doc_free(doc);
+  return 0;
 }
 
-static int neo_tok_str_eq(const char *js, const jsmntok_t *t, const char *lit) {
-  size_t L = strlen(lit);
-  if (t->type != JSMN_STRING || (size_t)(t->end - t->start) != L) return 0;
-  return strncmp(js + t->start, lit, L) == 0;
+static yyjson_val *choice0_message(yyjson_val *root) {
+  yyjson_val *choices, *c0, *msg;
+  choices = yyjson_obj_get(root, "choices");
+  if (!yyjson_is_arr(choices) || yyjson_arr_size(choices) < 1) return NULL;
+  c0 = yyjson_arr_get(choices, 0);
+  msg = yyjson_obj_get(c0, "message");
+  return yyjson_is_obj(msg) ? msg : NULL;
 }
 
-static int neo_tok_prim_eq(const char *js, const jsmntok_t *t, const char *lit) {
-  size_t L = strlen(lit);
-  if (t->type != JSMN_PRIMITIVE || (size_t)(t->end - t->start) != L) return 0;
-  return strncmp(js + t->start, lit, L) == 0;
-}
-
-static int find_choice_message(const char *js, jsmntok_t *tok, int ntok, int *out_mi) {
-  (void)ntok;
-  if (tok[0].type != JSMN_OBJECT) return -1;
-  int i = 1;
-  for (int k = 0; k < tok[0].size; k++) {
-    int val = i + 1;
-    int next = neo_tok_skip(tok, val);
-    if (neo_tok_str_eq(js, &tok[i], "choices")) {
-      if (tok[val].type != JSMN_ARRAY || tok[val].size < 1) return -1;
-      int ch0 = val + 1;
-      if (tok[ch0].type != JSMN_OBJECT) return -1;
-      int j = ch0 + 1;
-      for (int m = 0; m < tok[ch0].size; m++) {
-        int v2 = j + 1;
-        int n2 = neo_tok_skip(tok, v2);
-        if (neo_tok_str_eq(js, &tok[j], "message")) {
-          *out_mi = v2;
-          return 0;
-        }
-        j = n2;
-      }
-      return -1;
-    }
-    i = next;
-  }
-  return -1;
-}
-
-static int msg_find_tool_calls(const char *js, jsmntok_t *tok, int mi, int *out_tc) {
-  if (tok[mi].type != JSMN_OBJECT) return -1;
-  int cur = mi + 1;
-  for (int j = 0; j < tok[mi].size; j++) {
-    int val = cur + 1;
-    int nxt = neo_tok_skip(tok, val);
-    if (neo_tok_str_eq(js, &tok[cur], "tool_calls")) {
-      if (tok[val].type == JSMN_ARRAY && tok[val].size > 0) {
-        *out_tc = val;
-        return 0;
-      }
-      return -1;
-    }
-    cur = nxt;
-  }
-  return -1;
-}
-
-static int msg_extract_content(const char *js, jsmntok_t *tok, int mi, llm_response_t *out) {
+static int msg_content_to_llm(yyjson_val *msg, llm_response_t *out) {
+  yyjson_val *content;
   out->data = NULL;
   out->size = 0;
-  if (tok[mi].type != JSMN_OBJECT) return -1;
-  int cur = mi + 1;
-  for (int j = 0; j < tok[mi].size; j++) {
-    int val = cur + 1;
-    int nxt = neo_tok_skip(tok, val);
-    if (neo_tok_str_eq(js, &tok[cur], "content")) {
-      if (tok[val].type == JSMN_STRING) {
-        int L = tok[val].end - tok[val].start;
-        out->data = neo_json_unescape_slice(js + tok[val].start, L);
-        if (!out->data) return -1;
-        out->size = strlen(out->data);
-        return 0;
-      }
-      if (tok[val].type == JSMN_PRIMITIVE && neo_tok_prim_eq(js, &tok[val], "null")) {
-        out->data = malloc(1);
-        if (!out->data) return -1;
-        out->data[0] = '\0';
-        out->size = 0;
-        return 0;
-      }
-      return -1;
-    }
-    cur = nxt;
+  if (!msg) return -1;
+  content = yyjson_obj_get(msg, "content");
+  if (!content || yyjson_is_null(content)) {
+    out->data = malloc(1);
+    if (!out->data) return -1;
+    out->data[0] = '\0';
+    out->size = 0;
+    return 0;
   }
-  return -1;
-}
-
-static int msg_slice_raw(const char *js, jsmntok_t *tok, int mi, NeoBuf *dst) {
-  int a = tok[mi].start;
-  int b = tok[mi].end;
-  if (a < 0 || b < a) return -1;
-  return neo_buf_append(dst, js + a, (size_t)(b - a));
+  if (!yyjson_is_str(content)) return -1;
+  out->data = yy_strdup_val(content);
+  if (!out->data) return -1;
+  out->size = strlen(out->data);
+  return 0;
 }
 
 static void neo_tool_calls_free(NeoToolCall *tc, int n) {
@@ -303,84 +201,51 @@ static void neo_tool_calls_free(NeoToolCall *tc, int n) {
   }
 }
 
-static int parse_tool_calls(const char *js, jsmntok_t *tok, int tc_root, NeoToolCall *out, int *out_n) {
+static int parse_tool_calls_yy(yyjson_val *msg, NeoToolCall *out, int *out_n) {
+  yyjson_val *tc, *el;
+  size_t i, n;
   *out_n = 0;
-  if (tok[tc_root].type != JSMN_ARRAY) return -1;
-  int el = tc_root + 1;
-  for (int j = 0; j < tok[tc_root].size && *out_n < NEO_MAX_TOOLS_PER_TURN; j++) {
-    if (tok[el].type != JSMN_OBJECT) return -1;
-    NeoToolCall *t = &out[*out_n];
+  if (!msg) return -1;
+  tc = yyjson_obj_get(msg, "tool_calls");
+  if (!yyjson_is_arr(tc)) return -1;
+  n = yyjson_arr_size(tc);
+  for (i = 0; i < n && *out_n < NEO_MAX_TOOLS_PER_TURN; i++) {
+    NeoToolCall *t;
+    yyjson_val *fn, *args;
+    el = yyjson_arr_get(tc, i);
+    if (!yyjson_is_obj(el)) return -1;
+    t = &out[*out_n];
     t->id = t->name = t->arguments = NULL;
-    int cur = el + 1;
-    for (int k = 0; k < tok[el].size; k++) {
-      int val = cur + 1;
-      int nxt = neo_tok_skip(tok, val);
-      if (neo_tok_str_eq(js, &tok[cur], "id") && tok[val].type == JSMN_STRING) {
-        int L = tok[val].end - tok[val].start;
-        t->id = neo_json_unescape_slice(js + tok[val].start, L);
-      } else if (neo_tok_str_eq(js, &tok[cur], "function") && tok[val].type == JSMN_OBJECT) {
-        int c2 = val + 1;
-        for (int m = 0; m < tok[val].size; m++) {
-          int v2 = c2 + 1;
-          int n2 = neo_tok_skip(tok, v2);
-          if (neo_tok_str_eq(js, &tok[c2], "name") && tok[v2].type == JSMN_STRING) {
-            int L = tok[v2].end - tok[v2].start;
-            t->name = neo_json_unescape_slice(js + tok[v2].start, L);
-          } else if (neo_tok_str_eq(js, &tok[c2], "arguments") && tok[v2].type == JSMN_STRING) {
-            int L = tok[v2].end - tok[v2].start;
-            t->arguments = neo_json_unescape_slice(js + tok[v2].start, L);
-          }
-          c2 = n2;
-        }
+    t->id = yy_strdup_val(yyjson_obj_get(el, "id"));
+    fn = yyjson_obj_get(el, "function");
+    if (yyjson_is_obj(fn)) {
+      t->name = yy_strdup_val(yyjson_obj_get(fn, "name"));
+      args = yyjson_obj_get(fn, "arguments");
+      if (yyjson_is_str(args)) {
+        t->arguments = yy_strdup_val(args);
+      } else if (yyjson_is_obj(args) || yyjson_is_arr(args)) {
+        t->arguments = yyjson_val_write(args, 0, NULL);
       }
-      cur = nxt;
     }
-    if (t->id && t->name && t->arguments) (*out_n)++;
-    else {
+    if (t->id && t->name && t->arguments) {
+      (*out_n)++;
+    } else {
       free(t->id);
       free(t->name);
       free(t->arguments);
       t->id = t->name = t->arguments = NULL;
     }
-    el = neo_tok_skip(tok, el);
   }
   return 0;
 }
 
-static int jsmn_extract_string_field(const char *obj, const char *key, char *out, size_t out_cap) {
-  jsmn_parser p;
-  jsmntok_t tok[128];
-  jsmn_init(&p);
-  size_t olen = strlen(obj);
-  size_t keylen = strlen(key);
-  int r = jsmn_parse(&p, obj, olen, tok, (unsigned int)(sizeof(tok) / sizeof(tok[0])));
-  if (r < 1 || tok[0].type != JSMN_OBJECT) return -1;
-  int cur = 1;
-  for (int j = 0; j < tok[0].size; j++) {
-    int val = cur + 1;
-    int nxt = neo_tok_skip(tok, val);
-    if (tok[cur].type == JSMN_STRING && (size_t)(tok[cur].end - tok[cur].start) == keylen &&
-        strncmp(obj + tok[cur].start, key, keylen) == 0) {
-      if (tok[val].type != JSMN_STRING) return -1;
-      int L = tok[val].end - tok[val].start;
-      if (L < 0) return -1;
-      {
-        char *tmp = neo_json_unescape_slice(obj + tok[val].start, L);
-        size_t ulen;
-        if (!tmp) return -1;
-        ulen = strlen(tmp);
-        if (ulen >= out_cap) {
-          free(tmp);
-          return -1;
-        }
-        memcpy(out, tmp, ulen + 1);
-        free(tmp);
-      }
-      return 0;
-    }
-    cur = nxt;
-  }
-  return -1;
+static int append_message_json(yyjson_val *msg, NeoBuf *dst) {
+  char *s = yyjson_val_write(msg, 0, NULL);
+  int r;
+  if (!s) return -1;
+  r = neo_buf_append(dst, s, strlen(s));
+  free(s);
+  return r;
 }
 
 #if defined(__APPLE__) || defined(__linux__)
@@ -519,7 +384,7 @@ static int tool_http_get(const agent_config_t *conf, const char *args_json, NeoB
   long code = 0;
   if (!conf->tools.http_fetch_enabled || conf->tools.http_allow_hosts == NULL || conf->tools.http_allow_hosts[0] == '\0')
     return neo_buf_append(result, "ERROR: http_get disabled (set http_fetch_enabled: true and http_allow_hosts)", 0);
-  if (jsmn_extract_string_field(args_json, "url", urlbuf, sizeof(urlbuf)) != 0)
+  if (extract_string_field(args_json, "url", urlbuf, sizeof(urlbuf)) != 0)
     return neo_buf_append(result, "ERROR: missing url", 0);
   if (url_https_extract_host(urlbuf, host, sizeof(host)) != 0)
     return neo_buf_append(result, "ERROR: url must be https://hostname/... (no IPv6 literal)", 0);
@@ -569,7 +434,7 @@ static int tool_list_dir(const agent_config_t *conf, const char *root_real, cons
   int n;
   DIR *d;
   struct dirent *e;
-  if (jsmn_extract_string_field(args_json, "path", rel, sizeof(rel)) != 0)
+  if (extract_string_field(args_json, "path", rel, sizeof(rel)) != 0)
     return neo_buf_append(result, "ERROR: missing path", 0);
   if (resolve_under_root(root_real, rel, full, sizeof(full)) != 0)
     return neo_buf_append(result, "ERROR: path not allowed", 0);
@@ -610,7 +475,7 @@ static int tool_list_dir(const agent_config_t *conf, const char *root_real, cons
 
 static int tool_read_file(const agent_config_t *conf, const char *root_real, const char *args_json, NeoBuf *result) {
   char rel[PATH_MAX];
-  if (jsmn_extract_string_field(args_json, "path", rel, sizeof(rel)) != 0)
+  if (extract_string_field(args_json, "path", rel, sizeof(rel)) != 0)
     return neo_buf_append(result, "ERROR: missing path", 0);
   char full[PATH_MAX];
   if (resolve_under_root(root_real, rel, full, sizeof(full)) != 0)
@@ -651,11 +516,11 @@ static int tool_write_file(const agent_config_t *conf, const char *root_real, co
   size_t ccap = 512 * 1024;
   char *content = malloc(ccap);
   if (!content) return neo_buf_append(result, "ERROR: oom", 0);
-  if (jsmn_extract_string_field(args_json, "path", rel, sizeof(rel)) != 0) {
+  if (extract_string_field(args_json, "path", rel, sizeof(rel)) != 0) {
     free(content);
     return neo_buf_append(result, "ERROR: missing path", 0);
   }
-  if (jsmn_extract_string_field(args_json, "content", content, ccap) != 0) {
+  if (extract_string_field(args_json, "content", content, ccap) != 0) {
     free(content);
     return neo_buf_append(result, "ERROR: missing content", 0);
   }
@@ -819,92 +684,101 @@ int agent_run_with_tools(
       return -1;
     }
 
-    jsmn_parser pr;
-    jsmntok_t tok[16384];
-    jsmn_init(&pr);
-    int tr = jsmn_parse(&pr, raw.data, raw.size, tok, (unsigned int)(sizeof(tok) / sizeof(tok[0])));
-    if (tr < 0) {
-      fprintf(stderr, "neo: tool round JSON parse error %d\n", tr);
-      llm_response_free(&raw);
-      neo_buf_free(&body);
-      neo_buf_free(&hist);
-      return -1;
-    }
+    {
+      yyjson_doc *doc;
+      yyjson_val *root, *msg, *tc;
+      int has_tools;
 
-    int mi = -1;
-    if (find_choice_message(raw.data, tok, tr, &mi) != 0) {
-      fprintf(stderr, "neo: no message in response\n");
-      llm_response_free(&raw);
-      neo_buf_free(&body);
-      neo_buf_free(&hist);
-      return -1;
-    }
-
-    int tc_idx = -1;
-    int has_tools = (msg_find_tool_calls(raw.data, tok, mi, &tc_idx) == 0);
-
-    if (!has_tools) {
-      llm_response_free(out_text);
-      out_text->data = NULL;
-      out_text->size = 0;
-      if (msg_extract_content(raw.data, tok, mi, out_text) != 0) {
-        /* Fallback: whole-response content extractor */
-        if (llm_extract_content_json(raw.data, out_text) != 0) {
-          llm_response_free(&raw);
-          neo_buf_free(&body);
-          neo_buf_free(&hist);
-          return -1;
-        }
-      }
-      llm_response_free(&raw);
-      neo_buf_free(&body);
-      neo_buf_free(&hist);
-      return 0;
-    }
-
-    neo_buf_append(&hist, ",", 0);
-    if (msg_slice_raw(raw.data, tok, mi, &hist) != 0) {
-      llm_response_free(&raw);
-      neo_buf_free(&body);
-      neo_buf_free(&hist);
-      llm_response_free(out_text);
-      out_text->data = NULL;
-      out_text->size = 0;
-      return -1;
-    }
-
-    NeoToolCall calls[NEO_MAX_TOOLS_PER_TURN];
-    int ncalls = 0;
-    memset(calls, 0, sizeof(calls));
-    parse_tool_calls(raw.data, tok, tc_idx, calls, &ncalls);
-    llm_response_free(&raw);
-
-    if (ncalls == 0) {
-      neo_buf_free(&body);
-      neo_buf_free(&hist);
-      return -1;
-    }
-
-    NeoBuf tres = {0};
-    int ci;
-    for (ci = 0; ci < ncalls; ci++) {
-      if (run_one_tool(conf, root_real, &calls[ci], &tres) != 0) {
-        neo_tool_calls_free(calls, ncalls);
-        neo_buf_free(&tres);
+      doc = yyjson_read(raw.data, raw.size, 0);
+      if (!doc) {
+        fprintf(stderr, "neo: tool round JSON parse error\n");
+        llm_response_free(&raw);
         neo_buf_free(&body);
         neo_buf_free(&hist);
         return -1;
       }
-      neo_buf_append(&hist, ",{\"role\":\"tool\",\"tool_call_id\":\"", 0);
-      neo_json_escape(calls[ci].id, &hist);
-      neo_buf_append(&hist, "\",\"content\":\"", 0);
-      neo_json_escape(tres.s ? tres.s : "", &hist);
-      neo_buf_append(&hist, "\"}", 0);
-      tres.len = 0;
-      if (tres.s) tres.s[0] = '\0';
+      root = yyjson_doc_get_root(doc);
+      msg = choice0_message(root);
+      if (!msg) {
+        fprintf(stderr, "neo: no message in response\n");
+        yyjson_doc_free(doc);
+        llm_response_free(&raw);
+        neo_buf_free(&body);
+        neo_buf_free(&hist);
+        return -1;
+      }
+
+      tc = yyjson_obj_get(msg, "tool_calls");
+      has_tools = yyjson_is_arr(tc) && yyjson_arr_size(tc) > 0;
+
+      if (!has_tools) {
+        llm_response_free(out_text);
+        out_text->data = NULL;
+        out_text->size = 0;
+        if (msg_content_to_llm(msg, out_text) != 0) {
+          if (llm_extract_content_json(raw.data, out_text) != 0) {
+            yyjson_doc_free(doc);
+            llm_response_free(&raw);
+            neo_buf_free(&body);
+            neo_buf_free(&hist);
+            return -1;
+          }
+        }
+        yyjson_doc_free(doc);
+        llm_response_free(&raw);
+        neo_buf_free(&body);
+        neo_buf_free(&hist);
+        return 0;
+      }
+
+      neo_buf_append(&hist, ",", 0);
+      if (append_message_json(msg, &hist) != 0) {
+        yyjson_doc_free(doc);
+        llm_response_free(&raw);
+        neo_buf_free(&body);
+        neo_buf_free(&hist);
+        llm_response_free(out_text);
+        out_text->data = NULL;
+        out_text->size = 0;
+        return -1;
+      }
+
+      {
+        NeoToolCall calls[NEO_MAX_TOOLS_PER_TURN];
+        int ncalls = 0;
+        NeoBuf tres = {0};
+        int ci;
+        memset(calls, 0, sizeof(calls));
+        parse_tool_calls_yy(msg, calls, &ncalls);
+        yyjson_doc_free(doc);
+        llm_response_free(&raw);
+
+        if (ncalls == 0) {
+          neo_buf_free(&body);
+          neo_buf_free(&hist);
+          return -1;
+        }
+
+        for (ci = 0; ci < ncalls; ci++) {
+          if (run_one_tool(conf, root_real, &calls[ci], &tres) != 0) {
+            neo_tool_calls_free(calls, ncalls);
+            neo_buf_free(&tres);
+            neo_buf_free(&body);
+            neo_buf_free(&hist);
+            return -1;
+          }
+          neo_buf_append(&hist, ",{\"role\":\"tool\",\"tool_call_id\":\"", 0);
+          neo_json_escape(calls[ci].id, &hist);
+          neo_buf_append(&hist, "\",\"content\":\"", 0);
+          neo_json_escape(tres.s ? tres.s : "", &hist);
+          neo_buf_append(&hist, "\"}", 0);
+          tres.len = 0;
+          if (tres.s) tres.s[0] = '\0';
+        }
+        neo_tool_calls_free(calls, ncalls);
+        neo_buf_free(&tres);
+      }
     }
-    neo_tool_calls_free(calls, ncalls);
-    neo_buf_free(&tres);
 
     /* Rebuild body prefix for next POST */
     body.len = 0;

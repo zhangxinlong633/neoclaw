@@ -56,7 +56,33 @@ static int parse_bracket_list(const char *s, char ***out_argv, int max_n) {
   if (!s || !out_argv) return -1;
   *out_argv = NULL;
   while (*s == ' ' || *s == '\t') s++;
-  if (*s != '[') return -1;
+  /* Bare string → single-element list (LLM often emits then: "id" instead of then: ["id"]). */
+  if (*s != '[') {
+    char buf[MAX_STR];
+    size_t len = 0;
+    char *dup;
+    char **np;
+    if (*s == '"') {
+      s++;
+      while (*s && *s != '"' && len + 1 < sizeof(buf)) buf[len++] = *s++;
+    } else {
+      while (*s && *s != ' ' && *s != '\t' && *s != '#' && *s != '\r' && *s != '\n' &&
+             len + 1 < sizeof(buf))
+        buf[len++] = *s++;
+    }
+    buf[len] = '\0';
+    if (len == 0) return -1;
+    dup = dup_str(buf);
+    if (!dup) return -1;
+    np = malloc(sizeof(char *));
+    if (!np) {
+      free(dup);
+      return -1;
+    }
+    np[0] = dup;
+    *out_argv = np;
+    return 1;
+  }
   s++;
   while (*s) {
     char buf[MAX_STR];
@@ -181,11 +207,15 @@ static int validate_workflows(agent_config_t *c) {
         }
       }
       if (s->type == WF_STEP_TOOL) {
-        if (!s->tool || !s->tool[0]) {
+        /* Planner often omits type: llm and only sets prompt — coerce. */
+        if ((!s->tool || !s->tool[0]) && s->prompt && s->prompt[0]) {
+          s->type = WF_STEP_LLM;
+        } else if (!s->tool || !s->tool[0]) {
           fprintf(stderr, "neo: workflow '%s' step '%s': tool required\n", wf->name, s->id);
           return -1;
         }
-      } else if (s->type == WF_STEP_LLM) {
+      }
+      if (s->type == WF_STEP_LLM) {
         if (!s->prompt || !s->prompt[0]) {
           fprintf(stderr, "neo: workflow '%s' step '%s': prompt required\n", wf->name, s->id);
           return -1;
@@ -355,7 +385,7 @@ int config_load_file(agent_config_t *c, const char *path) {
   char line[1024];
   int in_model = 0, in_skills = 0, in_memory = 0, in_bootstrap = 0, in_session = 0, in_high_priority = 0;
   int in_tools = 0, in_soul = 0, in_rules = 0, in_workspace = 0, in_commands = 0, in_workflows = 0;
-  int in_wf_steps = 0;
+  int in_wf_steps = 0, in_plan = 0;
   c->memory.max_chars = 4000;
   c->model.max_tokens = 4096;
   c->model.temperature = 0.7;
@@ -364,96 +394,126 @@ int config_load_file(agent_config_t *c, const char *path) {
 
   while (fgets(line, sizeof(line), f)) {
     char *t = line;
-    while (*t == ' ' || *t == '\t') t++;
+    int indent = 0;
+    while (*t == ' ' || *t == '\t') {
+      indent++;
+      t++;
+    }
     if (*t == '#' || *t == '\n' || *t == '\0') continue;
 
-    if (strncmp(t, "model:", 6) == 0) {
+    /* Top-level section keys only (column 0). Indented "tools:" etc. are step fields. */
+    if (indent == 0 && strncmp(t, "model:", 6) == 0) {
       in_model = 1;
       in_high_priority = 0;
       in_commands = 0;
       in_workflows = 0;
       in_wf_steps = 0;
+      in_plan = 0;
       in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
-    if (strncmp(t, "skills:", 7) == 0) {
+    if (indent == 0 && strncmp(t, "skills:", 7) == 0) {
       in_skills = 1;
       in_high_priority = 0;
       in_commands = 0;
       in_workflows = 0;
       in_wf_steps = 0;
+      in_plan = 0;
       in_model = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
-    if (strncmp(t, "memory:", 7) == 0) {
+    if (indent == 0 && strncmp(t, "memory:", 7) == 0) {
       in_memory = 1;
       in_high_priority = 0;
       in_commands = 0;
       in_workflows = 0;
       in_wf_steps = 0;
+      in_plan = 0;
       in_model = in_skills = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
-    if (strncmp(t, "bootstrap:", 10) == 0) {
+    if (indent == 0 && strncmp(t, "bootstrap:", 10) == 0) {
       in_bootstrap = 1;
       in_high_priority = 0;
       in_commands = 0;
       in_workflows = 0;
       in_wf_steps = 0;
+      in_plan = 0;
       in_model = in_skills = in_memory = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
-    if (strncmp(t, "session:", 8) == 0) {
+    if (indent == 0 && strncmp(t, "session:", 8) == 0) {
       in_session = 1;
       in_high_priority = 0;
       in_commands = 0;
       in_workflows = 0;
       in_wf_steps = 0;
+      in_plan = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
-    if (strncmp(t, "tools:", 6) == 0) {
+    if (indent == 0 && strncmp(t, "tools:", 6) == 0) {
       in_tools = 1;
       in_high_priority = 0;
       in_commands = 0;
       in_workflows = 0;
       in_wf_steps = 0;
+      in_plan = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_session = in_soul = in_rules = in_workspace = 0;
       continue;
     }
-    if (strncmp(t, "workflows:", 10) == 0) {
+    if (indent == 0 && strncmp(t, "workflows:", 10) == 0) {
       in_workflows = 1;
       in_wf_steps = 0;
       in_high_priority = 0;
       in_commands = 0;
+      in_plan = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
       continue;
     }
-    if (strncmp(t, "soul:", 5) == 0) {
+    if (indent == 0 && strncmp(t, "plan:", 5) == 0) {
+      in_plan = 1;
+      in_high_priority = 0;
+      in_commands = 0;
+      in_workflows = 0;
+      in_wf_steps = 0;
+      in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = in_workspace = 0;
+      continue;
+    }
+    if (indent == 0 && strncmp(t, "soul:", 5) == 0) {
       in_soul = 1;
       in_high_priority = 0;
       in_commands = 0;
       in_workflows = 0;
       in_wf_steps = 0;
+      in_plan = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_rules = in_workspace = 0;
       continue;
     }
-    if (strncmp(t, "rules:", 6) == 0) {
+    if (indent == 0 && strncmp(t, "rules:", 6) == 0) {
       in_rules = 1;
       in_high_priority = 0;
       in_commands = 0;
       in_workflows = 0;
       in_wf_steps = 0;
+      in_plan = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_workspace = 0;
       continue;
     }
-    if (strncmp(t, "workspace:", 10) == 0) {
+    if (indent == 0 && strncmp(t, "workspace:", 10) == 0) {
       in_workspace = 1;
       in_high_priority = 0;
       in_commands = 0;
       in_workflows = 0;
       in_wf_steps = 0;
+      in_plan = 0;
       in_model = in_skills = in_memory = in_bootstrap = in_session = in_tools = in_soul = in_rules = 0;
+      continue;
+    }
+
+    if (in_plan) {
+      if (strncmp(t, "target_steps:", 13) == 0)
+        c->plan.target_steps = atoi(t + 13);
       continue;
     }
 

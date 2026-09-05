@@ -44,7 +44,7 @@ Resolution order: CLI `--steps` > `plan.target_steps` > **10**.
 
 ## Docs / tests
 
-- Update `doc/workflow.md`, README help line, `-h`.
+- Update `docs/workflow.md`, README help line, `-h`.
 - Unit: prompt builder includes target when N=10/15 (no API).
 - Live smoke optional: `neo plan --steps 3 "..."` still validates.
 

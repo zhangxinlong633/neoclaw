@@ -109,6 +109,10 @@ typedef struct {
 } workflow_t;
 
 typedef struct {
+  int target_steps; /* 0 = unset; soft preference for planner */
+} plan_config_t;
+
+typedef struct {
   model_config_t model;
   bootstrap_config_t bootstrap;
   soul_config_t soul;
@@ -117,6 +121,7 @@ typedef struct {
   skills_config_t skills;
   memory_config_t memory;
   tools_config_t tools;
+  plan_config_t plan;
   workflow_t *workflows;
   int workflow_count;
   int session_max_turns;

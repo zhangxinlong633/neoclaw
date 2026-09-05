@@ -201,6 +201,6 @@ cat demo-tool.txt
 - 工具循环与 HTTP：`src/agent_tools.c`、`src/llm.c`（`llm_post_chat_completions_json`）
 - 配置解析：`src/config.c`（`tools:` 段）
 - 单次 / daemon 入口：`src/main.c`、`src/daemon.c`
-- JSON 解析：`src/jsmn.h`（MIT）
+- JSON 解析：内置 `src/yyjson.c` / `src/yyjson.h`（MIT；LLM 与 tool_calls）
 
 更多整体说明见仓库根目录 `README.md`。

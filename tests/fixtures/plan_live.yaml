@@ -1,0 +1,27 @@
+# Live plan/run smoke config (tools allowlist + model from env overrides).
+model:
+  provider: openrouter
+  base_url: "https://openrouter.ai/api/v1"
+  name: "qwen/qwen3-32b"
+  api_key: "from-env"
+  max_tokens: 4096
+  temperature: 0.2
+
+tools:
+  enabled: true
+  root: "."
+  max_rounds: 8
+  commands:
+    - name: echo_args
+      description: "Echo tool args JSON to stdout"
+      argv: ["./scripts/tools/echo-args.sh"]
+      timeout_sec: 5
+      max_output_bytes: 4096
+      pass_args: stdin_json
+
+memory:
+  path: "MEMORY.md"
+  max_chars: 400
+
+session:
+  max_turns: 4

@@ -6,7 +6,7 @@
 
 **Architecture:** 保持单二进制 + libcurl。在现有 line-based YAML 解析上扩展 `tools.commands` 与 `workflows`；命令工具经 `execvp` 跑声明过的 argv（stdin JSON / env 传参）；新建 `workflow.c` 引擎；CLI 增加 `-p` 与 `workflow run`。
 
-**Tech Stack:** C99、libcurl、现有 `jsmn`、POSIX `fork/exec`（Linux/macOS）、bash 样例脚本、Makefile `test` 目标。
+**Tech Stack:** C99、libcurl、yyjson、POSIX `fork/exec`（Linux/macOS）、bash 样例脚本、Makefile `test` 目标。
 
 **Spec:** `docs/superpowers/specs/2026-09-04-swiss-army-knife-design.md`
 
@@ -36,7 +36,7 @@
 | `scripts/neo-ask` | cron/管道薄壳 |
 | `profiles/demo/neo.yaml` + 脚本 | profile 演示 |
 | `tests/*.sh` / `tests/fixtures/*.yaml` | 无 LLM 的自动化验收 |
-| `doc/tool.md` / `doc/workflow.md` / `README.md` | 用户文档 |
+| `docs/tool.md` / `docs/workflow.md` / `README.md` | 用户文档 |
 | `config.yaml.example` | 注释示例 |
 
 ---
@@ -238,7 +238,7 @@ EOF
 - Modify: `src/agent_tools.c`（`neo_build_tools_json`、`run_one_tool`）
 - Modify: `Makefile`（`neo` 链接 `command_tools.c`）
 - Modify: `config.yaml.example`
-- Modify: `doc/tool.md`
+- Modify: `docs/tool.md`
 
 **Interfaces:**
 - Consumes: `command_tool_run`、`conf->tools.commands`
@@ -256,7 +256,7 @@ EOF
 
 未知名仍返回 `ERROR: unknown tool`。
 
-- [ ] **Step 3: 更新 `config.yaml.example` 注释块与 `doc/tool.md` 增加 commands 小节**
+- [ ] **Step 3: 更新 `config.yaml.example` 注释块与 `docs/tool.md` 增加 commands 小节**
 
 - [ ] **Step 4: 手动 smoke（有 API key 时）**
 
@@ -272,7 +272,7 @@ Expected stderr: `neo tool: echo_args`
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/agent_tools.c Makefile config.yaml.example doc/tool.md
+git add src/agent_tools.c Makefile config.yaml.example docs/tool.md
 git commit -m "$(cat <<'EOF'
 feat: expose tools.commands to the LLM tool loop
 
@@ -414,7 +414,7 @@ EOF
 **Files:**
 - Modify: `src/main.c`
 - Modify: `README.md`
-- Create: `doc/workflow.md`
+- Create: `docs/workflow.md`
 
 **Interfaces:**
 - 解析：`neo [OPTIONS] workflow run <name>`
@@ -429,7 +429,7 @@ EOF
 
 - [ ] **Step 2: 在 `main` 识别 `workflow` `run` `<name>`，加载 config 后 `workflow_run`**
 
-- [ ] **Step 3: 文档 `doc/workflow.md` + README 链到该文档**
+- [ ] **Step 3: 文档 `docs/workflow.md` + README 链到该文档**
 
 - [ ] **Step 4: 本地跑**
 
@@ -498,8 +498,8 @@ EOF
 **Files:**
 - Create: `scripts/neo-ask`
 - Modify: `README.md`
-- Modify: `doc/claw.md`（入口表增加 neo-ask / workflow / -p）
-- Modify: `doc/workflow.md`（cron 样例）
+- Modify: `docs/claw.md`（入口表增加 neo-ask / workflow / -p）
+- Modify: `docs/workflow.md`（cron 样例）
 
 **Interfaces:**
 - `neo-ask` bash：
@@ -516,7 +516,7 @@ chmod +x scripts/neo-ask
 ./scripts/neo-ask -p demo --workflow demo_loop
 ```
 
-- [ ] **Step 2: cron 样例写入 `doc/workflow.md`**
+- [ ] **Step 2: cron 样例写入 `docs/workflow.md`**
 
 ```text
 # 每小时（用户自行安装）

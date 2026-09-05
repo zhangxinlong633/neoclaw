@@ -58,6 +58,30 @@ workflows:
         tool: count_run
         depends_on: ["branch"]
         args: {}
+  - name: route_merge
+    description: "join after route must run when one branch is skipped"
+    steps:
+      - id: seed
+        type: tool
+        tool: count_run
+        args: {}
+      - id: branch
+        type: route
+        depends_on: ["seed"]
+        on: "pdf document"
+        match: "pdf"
+        then: []
+        else: ["fix_branch"]
+      - id: fix_branch
+        type: tool
+        tool: count_run
+        depends_on: ["branch"]
+        args: {}
+      - id: join
+        type: tool
+        tool: count_run
+        depends_on: ["branch", "fix_branch"]
+        args: {}
 skills:
   directory: "skills"
 memory:

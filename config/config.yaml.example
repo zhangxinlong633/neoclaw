@@ -69,3 +69,7 @@ session:
 #       timeout_sec: 30
 #       max_output_bytes: 65536
 #       pass_args: stdin_json   # stdin_json | env
+
+# --- Plan/run soft DAG size (optional; CLI --steps overrides) ---
+# plan:
+#   target_steps: 10
