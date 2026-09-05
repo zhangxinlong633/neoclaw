@@ -20,7 +20,7 @@ Address the highest maintainability risk from the project review: **hand-written
 ## Architecture
 
 ```text
-config.json ──yyjson YYJSON_READ_JSON5──► agent_config_t ──► workflow / tools / plan
+config.json5 ──yyjson YYJSON_READ_JSON5──► agent_config_t ──► workflow / tools / plan
 neo plan LLM ──extract JSON──► validate ──► stdout JSON | materialize temp .json + run
 ```
 
@@ -30,15 +30,15 @@ neo plan LLM ──extract JSON──► validate ──► stdout JSON | materi
 
 ## Config paths
 
-| Role | New default | Reject |
-|------|-------------|--------|
-| Main config | `config/config.json`, else `config.json` | `*.yaml` / `*.yml` |
-| Profile | `config/profiles/<name>/neo.json`, else `profiles/<name>/neo.json` | `neo.yaml` |
-| `-c` / `NEO_CONFIG` | Must point at `.json` / `.json5` | YAML extension or parse failure → exit 1 + message |
+| Role | New default | Also accept | Reject |
+|------|-------------|-------------|--------|
+| Main config | `config/config.json5`, else `config.json5` | `config/config.json`, `config.json` | `*.yaml` / `*.yml` |
+| Profile | `config/profiles/<name>/neo.json5`, else `profiles/<name>/neo.json5` | `neo.json` | `neo.yaml` |
+| `-c` / `NEO_CONFIG` | `.json5` or `.json` | same reader | YAML extension or parse failure → exit 1 |
 
-Also accept `.json5` as an alias extension for the same JSON5 reader. Default filenames stay `*.json` (JSON5 is a superset; comments/trailing commas allowed inside).
+Lookup order for defaults: **`.json5` first, then `.json`**. Example and docs ship as `config/config.json5.example` → copy to `config/config.json5`.
 
-Stderr on yaml path (example): `neo: config is JSON5-only; migrate to config.json (see docs)`.
+Stderr on yaml path (example): `neo: config is JSON5-only; migrate to config.json5 (see docs)`.
 
 ## JSON5 shape
 
@@ -113,7 +113,7 @@ Replace unconditional `neo dag:` / noisy `neo tool:` success spam with the schem
 
 ## Docs & examples
 
-- `config/config.yaml.example` → `config/config.json.example`
+- `config/config.yaml.example` → `config/config.json5.example`
 - Update README, `docs/tool.md`, `docs/workflow.md`, `docs/claw.md`, `example/`, relevant specs/plans paths and code fences to JSON
 - Short migration note (README subsection or `docs/migrate-json.md`): same keys, arrays required, no comments
 
@@ -140,4 +140,4 @@ Replace unconditional `neo dag:` / noisy `neo tool:` success spam with the schem
 1. No YAML parser on the hot path; config loads via yyjson `YYJSON_READ_JSON5`; plan artifacts are (strict) JSON.
 2. Example/fixture configs may use JSON5 comments and trailing commas and still load.
 3. `neo plan` prints valid workflows JSON; `neo run -v` prints structured step lines on stderr.
-4. Docs and examples are JSON5-first and runnable without yaml files.
+4. Docs and examples are JSON5-first (`*.json5`) and runnable without yaml files.

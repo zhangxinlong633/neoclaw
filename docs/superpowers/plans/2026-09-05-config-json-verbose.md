@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- JSON5 on read (`YYJSON_READ_JSON5`): refuse `.yaml` / `.yml` with migration hint; no YAML dual-read. Accept `.json` and `.json5` extensions.
+- JSON5 on read (`YYJSON_READ_JSON5`): refuse `.yaml` / `.yml`; no YAML dual-read. **Default filenames use `.json5`** (fallback `.json`).
 - Keep `agent_config_t` field layout; do not change workflow node semantics.
 - Lists must be arrays (no bare-string-as-list sugar).
 - Plan/write path emits strict JSON; config examples may use JSON5 comments / trailing commas.
@@ -25,15 +25,15 @@
 
 | File | Responsibility |
 |------|----------------|
-| `src/config.c` / `src/config.h` | JSON load via yyjson; path rejection; pointer-style error paths |
+| `src/config.c` / `src/config.h` | JSON5 load via yyjson; path rejection; pointer-style error paths |
 | `src/plan.c` / `src/plan.h` | Extract/materialize/prompt JSON; `quiet_plan`; pass `verbose` |
 | `src/workflow.c` / `src/workflow.h` | Step logging; `workflow_run(..., int verbose)` |
-| `src/main.c` | Default `*.json` paths; `-v`; profile `neo.json`; wire verbose |
+| `src/main.c` | Default `*.json5` paths (fallback `*.json`); `-v`; profile `neo.json5`; wire verbose |
 | `Makefile` | Link `yyjson.c` into all tests that use `config.c` |
-| `tests/fixtures/*.json` | JSON fixtures (delete `*.yaml` fixtures) |
+| `tests/fixtures/*.json` | JSON fixtures (delete `*.yaml` fixtures; strict JSON OK) |
 | `tests/test_*.c` | Point at `.json`; plan extract JSON; verbose stderr checks |
-| `config/config.json.example` | Replace `config.yaml.example` |
-| `README.md`, `docs/*.md`, `example/` | JSON-first docs + short migrate note |
+| `config/config.json5.example` | Replace `config.yaml.example` |
+| `README.md`, `docs/*.md`, `example/` | JSON5-first docs + short migrate note |
 
 ### Canonical JSON shapes (lock these)
 
@@ -241,28 +241,30 @@ git commit -m "feat: load agent config from JSON via yyjson"
 
 ---
 
-### Task 3: Default paths, profile `neo.json`, CLI rejection message
+### Task 3: Default paths, profile `neo.json5`, CLI rejection message
 
 **Files:**
 - Modify: `src/main.c` (`default_config_path`, profile branch, help text)
 - Create: `tests/test_config_path_reject.c` (optional small test) **or** extend `tests/test_parse_workflows.c` with a temp `.yaml` path check
 
 **Interfaces:**
-- Produces: default lookup `config/config.json` then `config.json`; profile uses `neo.json`
+- Produces: default lookup `config/config.json5` → `config.json5` → `config/config.json` → `config.json`; profile uses `neo.json5` then `neo.json`
 
 - [ ] **Step 1: Change default path helper**
 
 ```c
 static const char *default_config_path(void) {
+  if (access("config/config.json5", R_OK) == 0) return "config/config.json5";
+  if (access("config.json5", R_OK) == 0) return "config.json5";
   if (access("config/config.json", R_OK) == 0) return "config/config.json";
   if (access("config.json", R_OK) == 0) return "config.json";
-  return "config/config.json";
+  return "config/config.json5";
 }
 ```
 
-- [ ] **Step 2: Profile without `-c` uses `neo.json`** (replace `neo.yaml`).
+- [ ] **Step 2: Profile without `-c` tries `neo.json5` then `neo.json`** (replace `neo.yaml`).
 
-- [ ] **Step 3: Update `-h` text** to mention JSON paths.
+- [ ] **Step 3: Update `-h` text** to mention JSON5 paths.
 
 - [ ] **Step 4: Add rejection test** — write a tiny yaml file under `tests/fixtures/legacy.yaml` and assert `config_load_file` returns nonzero (file can stay as negative fixture; never auto-loaded).
 
@@ -280,7 +282,7 @@ Create `tests/fixtures/legacy.yaml` with one line `model: {}` solely for this te
 - [ ] **Step 5: `make test` + commit**
 
 ```bash
-git commit -m "feat: default to config.json and reject yaml configs"
+git commit -m "feat: default to config.json5 and reject yaml configs"
 ```
 
 ---
@@ -414,21 +416,23 @@ git commit -m "feat: add --verbose structured workflow step logs"
 ### Task 6: Example config + docs migration
 
 **Files:**
-- Create: `config/config.json.example`, `docs/migrate-json.md`
+- Create: `config/config.json5.example`, `docs/migrate-json.md`
 - Delete: `config/config.yaml.example`
 - Modify: `README.md`, `docs/tool.md`, `docs/workflow.md`, `docs/claw.md`, `example/README.md`, and any remaining `config.yaml` / `neo.yaml` / `workflows:` YAML fences in `docs/superpowers/specs/*.md` that describe runtime config (update to JSON5; historical plan files may note “superseded by JSON5” only where they instruct implementers)
 
 **Interfaces:** none (docs only)
 
-- [ ] **Step 1: Write `config/config.json.example`** from current yaml example using canonical shapes; **use JSON5 comments** (`//` / `/* */`) and trailing commas where helpful (must still load with `YYJSON_READ_JSON5`).
+- [ ] **Step 1: Write `config/config.json5.example`** from current yaml example using canonical shapes; **use JSON5 comments** (`//` / `/* */`) and trailing commas where helpful (must still load with `YYJSON_READ_JSON5`).
 
-- [ ] **Step 2: Write `docs/migrate-json.md`** — keys unchanged, arrays required, JSON5 comments OK, path table yaml→json, profile `neo.json`, note yyjson 0.12.0 `YYJSON_READ_JSON5`.
+- [ ] **Step 2: Write `docs/migrate-json.md`** — keys unchanged, arrays required, JSON5 comments OK, path table yaml→json5, profile `neo.json5`, note yyjson 0.12.0 `YYJSON_READ_JSON5`.
 
-- [ ] **Step 3: Update user-facing docs** (README quick start `cp config/config.json.example config/config.json`, workflow/plan JSON examples, claw config paths).
+- [ ] **Step 3: Update user-facing docs** (README quick start `cp config/config.json5.example config/config.json5`, workflow/plan examples, claw config paths).
 
-- [ ] **Step 4: Update `.gitignore`** if it only lists `config.yaml` — also ignore `config/config.json` and root `config.json` if not already (keep secrets out). Today ignores yaml configs; **add**:
+- [ ] **Step 4: Update `.gitignore`** — ignore secret configs:
 
 ```
+config.json5
+config/config.json5
 config.json
 config/config.json
 ```
@@ -440,7 +444,7 @@ Keep ignoring yaml paths too (harmless).
 ```bash
 git add config docs README.md example .gitignore
 git rm config/config.yaml.example
-git commit -m "docs: migrate config examples and guides to JSON"
+git commit -m "docs: migrate config examples and guides to JSON5"
 ```
 
 ---
@@ -471,7 +475,7 @@ Expected: no hits in `src/` except possible migration error string mentioning `.
 ./neo -h
 ```
 
-Expected: mentions `config.json`, `-v` / `--verbose`, plan/run.
+Expected: mentions `config.json5`, `-v` / `--verbose`, plan/run.
 
 - [ ] **Step 4: Final commit only if cleanup edits were needed; otherwise done.**
 
@@ -483,7 +487,7 @@ Expected: mentions `config.json`, `-v` / `--verbose`, plan/run.
 |------------------|------|
 | JSON-only config via yyjson into `agent_config_t` | Task 2 |
 | Refuse `.yaml` + migration hint | Task 2 + 3 + 6 |
-| Default `config/config.json`, profile `neo.json` | Task 3 |
+| Default `config/config.json5`, profile `neo.json5` | Task 3 |
 | Plan extract/stdout/materialize JSON; rename quiet | Task 4 |
 | Path-aware config errors | Task 2 |
 | Default one `run done`; `-v` step lines; `-d` unchanged | Task 5 |
