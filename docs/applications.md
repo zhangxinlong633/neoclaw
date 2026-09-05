@@ -12,7 +12,7 @@
 
 本文说明 Neo 体系结构在产业与技术栈中的**适用场景、问题域与生态位**。论述建立在「极致灵活性与位置透明」这一核心优势之上：编排与能力契约不绑定单一运行环境、部署规模或算力等级。
 
-文中「未来层」描述属于中长期愿景，不等同于本仓库现行交付范围。现行产品形态为轻量命令行智能体（**DAG ∥ Capability Matrix ∥ Policy**），详见 [`architecture.md`](architecture.md) 与 [`AGENTS.md`](../AGENTS.md)。
+文中「未来层」描述属于中长期愿景，不等同于本仓库现行交付范围。现行产品形态为轻量命令行智能体（**DAG ∥ Capability Matrix ∥ Policy**），详见 [`architecture.md`](architecture.md)、[`examples.md`](examples.md) 与 [`AGENTS.md`](../AGENTS.md)。
 
 ---
 
@@ -148,12 +148,13 @@ Neo 的差异化不在于追求单一场景下的模型上限，而在于：
 | 文档 | 用途 |
 |------|------|
 | [`architecture.md`](architecture.md) | 目标架构、成熟度与路线图 |
+| [`examples.md`](examples.md) | 命令行使用样例 |
 | [`tool.md`](tool.md) | 能力矩阵与工具 |
-| [`../capabilities/README.md`](../capabilities/README.md) | 能力目录场景分层契约 |
 | [`workflow.md`](workflow.md) | DAG 与规划执行 |
-| [`../dags/README.md`](../dags/README.md) | DAG 目录场景分层契约 |
 | [`claw.md`](claw.md) | 身份、规则与记忆 |
-| [`README.md`](../README.md) | 产品概述 |
+| [`../capabilities/README.md`](../capabilities/README.md) | 能力目录场景分层契约 |
+| [`../dags/README.md`](../dags/README.md) | DAG 目录场景分层契约 |
+| [`README.md`](../README.md) | 产品概述与简单样例 |
 | [`AGENTS.md`](../AGENTS.md) | 开发约束与非目标 |
 
 ---

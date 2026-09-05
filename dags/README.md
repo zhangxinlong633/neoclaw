@@ -4,7 +4,7 @@
 
 Planner（`neo plan` / `neo run`）生成 catalog（含 `when` / `when_not` / `requires` / `outcome`），并优先输出 `{"use":["name"]}`；无合适条目时再现编 `{"workflows":[...]}`。
 
-权威说明：[`docs/workflow.md`](../docs/workflow.md)、[`docs/applications.md`](../docs/applications.md)、[`docs/architecture.md`](../docs/architecture.md)、[`AGENTS.md`](../AGENTS.md) §4.1。
+权威说明：[`docs/workflow.md`](../docs/workflow.md)、[`docs/examples.md`](../docs/examples.md)、[`docs/applications.md`](../docs/applications.md)、[`docs/architecture.md`](../docs/architecture.md)、[`AGENTS.md`](../AGENTS.md) §4.1。
 
 ## 职责边界
 

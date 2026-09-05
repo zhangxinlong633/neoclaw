@@ -9,7 +9,7 @@ Neo 的 C99 源码树。编译产物（`.o`）输出到仓库根目录 **`build/
 | 子目录 | 职责 |
 |--------|------|
 | `cli/` | 命令行入口与子命令分发 |
-| `core/` | 配置解析、skills 注入、daemon |
+| `core/` | 配置解析、daemon 多轮会话 |
 | `llm/` | OpenAI 兼容 HTTP 客户端 |
 | `capability/` | 能力矩阵、目录加载、工具循环、MCP stdio |
 | `workflow/` | DAG 执行、目录加载、plan |

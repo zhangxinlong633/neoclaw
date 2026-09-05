@@ -1,26 +1,30 @@
 # Neo 工具与能力矩阵（Capability Matrix）
 
-Neo 在 `config.json5` 启用 `capability_matrix` 后，会构建一张 **Capability Matrix（能力矩阵）**：行是能力（builtin / `commands` / MCP），列是契约（schema、副作用、来源等）。`./neo "…"` 的 tool loop、workflow `type: tool`、以及 `neo plan` 的允许工具名，都共用这张表。顶层键名优先 **`capability_matrix`**；旧键 **`tools`** 仍可读（stderr 提示改名）。
+Neo 在配置中启用 `capability_matrix` 后，会构建一张 **Capability Matrix（能力矩阵）**：行是能力（builtin / `commands` / MCP），列是契约（schema、副作用、来源等）。`./neo "…"` 的 tool loop、workflow `type: tool`、以及 `neo plan` 的允许工具名，都共用这张表。顶层键名优先 **`capability_matrix`**；旧键 **`tools`** 仍可读（stderr 提示改名）。
 
 当前内置能力：`read_file`、`write_file`、`append_file`、`list_dir`、`stat`、`grep`、`mkdir`；可选 `http_get`（需 `http_fetch_enabled` + `http_allow_hosts`）、`run_command`（需 `shell_enabled`）。
+
+命令行走查样例见 [`examples.md`](examples.md)；能力目录布局见 [`../capabilities/README.md`](../capabilities/README.md)。
 
 ---
 
 ## 1. 配置示例
 
-在 `config.json5` 末尾增加（路径相对你运行 `./neo` 时的当前工作目录；一般在仓库根执行则 `root: "."` 即可）：
+在 `config.json5` 中启用（路径相对你运行 `./neo` 时的当前工作目录；一般在仓库根执行则 `root: "."` 即可）：
 
 ```json5
 {
   capability_matrix: {
     enabled: true,
     root: ".",
+    directory: "capabilities",
     max_rounds: 16,
     max_read_bytes: 262144,
     list_dir_max_entries: 256,
     http_fetch_enabled: false,
     http_allow_hosts: "", // 例: "api.github.com,httpbin.org"
     http_fetch_max_bytes: 262144,
+    shell_enabled: false,
     commands: [
       {
         name: "echo_args",
@@ -29,7 +33,7 @@ Neo 在 `config.json5` 启用 `capability_matrix` 后，会构建一张 **Capabi
         when_not: ["Real domain work"],
         tags: ["demo"],
         outcome: "Args JSON on stdout",
-        argv: ["./scripts/echo-args.sh"],
+        argv: ["./scripts/tools/echo-args.sh"],
         parameters: {
           type: "object",
           properties: { msg: { type: "string" } },
@@ -38,6 +42,7 @@ Neo 在 `config.json5` 启用 `capability_matrix` 后，会构建一张 **Capabi
       },
     ],
   },
+  workflow_directory: "dags",
 }
 ```
 

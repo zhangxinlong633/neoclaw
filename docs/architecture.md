@@ -16,7 +16,7 @@
 
 凡标注为「路线图」的能力（含但不限于：分布式调度、计算漂移、WASM/容器隔离、跨进程检查点、自动降级协议等），表示架构方向与验收设想，**不构成已交付功能承诺**，亦不得作为现行测试断言或对外 SLA 依据。
 
-与已合并实现或 [`tool.md`](tool.md) / [`workflow.md`](workflow.md) / [`claw.md`](claw.md) 冲突时，**以已合并代码与上述用户文档为准**，并应及时回写修正本文第 8 章。
+与已合并实现或 [`examples.md`](examples.md) / [`tool.md`](tool.md) / [`workflow.md`](workflow.md) / [`claw.md`](claw.md) 冲突时，**以已合并代码与上述用户文档为准**，并应及时回写修正本文第 8 章。
 
 ---
 
@@ -448,6 +448,7 @@ DAG 为调度层认可的标准编排输入。目标元素集合如下；本仓�
 | 文档 | 用途 |
 |------|------|
 | [`applications.md`](applications.md) | 应用场景、问题域与生态位 |
+| [`examples.md`](examples.md) | 命令行使用样例 |
 | [`tool.md`](tool.md) | 能力矩阵、命令、MCP 与能力目录 |
 | [`workflow.md`](workflow.md) | DAG、规划与执行 |
 | [`claw.md`](claw.md) | soul、bootstrap、rules、memory |

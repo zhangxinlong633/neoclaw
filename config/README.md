@@ -10,4 +10,4 @@
 |--------|------|
 | `profiles/` | 命名 profile 根；`./neo -p NAME` 会切换至对应子目录 |
 
-顶层键优先使用 `capability_matrix`；旧键 `tools` 仅兼容读取。详见 [`docs/tool.md`](../docs/tool.md)。
+顶层键优先使用 `capability_matrix`；旧键 `tools` 仅兼容读取。建议同时设置 `workflow_directory: "dags"` 以启用 DAG catalog。详见 [`docs/tool.md`](../docs/tool.md)、[`docs/examples.md`](../docs/examples.md)。

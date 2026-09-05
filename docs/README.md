@@ -2,13 +2,21 @@
 
 面向使用者与协作者的产品文档，以及较长篇幅的设计稿。实现细节以源码与 [`AGENTS.md`](../AGENTS.md) 为准；本目录文档描述**对外行为**与迁移指引。
 
+## 建议阅读顺序
+
+1. 仓库根 [`README.md`](../README.md) — 定位、快速开始、简单样例  
+2. [`examples.md`](examples.md) — 可复现命令与排错  
+3. [`tool.md`](tool.md) / [`workflow.md`](workflow.md) — 矩阵与 DAG 细则  
+4. [`architecture.md`](architecture.md) / [`applications.md`](applications.md) — 目标架构与场景  
+
 ## 主要文档
 
 | 文件 | 内容 |
 |------|------|
+| `examples.md` | 命令行使用样例（对话、矩阵、DAG、plan/run、排错） |
 | `architecture.md` | 智能体目标架构（调度/执行/规划）与本仓库实现对照 |
 | `applications.md` | 应用场景、问题域与生态位（基础 / 行业 / 未来） |
-| `tool.md` | Capability Matrix、commands、MCP、能力目录 |
+| `tool.md` | Capability Matrix、commands、MCP、能力目录、Unix 白名单 |
 | `workflow.md` | DAG、plan/run、workflow 目录 |
 | `claw.md` | soul / bootstrap / rules / memory（skills 已废弃） |
 | `migrate-json.md` | YAML → JSON5 迁移 |

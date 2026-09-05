@@ -2,7 +2,7 @@
 
 可移植的命令行 AI 助手：以 **DAG ∥ Capability Matrix ∥ Policy** 为产品三角，强调接缝灵活与边界可控，而非堆叠最强 IDE 级能力。
 
-开发约定见仓库根 [`AGENTS.md`](AGENTS.md) / [`CLAUDE.md`](CLAUDE.md)（二者须保持同步）。
+开发约定见 [`AGENTS.md`](AGENTS.md) / [`CLAUDE.md`](CLAUDE.md)（二者须保持同步）。完整命令样例见 [`docs/examples.md`](docs/examples.md)。
 
 ## 产品定位
 
@@ -30,7 +30,8 @@ make
 
 ```bash
 cp config/config.json5.example config/config.json5
-# 编辑 model.api_key、model.name（及按需启用的 capability_matrix / skills）
+# 编辑 model.api_key、model.name
+# 确认 capability_matrix.directory 与 workflow_directory（示例已含）
 ```
 
 默认优先读取 `config/config.json5`；仍兼容仓库根 `config.json5`。可用 `-c` / `NEO_CONFIG` 覆盖。
@@ -41,6 +42,29 @@ cp config/config.json5.example config/config.json5
 ./neo "你是谁"
 ```
 
+## 简单样例
+
+下列命令均在**仓库根**执行；需已配置可用的 `model.api_key`。更多场景与排错见 [`docs/examples.md`](docs/examples.md)。
+
+```bash
+# 单次对话
+./neo "用三句话介绍 Neo 的产品三角"
+
+# 确定性 DAG：打印 UTC 时间（需 workflow_directory: "dags"）
+./neo workflow run show_time
+
+# 规划并执行（选型 catalog 或现编 tool 步）
+./neo run "看下系统时间"
+
+# 反应式工具：读文件并概括
+./neo "请使用 read_file，path 为 README.md；用三句中文概括。" 2>&1
+
+# 仅看规划 JSON（不执行）
+./neo plan "对比 Capability Matrix 与 DAG 各自管什么"
+```
+
+期望在涉及本地能力时，stderr 出现 `neo tool: …`；助手可见内容在 stdout。
+
 ## 使用方式
 
 ### 单次查询
@@ -49,7 +73,7 @@ cp config/config.json5.example config/config.json5
 
 ```bash
 ./neo "你的问题"
-./neo -c config/config.json5 -m qwen/qwen3-8b "总结一下"
+./neo -c config/config.json5 -m deepseek-chat "总结一下"
 ```
 
 ### 多轮会话（daemon）
@@ -66,6 +90,7 @@ cp config/config.json5.example config/config.json5
 | 自定义命令 / 矩阵 Policy | 配置 `capability_matrix`；可选 `directory: "capabilities"` | [`docs/tool.md`](docs/tool.md) |
 | 声明式 DAG | `./neo workflow run NAME`；可选 `workflow_directory: "dags"` | [`docs/workflow.md`](docs/workflow.md) |
 | 规划并执行 | `./neo run [--steps N] [-o FILE] "task"`；仅规划用 `./neo plan` | 同上 |
+| 命令样例合集 | 对话 / DAG / plan / 排错 | [`docs/examples.md`](docs/examples.md) |
 | Profile | `./neo -p demo ...` → `config/profiles/demo/neo.json5` | 本 README「配置」 |
 | 管道 / cron | `./scripts/neo-ask -p demo --workflow demo_loop` | [`scripts/`](scripts/) |
 
@@ -79,7 +104,7 @@ cp config/config.json5.example config/config.json5
 | `-m, --model NAME` | 覆盖本次模型名 |
 | `-p, --profile NAME` | 切换 profile（chdir 至 profile 目录） |
 | `-v, --verbose` | 步骤与能力相关日志输出到 stderr |
-| `-d, --debug` | 打印请求参数、loaded skills、system prompt 等 |
+| `-d, --debug` | 打印请求参数、完整 system prompt 等 |
 | `-h, --help` | 用法说明 |
 | `NEO_CONFIG` / `NEO_MODEL` / `NEO_API_KEY` | 覆盖配置中的对应项 |
 | `NEO_DISABLE_TOOLS=1` | 本次禁用工具（不注册矩阵行） |
@@ -91,9 +116,9 @@ cp config/config.json5.example config/config.json5
 | `src/` | C 源码（`cli` / `core` / `llm` / `capability` / `workflow` / `vendor`）；对象文件在 `build/` |
 | `config/` | 默认配置示例与 profiles |
 | `capabilities/` | 能力目录包（`local/`、`git/`、`unix/` 等；见目录 README） |
-| `dags/` | DAG 目录包（`baseline/`、`workspace/` 等场景子目录；见目录 README） |
+| `dags/` | DAG 目录包（`baseline/`、`workspace/` 等；见目录 README） |
 | `rules/` | claw Rules：身份、领域必引数据、答法手册 |
-| `docs/` | 用户文档与架构说明（含 `architecture.md`、`applications.md`） |
+| `docs/` | 用户文档（架构、场景、样例、矩阵、DAG、claw） |
 | `tests/` | 单元测试与 CLI 冒烟；夹具在 `fixtures/` |
 | `scripts/` | 仓库级辅助脚本 |
 | `example/` | claw 式 soul / bootstrap / rules / memory 注入示例 |
@@ -106,14 +131,24 @@ cp config/config.json5.example config/config.json5
 |--------|------|
 | `model` | `base_url`、`name`、`api_key`；可选 `max_tokens`、`temperature` |
 | `capability_matrix` | 矩阵总开关、沙箱 `root`、commands、MCP、directory、Policy 旋钮（旧顶层键 `tools` 仅兼容读取） |
-| `workflows` / `workflow_directory` | 内联 DAG 与/或目录加载 |
-| `soul` / `bootstrap` / `rules` | 人格、身份与硬约束 Markdown（见 [`docs/claw.md`](docs/claw.md)；原 skills 内容迁入 `rules/`） |
+| `workflows` / `workflow_directory` | 内联 DAG 与/或目录加载（catalog 选型依赖此项） |
+| `soul` / `bootstrap` / `rules` | 人格、身份与硬约束 Markdown（见 [`docs/claw.md`](docs/claw.md)） |
 | `workspace` | 可选 `prompt_cwd: true`，将进程 cwd 写入 system |
 | `memory` | `path`、`max_chars` |
 | `session` | daemon 用 `max_turns` |
 | `plan` | 可选规划软目标（如 `target_steps`） |
 
-完整字段与迁移说明：[`docs/architecture.md`](docs/architecture.md)、[`docs/applications.md`](docs/applications.md)、[`docs/tool.md`](docs/tool.md)、[`docs/workflow.md`](docs/workflow.md)、[`docs/migrate-json.md`](docs/migrate-json.md)。旧键 `skills` 已移除（配置中若仍出现仅 stderr 提示）。
+| 文档 | 用途 |
+|------|------|
+| [`docs/examples.md`](docs/examples.md) | 使用样例（优先阅读） |
+| [`docs/architecture.md`](docs/architecture.md) | 目标架构 |
+| [`docs/applications.md`](docs/applications.md) | 应用场景与定位 |
+| [`docs/tool.md`](docs/tool.md) | 能力矩阵 |
+| [`docs/workflow.md`](docs/workflow.md) | DAG / plan / run |
+| [`docs/claw.md`](docs/claw.md) | soul / bootstrap / rules / memory |
+| [`docs/migrate-json.md`](docs/migrate-json.md) | YAML → JSON5 |
+
+旧键 `skills` 已移除（配置中若仍出现仅 stderr 提示）。旧顶层键 `tools` 仅兼容读取。
 
 ## Rules、Memory 与能力发现
 
@@ -124,7 +159,7 @@ cp config/config.json5.example config/config.json5
 | `rules/response-playbook.md` | 总结/笔记/待办/解释/代码/翻译答法 |
 | `MEMORY.md`（`memory.path`） | 长期笔记，按 `max_chars` 截断注入 |
 
-可发现能力不再扫描 Skill 包，而依赖 **Capability Matrix**（`capabilities/`）与 **DAG catalog**（`dags/`）。排查：`./neo -d "消息"` 查看完整 system prompt。
+可发现能力依赖 **Capability Matrix**（`capabilities/`）与 **DAG catalog**（`dags/`）。排查：`./neo -d "消息"` 查看完整 system prompt。
 
 ## 请求流程（摘要）
 

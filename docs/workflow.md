@@ -4,7 +4,7 @@
 自然语言 `./neo "..."` 仍可自由对话；`neo workflow run` 走确定性图。
 
 不引入 Temporal / Airflow；引擎就是 `neo` 进程内的小 DAG runner。  
-配置迁移见 [migrate-json.md](migrate-json.md)。
+配置迁移见 [migrate-json.md](migrate-json.md)。命令样例见 [examples.md](examples.md)。
 
 ## 节点类型
 
@@ -57,11 +57,15 @@
 ## 运行
 
 ```bash
-./neo workflow run diamond
+./neo workflow run show_time
+./neo workflow run repo_pulse
+./neo workflow run list_overview
 ./neo -p demo workflow run demo_loop
-./neo -v workflow run diamond   # stderr 步骤摘要
+./neo -v workflow run show_time   # stderr 步骤摘要
 ./scripts/neo-ask --workflow diamond
 ```
+
+常用 catalog 图（需 `workflow_directory: "dags"`）：`show_time`、`repo_pulse`、`list_overview`、`inspect_path`、`search_context`、`append_memo`。详见 [`../dags/README.md`](../dags/README.md)。
 
 ## Plan then Run
 

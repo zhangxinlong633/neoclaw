@@ -18,7 +18,7 @@ Neo 的产品选择是 **灵活、可移植**，不是 **能力天花板**：
 
 Neo 把「钉在仓库上的助手」拆成 **配置 + Markdown（claw）+ 能力矩阵 + DAG**：**身份**（bootstrap）、**人格**（soul）、**硬约束与答法**（rules）、**长期笔记**（memory），以及可选的工作区 cwd、**Capability Matrix** 与声明式 workflow。**Skills（`SKILL.md` 扫描）已废弃**，原内容迁入 `rules/`；可发现能力只走矩阵与 DAG catalog。
 
-更细的工具与能力矩阵见 [tool.md](tool.md)；workflow / DAG 见 [workflow.md](workflow.md)；废弃说明见 [superpowers/specs/2026-09-05-deprecate-skills-design.md](superpowers/specs/2026-09-05-deprecate-skills-design.md)。
+更细的工具与能力矩阵见 [tool.md](tool.md)；workflow / DAG 见 [workflow.md](workflow.md)；命令样例见 [examples.md](examples.md)；Skills 废弃说明见 [superpowers/specs/2026-09-05-deprecate-skills-design.md](superpowers/specs/2026-09-05-deprecate-skills-design.md)。
 
 ---
 
@@ -268,30 +268,36 @@ pong
 在仓库根已有 **`config.json5.example`**；若你自建 `config.json5`，可在此基础上增加 claw 段（模型与 key 请填你自己的，勿提交）：
 
 ```json5
-// 与 config/config.json5.example 一致的部分略；以下为演示用路径
+// 与 config/config.json5.example 对齐的 claw 相关节（演示用路径可改）
 {
   workspace: { prompt_cwd: true },
   soul: { path: "SOUL.md", max_chars: 4000 },
   bootstrap: {
     max_chars_per_file: 8000,
-    paths: ["README.md"],
+    paths: ["AGENTS.md"],
   },
   rules: {
-    max_chars_per_file: 4000,
-    paths: ["RULES.md"],
-  },
-  skills: {
-    directory: "skills",
-    high_priority: ["nanjing"],
-    unmatched: "index",
+    max_chars_per_file: 6000,
+    paths: [
+      "rules/identity.md",
+      "rules/nanjing.md",
+      "rules/response-playbook.md",
+    ],
   },
   memory: { path: "MEMORY.md", max_chars: 4000 },
+  capability_matrix: {
+    enabled: true,
+    root: ".",
+    directory: "capabilities",
+  },
+  workflow_directory: "dags",
 }
 ```
 
-- **`bootstrap: README.md`**：仓库根 **`README.md`** 真实存在，首段即写明 Neo 为「命令行 AI 助手」、依赖 libcurl、单次与 daemon 等（与当前文档一致）。
-- **`high_priority: [nanjing]`**：对应真实文件 **`skills/nanjing/SKILL.md`**（README 中表格亦列出）。
-- **`memory.path: MEMORY.md`**：与默认示例一致；正文见 **5.5**（与仓库文件逐字一致）。
+- **`bootstrap`**：身份类 Markdown（如仓库根 `AGENTS.md` 或自定义路径）。
+- **`rules`**：硬约束与答法；南京等必引数据见 `rules/nanjing.md`（**不再**使用已废弃的 `skills/`）。
+- **`memory.path: MEMORY.md`**：与默认示例一致；正文见 **5.5**。
+- 可发现能力走 **Capability Matrix** / **DAG catalog**，见 [examples.md](examples.md)。
 
 ### 5.2 新建 `SOUL.md`（仓库默认无此文件）
 
@@ -301,7 +307,7 @@ pong
 # Soul
 
 - 用中文回答，除非用户明确要求其它语言。
-- 不编造未读过的仓库文件内容；需要时建议用 read_file / list_dir（若已启用 tools）。
+- 不编造未读过的仓库文件内容；需要时建议用 read_file / list_dir（若已启用 capability_matrix）。
 ```
 
 ### 5.3 新建 `RULES.md`（仓库默认无此文件）
