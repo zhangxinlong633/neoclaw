@@ -98,7 +98,13 @@ int main(void) {
       config_free(&base);
       return 1;
     }
-    if (!strstr(prompt, "do not pad") && !strstr(prompt, "Do not pad")) {
+    if (!strstr(prompt, "self-check") || !strstr(prompt, "draft")) {
+      fprintf(stderr, "prompt missing knowledge editorial pipeline\n");
+      free(prompt);
+      config_free(&base);
+      return 1;
+    }
+    if (!strstr(prompt, "Do not pad") && !strstr(prompt, "do not pad")) {
       fprintf(stderr, "prompt missing do-not-pad guidance\n");
       free(prompt);
       config_free(&base);

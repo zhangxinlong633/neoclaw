@@ -5,7 +5,7 @@ Status: approved (approach A, soft default remains 10)
 
 ## Goal
 
-Stop `neo plan` / `neo run` from turning **knowledge / Q&A** tasks (explain, compare, summarize) into long fake R&D DAGs with `write_file` / implement steps. Keep the **~10-step team pipeline** only for **engineering** tasks.
+Stop `neo plan` / `neo run` from turning **knowledge / Q&A** tasks into long fake R&D DAGs with `write_file` / implement steps. Knowledge uses a **~4-step editorial pipeline**; keep the **~10-step team pipeline** for **engineering** tasks.
 
 ## Decisions
 
@@ -13,7 +13,7 @@ Stop `neo plan` / `neo run` from turning **knowledge / Q&A** tasks (explain, com
 |-------|--------|
 | Mechanism | **Prompt-only** (no C keyword heuristics) |
 | Soft default `target_steps` | **Still 10** (`--steps` / `plan.target_steps` override) |
-| Knowledge tasks | Prefer **1** `llm` step (`tools: "off"`); at most **3**; no file write / fake implement |
+| Knowledge tasks | Prefer **~4** llm editorial steps (understand → draft → self-check → summarize), `tools: "off"`; no file write / fake implement. `--steps 1` → single step |
 | Engineering tasks | Existing team pipeline scaled to soft N |
 | Final output | Last step answers the **user’s original question** in their language |
 

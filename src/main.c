@@ -255,6 +255,11 @@ int main(int argc, char **argv) {
       arg_start++;
       continue;
     }
+    if (strcmp(argv[arg_start], "--verbose") == 0 || strcmp(argv[arg_start], "-v") == 0) {
+      verbose = 1;
+      arg_start++;
+      continue;
+    }
     break;
   }
 

@@ -531,11 +531,15 @@ int workflow_run(const agent_config_t *conf, const char *workflow_name, char **o
       }
     }
     if (skip) continue;
+    if (verbose) fprintf(stderr, "neo: step start workflow=%s id=%s\n", wf->name,
+                         wf->steps[i].id ? wf->steps[i].id : "?");
     if (wf_run_step(conf, root_real, wf->name, wf, &wf->steps[i], map, &map_n, &prev) != 0) {
       wf_map_free(map, map_n);
       free(prev);
       return -1;
     }
+    if (verbose) fprintf(stderr, "neo: step end   workflow=%s id=%s status=ok\n", wf->name,
+                         wf->steps[i].id ? wf->steps[i].id : "?");
   }
 
   *out_text = prev ? prev : strdup("");
