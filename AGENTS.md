@@ -44,7 +44,7 @@
 
 `#include` 仍用短名（如 `"config.h"`）；Makefile 用多路径 `-I`。
 
-用户文档：`docs/tool.md`（矩阵）、`docs/workflow.md`（DAG）、`docs/claw.md`（prompt 块）、`docs/migrate-json.md`（迁移）。设计稿：`docs/superpowers/specs/`。
+用户文档：`docs/architecture.md`（目标架构）、`docs/applications.md`（应用场景与定位）、`docs/tool.md`（矩阵）、`docs/workflow.md`（DAG）、`docs/claw.md`（prompt 块）、`docs/migrate-json.md`（迁移）。设计稿：`docs/superpowers/specs/`。
 
 ---
 

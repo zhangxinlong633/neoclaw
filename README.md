@@ -93,7 +93,7 @@ cp config/config.json5.example config/config.json5
 | `capabilities/` | 能力目录包（一能力一文件） |
 | `dags/` | DAG 目录包（一图一文件） |
 | `rules/` | claw Rules：身份、领域必引数据、答法手册 |
-| `docs/` | 用户文档与设计稿 |
+| `docs/` | 用户文档与架构说明（含 `architecture.md`、`applications.md`） |
 | `tests/` | 单元测试与 CLI 冒烟；夹具在 `fixtures/` |
 | `scripts/` | 仓库级辅助脚本 |
 | `example/` | claw 式 soul / bootstrap / rules / memory 注入示例 |
@@ -113,7 +113,7 @@ cp config/config.json5.example config/config.json5
 | `session` | daemon 用 `max_turns` |
 | `plan` | 可选规划软目标（如 `target_steps`） |
 
-完整字段与迁移说明：[`docs/tool.md`](docs/tool.md)、[`docs/workflow.md`](docs/workflow.md)、[`docs/migrate-json.md`](docs/migrate-json.md)。旧键 `skills` 已移除（配置中若仍出现仅 stderr 提示）。
+完整字段与迁移说明：[`docs/architecture.md`](docs/architecture.md)、[`docs/applications.md`](docs/applications.md)、[`docs/tool.md`](docs/tool.md)、[`docs/workflow.md`](docs/workflow.md)、[`docs/migrate-json.md`](docs/migrate-json.md)。旧键 `skills` 已移除（配置中若仍出现仅 stderr 提示）。
 
 ## Rules、Memory 与能力发现
 

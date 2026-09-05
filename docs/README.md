@@ -6,6 +6,8 @@
 
 | 文件 | 内容 |
 |------|------|
+| `architecture.md` | 智能体目标架构（调度/执行/规划）与本仓库实现对照 |
+| `applications.md` | 应用场景、问题域与生态位（基础 / 行业 / 未来） |
 | `tool.md` | Capability Matrix、commands、MCP、能力目录 |
 | `workflow.md` | DAG、plan/run、workflow 目录 |
 | `claw.md` | soul / bootstrap / rules / memory（skills 已废弃） |
