@@ -2,6 +2,7 @@
  * Daemon mode: stdin loop or Unix socket server, with session history.
  */
 #include "agent_tools.h"
+#include "capability_matrix.h"
 #include "config.h"
 #include "llm.h"
 #include "skills.h"
@@ -95,15 +96,23 @@ static void build_system_prompt(agent_config_t *conf, const char *user_message, 
       append_section(out, cap, "## Memory (context)\n\n", "", tmp);
   }
   if (conf->tools.enabled && getenv("NEO_DISABLE_TOOLS") == NULL) {
+    capability_matrix_t mx;
+    char *listing;
     strncat(out,
             "\n\n## Tools (executed by host)\n"
-            "The API exposes read_file, write_file, and list_dir; Neo runs them on disk under tools.root. "
-            "Use paths relative to the workspace root only (no leading /, no `..`). "
-            "When http_get is available (config), it is HTTPS-only, host must be in tools.http_allow_hosts, "
-            "redirects are not followed, and the response body is truncated. "
-            "Do not claim you cannot access files or ask the user to run cat/echo when read_file, "
-            "write_file, or list_dir suffices. Do not output only shell snippets as a substitute for tool calls.\n",
+            "Capabilities below are executed by Neo under tools.root (relative paths only). "
+            "Prefer tool calls over shell snippets.\n"
+            "### Capability Matrix\n",
             cap - strlen(out) - 1);
+    capability_matrix_init(&mx);
+    if (capability_matrix_build_from_config(&mx, conf) == 0) {
+      listing = capability_matrix_prompt_listing(&mx);
+      if (listing) {
+        strncat(out, listing, cap - strlen(out) - 1);
+        free(listing);
+      }
+    }
+    capability_matrix_free(&mx);
   }
   free(tmp);
 }

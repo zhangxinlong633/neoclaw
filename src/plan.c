@@ -2,6 +2,7 @@
  * LLM plans a deterministic DAG (workflows JSON); runner executes it.
  */
 #include "plan.h"
+#include "capability_matrix.h"
 #include "llm.h"
 #include "workflow.h"
 #include "yyjson.h"
@@ -152,8 +153,34 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "- Use depends_on arrays for ordering when there is more than one step.\n"
       "- Output format:\n```json\n{\"workflows\":[{\"name\":\"planned\",\"steps\":["
       "{\"id\":\"...\",\"type\":\"llm\",\"prompt\":\"...\",\"tools\":\"off\"}]}]}\n```\n\n"
-      "Allowed command tools:\n",
+      "Allowed capabilities (Capability Matrix — use these exact names in type:tool steps):\n",
       target_steps, target_steps, target_steps);
+  if (conf && conf->tools.enabled) {
+    capability_matrix_t mx;
+    char *listing;
+    capability_matrix_init(&mx);
+    if (capability_matrix_build_from_config(&mx, conf) == 0) {
+      listing = capability_matrix_prompt_listing(&mx);
+      if (listing) {
+        size_t ln = strlen(listing);
+        if (n + ln + 8 > cap) {
+          char *ns = realloc(s, (n + ln + 4096));
+          if (ns) {
+            s = ns;
+            cap = n + ln + 4096;
+          }
+        }
+        if (n + ln < cap) {
+          memcpy(s + n, listing, ln + 1);
+          n += ln;
+        }
+        free(listing);
+      }
+    }
+    capability_matrix_free(&mx);
+  } else {
+    n += (size_t)snprintf(s + n, cap - n, "(tools disabled — use llm steps only)\n");
+  }
   if (conf) {
     for (i = 0; i < conf->tools.command_count; i++) {
       const tool_command_t *cmd = &conf->tools.commands[i];
@@ -167,18 +194,12 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
         s = ns;
         cap *= 2;
       }
-      n += (size_t)snprintf(s + n, cap - n, "- %s", cmd->name);
-      if (cmd->description) n += (size_t)snprintf(s + n, cap - n, ": %s", cmd->description);
-      n += (size_t)snprintf(s + n, cap - n, "\n  argv:");
+      n += (size_t)snprintf(s + n, cap - n, "Command detail %s argv:", cmd->name);
       for (j = 0; j < cmd->argv_count; j++)
         n += (size_t)snprintf(s + n, cap - n, " %s", cmd->argv[j] ? cmd->argv[j] : "");
       n += (size_t)snprintf(s + n, cap - n, "\n");
     }
   }
-  if (!conf || conf->tools.command_count == 0)
-    n += (size_t)snprintf(s + n, cap - n, "(none configured — use llm steps and/or read_file)\n");
-  n += (size_t)snprintf(s + n, cap - n,
-                        "\nBuiltin file tools (if tools.enabled): read_file, write_file, list_dir.\n");
   (void)n;
   return s;
 }

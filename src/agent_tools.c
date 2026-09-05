@@ -190,6 +190,8 @@ static int parse_tool_calls_yy(yyjson_val *msg, NeoToolCall *out, int *out_n) {
   tc = yyjson_obj_get(msg, "tool_calls");
   if (!yyjson_is_arr(tc)) return -1;
   n = yyjson_arr_size(tc);
+  if (n > (size_t)NEO_MAX_TOOLS_PER_TURN)
+    capability_warn_tool_truncation(n, NEO_MAX_TOOLS_PER_TURN, stderr);
   for (i = 0; i < n && *out_n < NEO_MAX_TOOLS_PER_TURN; i++) {
     NeoToolCall *t;
     yyjson_val *fn, *args;
@@ -445,12 +447,119 @@ static int tool_list_dir(const agent_config_t *conf, const char *root_real, cons
   closedir(d);
   return 0;
 }
+
+static int grep_name_ok(const char *name, const char *glob) {
+  size_t nl, gl;
+  if (!glob || !glob[0]) return 1;
+  if (!name) return 0;
+  nl = strlen(name);
+  gl = strlen(glob);
+  if (glob[0] == '*' && gl > 1) {
+    const char *suf = glob + 1;
+    size_t sl = strlen(suf);
+    return nl >= sl && strcmp(name + nl - sl, suf) == 0;
+  }
+  if (gl > 0 && glob[gl - 1] == '*') {
+    return strncmp(name, glob, gl - 1) == 0;
+  }
+  return strcmp(name, glob) == 0;
+}
+
+static int grep_file(const char *full, const char *rel_display, const char *pattern, int *left,
+                     NeoBuf *result) {
+  FILE *f;
+  char line[4096];
+  int lineno = 0;
+  if (*left <= 0) return 0;
+  f = fopen(full, "rb");
+  if (!f) return 0;
+  while (*left > 0 && fgets(line, sizeof(line), f)) {
+    lineno++;
+    if (strstr(line, pattern)) {
+      char hdr[PATH_MAX + 64];
+      size_t L = strlen(line);
+      while (L > 0 && (line[L - 1] == '\n' || line[L - 1] == '\r')) line[--L] = '\0';
+      snprintf(hdr, sizeof(hdr), "%s:%d:", rel_display, lineno);
+      if (neo_buf_append(result, hdr, 0) != 0 || neo_buf_append(result, line, 0) != 0 ||
+          neo_buf_append(result, "\n", 1) != 0) {
+        fclose(f);
+        return -1;
+      }
+      (*left)--;
+    }
+  }
+  fclose(f);
+  return 0;
+}
+
+static int grep_walk(const char *root_real, const char *rel, const char *pattern, const char *glob,
+                     int *left, int depth, NeoBuf *result) {
+  char full[PATH_MAX];
+  DIR *d;
+  struct dirent *e;
+  struct stat st;
+  if (*left <= 0 || depth > 8) return 0;
+  if (resolve_under_root(root_real, rel, full, sizeof(full)) != 0) return 0;
+  if (stat(full, &st) != 0) return 0;
+  if (S_ISREG(st.st_mode)) {
+    const char *base = strrchr(rel, '/');
+    base = base ? base + 1 : rel;
+    if (!grep_name_ok(base, glob)) return 0;
+    return grep_file(full, rel, pattern, left, result);
+  }
+  if (!S_ISDIR(st.st_mode)) return 0;
+  d = opendir(full);
+  if (!d) return 0;
+  while (*left > 0 && (e = readdir(d)) != NULL) {
+    char child_rel[PATH_MAX];
+    if (e->d_name[0] == '.') continue;
+    if (snprintf(child_rel, sizeof(child_rel), "%s/%s", strcmp(rel, ".") == 0 ? "." : rel, e->d_name) >=
+        (int)sizeof(child_rel))
+      continue;
+    /* normalize "./foo" */
+    if (strncmp(child_rel, "./", 2) == 0) {
+      if (grep_walk(root_real, child_rel + 2, pattern, glob, left, depth + 1, result) != 0) {
+        closedir(d);
+        return -1;
+      }
+    } else if (grep_walk(root_real, child_rel, pattern, glob, left, depth + 1, result) != 0) {
+      closedir(d);
+      return -1;
+    }
+  }
+  closedir(d);
+  return 0;
+}
+
+static int tool_grep(const agent_config_t *conf, const char *root_real, const char *args_json,
+                     NeoBuf *result) {
+  char pattern[512];
+  char path[PATH_MAX];
+  char glob[256];
+  int left = 50;
+  (void)conf;
+  if (extract_string_field(args_json, "pattern", pattern, sizeof(pattern)) != 0 || !pattern[0])
+    return neo_buf_append(result, "ERROR: missing pattern", 0);
+  if (extract_string_field(args_json, "path", path, sizeof(path)) != 0 || !path[0])
+    strcpy(path, ".");
+  if (extract_string_field(args_json, "glob", glob, sizeof(glob)) != 0)
+    glob[0] = '\0';
+  if (grep_walk(root_real, path, pattern, glob[0] ? glob : NULL, &left, 0, result) != 0) return -1;
+  if (result->len == 0) return neo_buf_append(result, "(no matches)\n", 0);
+  return 0;
+}
 #else
 static int tool_list_dir(const agent_config_t *conf, const char *root_real, const char *args_json, NeoBuf *result) {
   (void)conf;
   (void)root_real;
   (void)args_json;
   return neo_buf_append(result, "ERROR: list_dir unsupported on this platform", 0);
+}
+static int tool_grep(const agent_config_t *conf, const char *root_real, const char *args_json, NeoBuf *result) {
+  (void)conf;
+  (void)root_real;
+  (void)args_json;
+  return neo_buf_append(result, "ERROR: grep unsupported on this platform", 0);
 }
 #endif
 
@@ -541,6 +650,8 @@ static int run_one_tool(const agent_config_t *conf, const char *root_real, NeoTo
     return tool_write_file(conf, root_real, tc->arguments, result);
   if (strcmp(tc->name, "list_dir") == 0)
     return tool_list_dir(conf, root_real, tc->arguments, result);
+  if (strcmp(tc->name, "grep") == 0)
+    return tool_grep(conf, root_real, tc->arguments, result);
   if (strcmp(tc->name, "http_get") == 0)
     return tool_http_get(conf, tc->arguments, result);
   idx = command_tool_find(conf, tc->name);

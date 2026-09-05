@@ -6,6 +6,7 @@
  * Output: LLM response to stdout.
  */
 #include "agent_tools.h"
+#include "capability_matrix.h"
 #include "config.h"
 #include "daemon.h"
 #include "llm.h"
@@ -454,15 +455,24 @@ int main(int argc, char **argv) {
   }
 
   if (conf.tools.enabled && getenv(NEO_DISABLE_TOOLS_GETENV) == NULL) {
+    capability_matrix_t mx;
+    char *listing;
     strncat(system_prompt,
             "\n\n## Tools (executed by host)\n"
-            "The API exposes read_file, write_file, and list_dir; Neo runs them on disk under tools.root. "
-            "Use paths relative to the workspace root only (no leading /, no `..`). "
-            "When http_get is available (config), it is HTTPS-only, host must be in tools.http_allow_hosts, "
-            "redirects are not followed, and the response body is truncated. "
-            "Do not claim you cannot access files or ask the user to run cat/echo when read_file, "
-            "write_file, or list_dir suffices. Do not output only shell snippets as a substitute for tool calls.\n",
+            "Capabilities below are executed by Neo under tools.root (relative paths only; no leading /, no `..`). "
+            "Prefer tool calls over asking the user to run shell. "
+            "http_get (when listed) is HTTPS-only with host allowlist and no redirects.\n"
+            "### Capability Matrix\n",
             SYSTEM_MAX - strlen(system_prompt) - 1);
+    capability_matrix_init(&mx);
+    if (capability_matrix_build_from_config(&mx, &conf) == 0) {
+      listing = capability_matrix_prompt_listing(&mx);
+      if (listing) {
+        strncat(system_prompt, listing, SYSTEM_MAX - strlen(system_prompt) - 1);
+        free(listing);
+      }
+    }
+    capability_matrix_free(&mx);
   }
 
   if (debug)

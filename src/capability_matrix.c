@@ -16,6 +16,9 @@ static const char *PARAMS_LIST =
     "\"Relative directory; use . for workspace root\"}},\"required\":[\"path\"]}";
 static const char *PARAMS_HTTP =
     "{\"type\":\"object\",\"properties\":{\"url\":{\"type\":\"string\"}},\"required\":[\"url\"]}";
+static const char *PARAMS_GREP =
+    "{\"type\":\"object\",\"properties\":{\"pattern\":{\"type\":\"string\"},\"path\":{\"type\":\"string\"},"
+    "\"glob\":{\"type\":\"string\"}},\"required\":[\"pattern\"]}";
 
 void capability_matrix_init(capability_matrix_t *m) {
   if (!m) return;
@@ -122,6 +125,10 @@ int capability_matrix_build_from_config(capability_matrix_t *m, const agent_conf
   if (add_row(m, "list_dir", CAP_SRC_BUILTIN,
               "List names of files and subdirectories at a path under the workspace root (non-recursive).",
               PARAMS_LIST, CAP_EFFECT_READ, CAP_BUILTIN_LIST_DIR, NULL) != 0)
+    return -1;
+  if (add_row(m, "grep", CAP_SRC_BUILTIN,
+              "Search for a regex-like substring in files under the workspace root (literal match).",
+              PARAMS_GREP, CAP_EFFECT_READ, CAP_BUILTIN_GREP, NULL) != 0)
     return -1;
 
   if (conf->tools.http_fetch_enabled && conf->tools.http_allow_hosts &&
@@ -275,4 +282,11 @@ char *capability_matrix_prompt_listing(const capability_matrix_t *m) {
     return dup_s("(none)\n");
   }
   return buf;
+}
+
+int capability_warn_tool_truncation(size_t n_calls, int max_per_turn, FILE *err) {
+  if (!err || max_per_turn < 1) return 0;
+  if (n_calls <= (size_t)max_per_turn) return 0;
+  fprintf(err, "neo: tool_calls truncated to %d (got %zu)\n", max_per_turn, n_calls);
+  return 1;
 }

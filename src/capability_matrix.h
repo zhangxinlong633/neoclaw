@@ -2,6 +2,8 @@
 #define NEO_CAPABILITY_MATRIX_H
 
 #include "config.h"
+#include <stddef.h>
+#include <stdio.h>
 
 typedef enum {
   CAP_SRC_BUILTIN = 0,
@@ -61,5 +63,8 @@ char *capability_matrix_prompt_listing(const capability_matrix_t *m);
 
 /* Populate matrix from conf builtins + tools.commands. Clears m first. Returns 0 on success. */
 int capability_matrix_build_from_config(capability_matrix_t *m, const agent_config_t *conf);
+
+/* If n_calls > max_per_turn, print truncation warning to err. Returns 1 if warned. */
+int capability_warn_tool_truncation(size_t n_calls, int max_per_turn, FILE *err);
 
 #endif

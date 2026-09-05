@@ -1,6 +1,8 @@
-# Neo 工具调用（read_file / write_file / list_dir / http_get）
+# Neo 工具与能力矩阵（Capability Matrix）
 
-Neo 在 `config.json5` 中启用 `tools` 后，会向兼容 OpenAI 的 `chat/completions` 接口附带 `tools` 定义，并根据模型返回的 `tool_calls` 在本地执行 **`read_file`**、**`write_file`**、**`list_dir`**（路径均在 `tools.root` 下）。若同时配置 **`http_fetch_enabled: true`** 且 **`http_allow_hosts`** 非空，还会注册 **`http_get`**（仅 HTTPS、主机名必须在允许列表中、不跟随重定向、响应体有字节上限）。
+Neo 在 `config.json5` 启用 `tools` 后，会构建一张 **Capability Matrix（能力矩阵）**：行是能力（builtin / `tools.commands` / 后续 MCP），列是契约（schema、副作用、来源等）。`./neo "…"` 的 tool loop、workflow `type: tool`、以及 `neo plan` 的允许工具名，都共用这张表。
+
+当前内置能力：`read_file`、`write_file`、`list_dir`、`grep`；可选 `http_get`（需 `http_fetch_enabled` + `http_allow_hosts`）。
 
 ---
 
@@ -19,21 +21,35 @@ Neo 在 `config.json5` 中启用 `tools` 后，会向兼容 OpenAI 的 `chat/com
     http_fetch_enabled: false,
     http_allow_hosts: "", // 例: "api.github.com,httpbin.org"
     http_fetch_max_bytes: 262144,
+    commands: [
+      {
+        name: "echo_args",
+        description: "Demo command",
+        argv: ["./scripts/echo-args.sh"],
+        parameters: {
+          type: "object",
+          properties: { msg: { type: "string" } },
+          required: ["msg"],
+        },
+      },
+    ],
   },
 }
 ```
 
-- **`enabled: false`**（或未写 `tools:`）：不会发 `tools`，行为与旧版一致，模型只能「口头」给 shell，**不会**真实读写文件。
-- **临时关闭工具**：`NEO_DISABLE_TOOLS=1 ./neo "..."`（环境变量存在即视为关闭）。
+- **`enabled: false`**（或未写 `tools:`）：不会发 `tools`，行为与旧版一致。
+- **临时关闭工具**：`NEO_DISABLE_TOOLS=1 ./neo "..."`。
+- **`commands[].parameters`**：可选 JSON Schema，原样进入 OpenAI `function.parameters`；省略则为 `{"type":"object"}`。
 
 完整示例可与仓库内 `config/config.json5.example` 对照。
 
-### 1.1 `list_dir` 与 `http_get` 行为摘要
+### 1.1 `list_dir` / `grep` / `http_get`
 
 | 工具 | 说明 |
 |------|------|
-| `list_dir` | 参数 `path` 为相对 `tools.root` 的目录路径；返回该目录下条目名列表（有上限，见 `list_dir_max_entries`）。 |
-| `http_get` | 仅当 `http_fetch_enabled: true` 且 `http_allow_hosts` 配置了允许的主机名时出现；参数 `url` 必须为 `https://` 且 URL 的主机名（大小写不敏感）在允许列表中；不跟随 3xx；正文截断至 `http_fetch_max_bytes`。 |
+| `list_dir` | 参数 `path`；非递归列目录。 |
+| `grep` | 参数 `pattern`（必填）、可选 `path`（默认 `.`）、可选 `glob`（如 `*.md`）；在 `tools.root` 下按行做字面量匹配，有匹配数上限。 |
+| `http_get` | 仅当 `http_fetch_enabled: true` 且配置了 `http_allow_hosts`；HTTPS、无重定向。 |
 
 ### 1.2 `tools.commands`（自定义命令工具）
 

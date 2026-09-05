@@ -52,6 +52,12 @@ int main(void) {
     config_free(&conf);
     return 1;
   }
+  if (!capability_matrix_find(&m, "grep")) {
+    fprintf(stderr, "missing grep\n");
+    capability_matrix_free(&m);
+    config_free(&conf);
+    return 1;
+  }
   if (capability_matrix_find(&m, "http_get")) {
     fprintf(stderr, "http_get should be absent when fetch disabled\n");
     capability_matrix_free(&m);
@@ -83,6 +89,36 @@ int main(void) {
     return 1;
   }
   free(listing);
+
+  {
+    char *cap = NULL;
+    size_t cap_sz = 0;
+    FILE *mem = open_memstream(&cap, &cap_sz);
+    int w;
+    if (!mem) {
+      fprintf(stderr, "open_memstream failed\n");
+      capability_matrix_free(&m);
+      config_free(&conf);
+      return 1;
+    }
+    w = capability_warn_tool_truncation(20, 16, mem);
+    fclose(mem);
+    if (!w || !cap || !strstr(cap, "truncated")) {
+      fprintf(stderr, "truncation warn missing: %s\n", cap ? cap : "(null)");
+      free(cap);
+      capability_matrix_free(&m);
+      config_free(&conf);
+      return 1;
+    }
+    free(cap);
+    if (capability_warn_tool_truncation(3, 16, stderr) != 0) {
+      fprintf(stderr, "unexpected warn for small n\n");
+      capability_matrix_free(&m);
+      config_free(&conf);
+      return 1;
+    }
+  }
+
   capability_matrix_free(&m);
   config_free(&conf);
   printf("ok\n");
