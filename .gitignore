@@ -18,3 +18,4 @@ tests/test_workflow_loop
 tests/test_workflow_template
 tests/test_workflow_dag
 tests/test_plan_extract
+.DS_Store

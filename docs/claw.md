@@ -80,10 +80,8 @@ Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdo
 
 ### 3.1 `soul:`（人格 / 语气）
 
-```yaml
-soul:
-  path: "SOUL.md"
-  max_chars: 8000
+```json5
+{ soul: { path: "SOUL.md", max_chars: 8000 } }
 ```
 
 - **`path`**：相对**你启动 Neo 时的当前工作目录**（一般为仓库根）。
@@ -93,20 +91,22 @@ soul:
 
 ### 3.2 `rules:`（项目规则，可多文件）
 
-```yaml
-rules:
-  max_chars_per_file: 6000
-  - path: "RULES.md"
+```json5
+{
+  rules: {
+    max_chars_per_file: 6000,
+    paths: ["RULES.md"],
+  },
+}
 ```
 
-- 与 bootstrap 类似：支持 **`max_chars_per_file`** 与多条 **`- path:`**（路径须真实存在，否则该段不会出现在 prompt 里）。
+- 与 bootstrap 类似：支持 **`max_chars_per_file`** 与 **`paths`** 字符串数组（路径须真实存在，否则该段不会出现在 prompt 里）。
 - 适合写：语言风格、必须跑的测试、禁止直接改生产配置等**硬约束**。
 
 ### 3.3 `workspace:`（把工作目录写进 prompt）
 
-```yaml
-workspace:
-  prompt_cwd: true
+```json5
+{ workspace: { prompt_cwd: true } }
 ```
 
 - **`true`**：在 system 中增加 `## Workspace` 与 Neo 进程的当前工作目录字符串。
@@ -265,33 +265,26 @@ pong
 
 在仓库根已有 **`config.json5.example`**；若你自建 `config.json5`，可在此基础上增加 claw 段（模型与 key 请填你自己的，勿提交）：
 
-```yaml
-# 与 config.json5.example 一致的部分略；以下为 neoclaw 演示用的真实路径
-
-workspace:
-  prompt_cwd: true
-
-soul:
-  path: "SOUL.md"
-  max_chars: 4000
-
-bootstrap:
-  max_chars_per_file: 8000
-  - path: "README.md"
-
-rules:
-  max_chars_per_file: 4000
-  - path: "RULES.md"
-
-skills:
-  directory: "skills"
-  high_priority:
-    - "nanjing"
-  unmatched: index
-
-memory:
-  path: "MEMORY.md"
-  max_chars: 4000
+```json5
+// 与 config/config.json5.example 一致的部分略；以下为演示用路径
+{
+  workspace: { prompt_cwd: true },
+  soul: { path: "SOUL.md", max_chars: 4000 },
+  bootstrap: {
+    max_chars_per_file: 8000,
+    paths: ["README.md"],
+  },
+  rules: {
+    max_chars_per_file: 4000,
+    paths: ["RULES.md"],
+  },
+  skills: {
+    directory: "skills",
+    high_priority: ["nanjing"],
+    unmatched: "index",
+  },
+  memory: { path: "MEMORY.md", max_chars: 4000 },
+}
 ```
 
 - **`bootstrap: README.md`**：仓库根 **`README.md`** 真实存在，首段即写明 Neo 为「命令行 AI 助手」、依赖 libcurl、单次与 daemon 等（与当前文档一致）。
@@ -385,26 +378,26 @@ echo "用一句话说明 session.max_turns 在配置里管什么" | nc -U /tmp/n
 
 ### 5.8 `neo-team`：真实 JSON 与命令
 
-仓库内 **`team.example.json`** 当前内容为：
+仓库内 **`team.example.json5`** 当前内容为：
 
-```json
+```json5
 {
-  "description": "Same config.json5, two user_suffix styles in parallel, then one merge pass.",
+  "description": "Same config/config.json5, two user_suffix styles in parallel, then one merge pass.",
   "mode": "parallel",
   "members": [
     {
       "name": "bullets",
-      "config": "config.json5",
+      "config": "config/config.json5",
       "user_suffix": "Answer in bullet points only (max 5)."
     },
     {
       "name": "prose",
-      "config": "config.json5",
+      "config": "config/config.json5",
       "user_suffix": "Answer in one short paragraph."
     }
   ],
   "merge": {
-    "config": "config.json5",
+    "config": "config/config.json5",
     "user_intro": "Two teammates answered the same question below. Write a 2–3 sentence synthesis in Chinese."
   }
 }
@@ -413,16 +406,16 @@ echo "用一句话说明 session.max_turns 在配置里管什么" | nc -U /tmp/n
 在仓库根、已存在可执行的 **`./neo`** 时：
 
 ```bash
-./scripts/neo-team team.example.json "README 里单次查询的示例命令是什么（只抄命令行）"
+./scripts/neo-team team.example.json5 "README 里单次查询的示例命令是什么（只抄命令行）"
 ```
 
-该脚本会读取上述 JSON 中的 **`config.json5`**（成员与 merge 共用）；若你尚未创建 `config.json5`，请先 `cp config.json5.example config.json5` 并填入 API，否则子进程会失败。
+该脚本会读取上述文件中的 **`config/config.json5`**（成员与 merge 共用）；若你尚未创建，请先 `cp config/config.json5.example config/config.json5` 并填入 API，否则子进程会失败。
 
 ---
 
 ## 6. 仓库里建议准备的文件（可选）
 
-本仓库已提供 **`example/`** 目录：`example/neo-claw-example.yaml` 指向 **`example/SOUL.md`**、`example/AGENTS.md`、`example/RULES.md`、`example/MEMORY.md`，在仓库根执行 `./neo -c example/neo-claw-example.yaml -d "ping"` 即可在 stderr 中看到 **`## Soul`** 等真实注入（详见 **`example/README.md`**）。
+本仓库已提供 **`example/`** 目录：`example/neo-claw-example.json5` 指向 **`example/SOUL.md`**、`example/AGENTS.md`、`example/RULES.md`、`example/MEMORY.md`，在仓库根执行 `./neo -c example/neo-claw-example.json5 -d "ping"` 即可在 stderr 中看到 **`## Soul`** 等真实注入（详见 **`example/README.md`**）。
 
 在仓库根按需创建（名称可自定，与 YAML 一致即可）：
 
@@ -435,7 +428,7 @@ echo "用一句话说明 session.max_turns 在配置里管什么" | nc -U /tmp/n
 
 ## 7. 多实例编排（可选）
 
-仓库提供 **`scripts/neo-team`**：用 JSON 描述多个成员配置、并行或顺序跑多条 `./neo`，可选合并轮。与「单仓库单助手」互补，适合拆角色、多配置对比。用法见脚本顶部注释与 **`team.example.json`**（完整 JSON 见上文 **5.8**）。
+仓库提供 **`scripts/neo-team`**：用 JSON 描述多个成员配置、并行或顺序跑多条 `./neo`，可选合并轮。与「单仓库单助手」互补，适合拆角色、多配置对比。用法见脚本顶部注释与 **`team.example.json5`**（完整 JSON 见上文 **5.8**）。
 
 ---
 

@@ -5,7 +5,7 @@
 ## 前提
 
 1. 已在仓库根 **`make`** 生成 `./neo`。
-2. 编辑 **`example/neo-claw-example.yaml`**，将 `model.api_key` 换成你的 key（或依赖环境变量 **`NEO_API_KEY`**，见主 README）。
+2. 编辑 **`example/neo-claw-example.json5`**，将 `model.api_key` 换成你的 key（或依赖环境变量 **`NEO_API_KEY`**，见主 README）。
 3. **必须在 neoclaw 仓库根目录执行**下面的命令（路径 `example/SOUL.md` 等是相对 cwd 解析的）。
 
 ## 一条命令验证 Soul 已进入上下文
@@ -14,7 +14,7 @@
 
 ```bash
 cd "$(git rev-parse --show-toplevel)"
-NEO_DISABLE_TOOLS=1 ./neo -c example/neo-claw-example.yaml -d "只回答：SOUL 里默认用哪种语言回答？" 2>&1 | grep -A2 '## Soul'
+NEO_DISABLE_TOOLS=1 ./neo -c example/neo-claw-example.json5 -d "只回答：SOUL 里默认用哪种语言回答？" 2>&1 | grep -A2 '## Soul'
 ```
 
 在 stderr 的 **system prompt** 段中应能看到 **`## Soul`** 以及 `example/SOUL.md` 的全文（或截断片段）。  
@@ -23,7 +23,7 @@ NEO_DISABLE_TOOLS=1 ./neo -c example/neo-claw-example.yaml -d "只回答：SOUL 
 ## 普通对话示例
 
 ```bash
-./neo -c example/neo-claw-example.yaml "根据 AGENTS 和 Soul，用两三句话介绍你是谁、在哪个仓库语境下工作"
+./neo -c example/neo-claw-example.json5 "根据 AGENTS 和 Soul，用两三句话介绍你是谁、在哪个仓库语境下工作"
 ```
 
 ## 文件与配置对应关系

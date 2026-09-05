@@ -74,7 +74,7 @@ cp config/config.json5.example config/config.json5
 - **自定义命令工具**：见 `docs/tool.md`（`tools.commands`）。
 - **声明式 workflow**：`./neo workflow run NAME`，说明见 `docs/workflow.md`。
 - **Plan then Run**：`./neo run [--steps N] [-o FILE] "task"` — 默认按约 10 步「研发团队」流水线规划并执行；`./neo plan` 只规划。
-- **Profile**：`./neo -p demo ...` 使用 `config/profiles/demo/neo.json5`（或 `neo.json`；兼容旧路径 `profiles/demo/`）。
+- **Profile**：`./neo -p demo ...` 使用 `config/profiles/demo/neo.json5`（兼容旧路径 `profiles/demo/`）。
 - **管道/cron**：`./scripts/neo-ask -p demo --workflow demo_loop`。
 
 ### 示例命令与运行效果（qwen3-8b）

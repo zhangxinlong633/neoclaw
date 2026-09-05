@@ -6,7 +6,7 @@ int main(void) {
   agent_config_t c;
   const workflow_t *wf;
   config_init(&c);
-  if (config_load_file(&c, "tests/fixtures/workflow_min.json") != 0) {
+  if (config_load_file(&c, "tests/fixtures/workflow_min.json5") != 0) {
     fprintf(stderr, "load failed\n");
     return 1;
   }
@@ -36,7 +36,7 @@ int main(void) {
   config_free(&c);
 
   config_init(&c);
-  if (config_load_file(&c, "tests/fixtures/workflow_tools_off.json") != 0) {
+  if (config_load_file(&c, "tests/fixtures/workflow_tools_off.json5") != 0) {
     fprintf(stderr, "tools_off load failed\n");
     return 1;
   }
@@ -50,7 +50,7 @@ int main(void) {
   config_free(&c);
 
   config_init(&c);
-  if (config_load_file(&c, "tests/fixtures/workflow_omit_type.json") != 0) {
+  if (config_load_file(&c, "tests/fixtures/workflow_omit_type.json5") != 0) {
     fprintf(stderr, "omit_type load failed\n");
     return 1;
   }
@@ -64,7 +64,7 @@ int main(void) {
   config_free(&c);
 
   config_init(&c);
-  if (config_load_file(&c, "tests/fixtures/legacy.yaml") == 0) {
+  if (config_load_file(&c, "not-a-config.yaml") == 0) {
     fprintf(stderr, "yaml should be rejected\n");
     config_free(&c);
     return 1;

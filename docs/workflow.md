@@ -102,8 +102,8 @@
 
 ```bash
 ./neo run "用 echo_args 打出 hello，再让 llm 总结一句"
-./neo plan -o /tmp/planned.json "列出当前目录再写一句说明"
-./neo run -o /tmp/planned.json "调用 allowlist 里的脚本做两步流水线"
+./neo plan -o /tmp/planned.json5 "列出当前目录再写一句说明"
+./neo run -o /tmp/planned.json5 "调用 allowlist 里的脚本做两步流水线"
 ```
 
 Planner 只能引用配置里已声明的 `tools.commands` 以及 builtin `read_file` / `write_file` / `list_dir`。

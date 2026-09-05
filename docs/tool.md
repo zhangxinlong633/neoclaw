@@ -8,16 +8,19 @@ Neo 在 `config.json5` 中启用 `tools` 后，会向兼容 OpenAI 的 `chat/com
 
 在 `config.json5` 末尾增加（路径相对你运行 `./neo` 时的当前工作目录；一般在仓库根执行则 `root: "."` 即可）：
 
-```yaml
-tools:
-  enabled: true
-  root: "."
-  max_rounds: 16
-  max_read_bytes: 262144
-  list_dir_max_entries: 256
-  http_fetch_enabled: false
-  http_allow_hosts: ""   # 例: "api.github.com,httpbin.org"
-  http_fetch_max_bytes: 262144
+```json5
+{
+  tools: {
+    enabled: true,
+    root: ".",
+    max_rounds: 16,
+    max_read_bytes: 262144,
+    list_dir_max_entries: 256,
+    http_fetch_enabled: false,
+    http_allow_hosts: "", // 例: "api.github.com,httpbin.org"
+    http_fetch_max_bytes: 262144,
+  },
+}
 ```
 
 - **`enabled: false`**（或未写 `tools:`）：不会发 `tools`，行为与旧版一致，模型只能「口头」给 shell，**不会**真实读写文件。
@@ -36,17 +39,23 @@ tools:
 
 在 `tools:` 下声明 `commands`，无需改 C / 重新 `make`。模型通过 `tool_calls` 调用；Neo 在 `tools.root` 下 `exec` 已声明的 `argv`（不拼 shell）。
 
-```yaml
-tools:
-  enabled: true
-  root: "."
-  commands:
-    - name: echo_args
-      description: "Echo tool arguments JSON"
-      argv: ["./scripts/tools/echo-args.sh"]
-      timeout_sec: 30
-      max_output_bytes: 65536
-      pass_args: stdin_json   # 或 env（NEO_TOOL_ARGS）
+```json5
+{
+  tools: {
+    enabled: true,
+    root: ".",
+    commands: [
+      {
+        name: "echo_args",
+        description: "Echo tool arguments JSON",
+        argv: ["./scripts/tools/echo-args.sh"],
+        timeout_sec: 30,
+        max_output_bytes: 65536,
+        pass_args: "stdin_json", // 或 "env"（NEO_TOOL_ARGS）
+      },
+    ],
+  },
+}
 ```
 
 - `argv[0]` 必须相对 `tools.root`，禁止绝对路径与 `..`。

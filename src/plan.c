@@ -27,7 +27,8 @@ int plan_extract_workflows_json(const char *llm_text, char **out_json) {
   if (out_json) *out_json = NULL;
   if (!llm_text || !out_json) return -1;
 
-  p = strstr(llm_text, "```json");
+  p = strstr(llm_text, "```json5");
+  if (!p) p = strstr(llm_text, "```json");
   if (!p) p = strstr(llm_text, "```JSON");
   if (!p) p = strstr(llm_text, "```");
   if (p) {

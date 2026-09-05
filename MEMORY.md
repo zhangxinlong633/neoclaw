@@ -1,6 +1,6 @@
 # Memory (context for Neo)
 
-This file is loaded into the agent's system prompt (see `config.yaml` → `memory.path`). Keep it short; only the first `memory.max_chars` characters are sent to the model.
+This file is loaded into the agent's system prompt (see `config.json5` → `memory.path`). Keep it short; only the first `memory.max_chars` characters are sent to the model.
 
 ## Format
 

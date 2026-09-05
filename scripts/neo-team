@@ -5,8 +5,8 @@ Orchestrate multiple Neo CLI runs (parallel or sequential) and optionally a merg
 Requires: Python 3.7+, neo binary (see --neo / NEO_BIN). No third-party packages.
 
 Usage:
-  ./scripts/neo-team team.example.json "你的任务"
-  NEO_BIN=/path/to/neo ./scripts/neo-team -C /path/to/neoclaw team.example.json "任务"
+  ./scripts/neo-team team.example.json5 "你的任务"
+  NEO_BIN=/path/to/neo ./scripts/neo-team -C /path/to/neoclaw team.example.json5 "任务"
 
 Schema (JSON):
   mode          "parallel" | "sequential" (default: parallel)
@@ -40,7 +40,7 @@ def _load_team(path: str) -> Dict[str, Any]:
     except FileNotFoundError:
         _die(f"neo-team: team file not found: {path}")
     except json.JSONDecodeError as e:
-        _die(f"neo-team: invalid JSON in {path}: {e}")
+        _die(f"neo-team: invalid JSON (use JSON5-compatible / strict JSON) in {path}: {e}")
 
 
 def _resolve_neo_bin(explicit: Optional[str]) -> str:
@@ -240,7 +240,7 @@ def run_team(
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Run a Neo multi-agent team from a JSON file.")
-    ap.add_argument("team_file", help="Path to team JSON (e.g. team.example.json)")
+    ap.add_argument("team_file", help="Path to team JSON (e.g. team.example.json5)")
     ap.add_argument(
         "task_parts",
         nargs="*",

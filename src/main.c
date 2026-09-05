@@ -84,8 +84,6 @@ static void print_usage(const char *prog) {
 static const char *neo_default_config_path(void) {
   if (access("config/config.json5", R_OK) == 0) return "config/config.json5";
   if (access("config.json5", R_OK) == 0) return "config.json5";
-  if (access("config/config.json", R_OK) == 0) return "config/config.json";
-  if (access("config.json", R_OK) == 0) return "config.json";
   return "config/config.json5";
 }
 
@@ -273,11 +271,7 @@ int main(int argc, char **argv) {
     }
     used_profile = 1;
     if (!config_set) {
-      {
-      if (access("neo.json5", R_OK) == 0) config_path = "neo.json5";
-      else if (access("neo.json", R_OK) == 0) config_path = "neo.json";
-      else config_path = "neo.json5";
-    }
+      config_path = "neo.json5";
     }
 #else
     fprintf(stderr, "neo: profiles require Linux/macOS\n");

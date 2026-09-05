@@ -1,29 +1,25 @@
-# Migrate config from YAML to JSON5
+# Config format: JSON5
 
-Neo configs are **JSON5** (yyjson 0.12.0 `YYJSON_READ_JSON5`): comments, trailing commas, and unquoted keys are allowed.
+Neo configs are **JSON5** (yyjson 0.12.0 `YYJSON_READ_JSON5`): comments, trailing commas, and unquoted keys are allowed. Strict JSON is also accepted.
 
 ## Paths
 
-| Old | New (preferred) | Also accepted |
-|-----|-----------------|---------------|
-| `config/config.yaml` | `config/config.json5` | `config/config.json` |
-| `config.yaml` | `config.json5` | `config.json` |
-| `config/profiles/<name>/neo.yaml` | `…/neo.json5` | `…/neo.json` |
-
-Copy the example:
+| File | Role |
+|------|------|
+| `config/config.json5` | Preferred main config |
+| `config.json5` | Repo-root fallback |
+| `config/profiles/<name>/neo.json5` | Profile config |
 
 ```bash
 cp config/config.json5.example config/config.json5
 ```
 
-## Shape changes
+`.yaml` / `.yml` paths are rejected. Prefer `.json5` for everything in-repo (`team.example.json5`, fixtures, examples).
+
+## Shape notes
 
 - Same section names: `model`, `skills`, `tools`, `workflows`, `plan`, …
-- Lists must be JSON arrays (`depends_on`, `then`, `else`, `paths`, `argv`, …).
-- `bootstrap.paths` / `rules.paths` are string arrays (not YAML `- path:` lists).
-- Step field `"tools": "off"` stays a step field; top-level `tools` is still the tools object.
-- `neo plan` / `neo run` emit and consume **strict JSON** for workflows (valid JSON5 on reload).
-
-## YAML
-
-`.yaml` / `.yml` paths are rejected with a migration hint. There is no dual-read.
+- Lists must be arrays (`depends_on`, `then`, `else`, `paths`, `argv`, …).
+- `bootstrap.paths` / `rules.paths` are string arrays.
+- Step field `"tools": "off"` is a step field; top-level `tools` is the tools object.
+- `neo plan` / `neo run` emit workflows as JSON (valid JSON5 on reload).

@@ -22,7 +22,7 @@ int main(void) {
 
   unlink("tests/fixtures/count.out");
   config_init(&c);
-  if (config_load_file(&c, "tests/fixtures/workflow_dag.json") != 0) {
+  if (config_load_file(&c, "tests/fixtures/workflow_dag.json5") != 0) {
     fprintf(stderr, "load failed\n");
     return 1;
   }

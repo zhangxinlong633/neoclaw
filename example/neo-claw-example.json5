@@ -1,0 +1,41 @@
+// Demo Neo loading example/ soul, bootstrap, rules, memory (run from repo root).
+// Usage: ./neo -c example/neo-claw-example.json5 "你是谁"
+// Debug: ./neo -c example/neo-claw-example.json5 -d "用一句话概括 example/SOUL.md 里对自称的要求"
+// Paths are relative to cwd. Run from neoclaw root with -c.
+
+{
+  model: {
+    provider: "openrouter",
+    base_url: "https://openrouter.ai/api/v1",
+    name: "qwen/qwen3-8b",
+    api_key: "YOUR_OPENROUTER_API_KEY",
+    max_tokens: 2048,
+    temperature: 0.7,
+  },
+
+  workspace: { prompt_cwd: true },
+
+  soul: { path: "example/SOUL.md", max_chars: 4000 },
+
+  bootstrap: {
+    max_chars_per_file: 4000,
+    paths: ["example/AGENTS.md"],
+  },
+
+  rules: {
+    max_chars_per_file: 3000,
+    paths: ["example/RULES.md"],
+  },
+
+  skills: {
+    directory: "skills",
+    unmatched: "index",
+  },
+
+  memory: {
+    path: "example/MEMORY.md",
+    max_chars: 2000,
+  },
+
+  // tools: { enabled: true, root: "." },
+}
