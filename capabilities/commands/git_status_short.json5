@@ -1,0 +1,13 @@
+{
+  name: "git_status_short",
+  description: "Show short git branch and porcelain-ish status (-sb) for the workspace root.",
+  when: ["Need a quick dirty/clean and branch summary of this repo"],
+  when_not: ["Do not use for full diffs; prefer git_log_five for recent commits only"],
+  tags: ["git", "vcs"],
+  outcome: "git status -sb output",
+  argv: ["/usr/bin/git", "status", "-sb"],
+  timeout_sec: 15,
+  max_output_bytes: 65536,
+  pass_args: "env",
+  parameters: { type: "object", properties: {} },
+}

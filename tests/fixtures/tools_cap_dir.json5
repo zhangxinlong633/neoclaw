@@ -1,0 +1,40 @@
+{
+  model: {
+    base_url: "http://127.0.0.1:9",
+    name: "test",
+    api_key: "x",
+  },
+  capability_matrix: {
+    enabled: true,
+    root: ".",
+    directory: "tests/fixtures/cap_pack",
+  },
+  workflows: [
+    {
+      name: "cli_dir_echo",
+      steps: [
+        {
+          id: "e",
+          type: "tool",
+          tool: "dir_echo",
+          args: { msg: "from-dir" },
+        },
+      ],
+    },
+    {
+      name: "cli_propose",
+      steps: [
+        {
+          id: "p",
+          type: "tool",
+          tool: "propose_capability",
+          args: {
+            name: "cli_prop",
+            description: "CLI proposed capability",
+            argv: ["./tests/fixtures/bin/echo-argv.sh"],
+          },
+        },
+      ],
+    },
+  ],
+}

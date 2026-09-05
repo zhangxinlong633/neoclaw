@@ -1,0 +1,24 @@
+{
+  name: "search_context",
+  description: "Grep the workspace for a fixed pattern then summarize hits with an LLM.",
+  when: ["Need to locate mentions of a known keyword then explain where they appear"],
+  when_not: ["Editing files; use inspect_path when the path is already known"],
+  tags: ["fs", "search", "llm"],
+  requires: ["grep"],
+  outcome: "Grep hit lines plus a short localization summary",
+  steps: [
+    {
+      id: "hits",
+      type: "tool",
+      tool: "grep",
+      args: { pattern: "capability_matrix", path: ".", glob: "*.md" },
+    },
+    {
+      id: "explain",
+      type: "llm",
+      tools: "off",
+      prompt: "根据 grep 命中，归纳 capability_matrix 在文档中出现在哪些主题下。命中={{steps.hits}}",
+      depends_on: ["hits"],
+    },
+  ],
+}

@@ -1,0 +1,13 @@
+{
+  name: "git_log_five",
+  description: "Show the five most recent commits as oneline subjects.",
+  when: ["Need recent commit titles for context or release notes"],
+  when_not: ["Do not use for full patch content or blame"],
+  tags: ["git", "vcs"],
+  outcome: "Up to five oneline commit rows",
+  argv: ["/usr/bin/git", "log", "-5", "--oneline"],
+  timeout_sec: 15,
+  max_output_bytes: 16384,
+  pass_args: "env",
+  parameters: { type: "object", properties: {} },
+}

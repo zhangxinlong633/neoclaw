@@ -1,0 +1,31 @@
+{
+  name: "repo_pulse",
+  description: "Collect short git status and recent log, then summarize repo health in one paragraph.",
+  when: ["Need a quick pulse on branch dirtiness and recent commits"],
+  when_not: ["Code review of a full diff; missing git binary"],
+  tags: ["git", "llm"],
+  requires: ["git_status_short", "git_log_five"],
+  outcome: "status + log raw outputs folded into a short narrative",
+  steps: [
+    {
+      id: "st",
+      type: "tool",
+      tool: "git_status_short",
+      args: {},
+    },
+    {
+      id: "log",
+      type: "tool",
+      tool: "git_log_five",
+      args: {},
+      depends_on: ["st"],
+    },
+    {
+      id: "pulse",
+      type: "llm",
+      tools: "off",
+      prompt: "根据 git status 与近 5 条 log，用一段话说明当前分支是否干净、最近在做什么。status={{steps.st}} log={{steps.log}}",
+      depends_on: ["log"],
+    },
+  ],
+}

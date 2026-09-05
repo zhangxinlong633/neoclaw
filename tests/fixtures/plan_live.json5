@@ -7,7 +7,7 @@
     "max_tokens": 4096,
     "temperature": 0.2
   },
-  "tools": {
+  "capability_matrix": {
     "enabled": true,
     "root": ".",
     "max_rounds": 8,

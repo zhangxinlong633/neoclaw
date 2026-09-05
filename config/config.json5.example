@@ -37,26 +37,20 @@
     max_turns: 10,
   },
 
-  // tools: {
+  // capability_matrix: {
   //   enabled: true,
   //   root: ".",
+  //   directory: "capabilities", // one file per capability; see capabilities/manifest.json5
   //   max_rounds: 16,
-  //   shell_enabled: false, // true → expose run_command (argv under tools.root, no shell)
-  //   commands: [
-  //     {
-  //       name: "echo_args",
-  //       description: "Echo tool arguments JSON",
-  //       argv: ["./scripts/tools/echo-args.sh"],
-  //       timeout_sec: 30,
-  //       max_output_bytes: 65536,
-  //       pass_args: "stdin_json",
-  //       // parameters: { type: "object", properties: { msg: { type: "string" } } },
-  //     },
-  //   ],
+  //   shell_enabled: false, // true → expose run_command (argv under root, no shell)
+  //   // optional inline commands (merged with directory load[]):
+  //   // commands: [ { name: "date_iso", argv: ["/bin/date", "-u", "+%Y-%m-%dT%H:%M:%SZ"] } ],
   //   // mcp_servers: [
   //   //   { name: "mock", command: "python3", args: ["tests/fixtures/mock_mcp_echo.py"] },
   //   // ],
   // },
+
+  // workflow_directory: "dags", // one DAG per file; see dags/manifest.json5
 
   // plan: { target_steps: 10 },
 }

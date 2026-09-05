@@ -1,5 +1,6 @@
 neo
 *.o
+build/
 config.yaml
 config/config.yaml
 config.json
@@ -19,4 +20,7 @@ tests/test_workflow_template
 tests/test_workflow_dag
 tests/test_plan_extract
 tests/test_capability_matrix
-.DS_Store
+capabilities/proposed/*.json5
+!capabilities/proposed/README.md
+tests/fixtures/cap_pack/proposed/*.json5
+!tests/fixtures/cap_pack/proposed/.gitkeep

@@ -1,0 +1,18 @@
+{
+  name: "dir_echo",
+  description: "Capability from directory pack",
+  when: ["Fixture: echo args from capability directory"],
+  when_not: ["Production use"],
+  tags: ["fixture", "echo"],
+  outcome: "Echoed argv/args text",
+  argv: ["./tests/fixtures/bin/echo-argv.sh"],
+  timeout_sec: 5,
+  max_output_bytes: 4096,
+  pass_args: "stdin_json",
+  parameters: {
+    type: "object",
+    properties: {
+      msg: { type: "string" },
+    },
+  },
+}

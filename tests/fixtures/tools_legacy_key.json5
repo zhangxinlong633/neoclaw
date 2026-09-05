@@ -1,0 +1,13 @@
+{
+  "model": { "base_url": "http://127.0.0.1:9", "name": "t", "api_key": "x" },
+  "tools": {
+    "enabled": true,
+    "root": ".",
+    "commands": [
+      {
+        "name": "legacy_echo",
+        "argv": ["./tests/fixtures/bin/count.sh"]
+      }
+    ]
+  }
+}

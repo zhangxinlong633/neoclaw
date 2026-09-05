@@ -1,0 +1,13 @@
+{
+  name: "pwd_print",
+  description: "Print the process working directory after chdir into capability_matrix.root.",
+  when: ["Confirm which workspace root Neo is executing under"],
+  when_not: ["Do not use to list files; use list_dir"],
+  tags: ["system", "fs"],
+  outcome: "Absolute path of the sandbox cwd",
+  argv: ["/bin/pwd"],
+  timeout_sec: 5,
+  max_output_bytes: 512,
+  pass_args: "env",
+  parameters: { type: "object", properties: {} },
+}

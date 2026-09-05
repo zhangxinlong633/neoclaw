@@ -1,0 +1,14 @@
+{
+  model: {
+    base_url: "http://127.0.0.1:9",
+    name: "test",
+    api_key: "x",
+  },
+  capability_matrix: {
+    enabled: true,
+    root: ".",
+    http_fetch_enabled: true,
+    http_allow_hosts: "example.com",
+    commands: [],
+  },
+}

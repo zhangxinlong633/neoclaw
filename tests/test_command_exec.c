@@ -13,6 +13,8 @@ int main(void) {
   size_t out_len = 0;
   int idx;
   int rc;
+  tool_command_t abs_cmd;
+  char *argv_abs[4];
 
   config_init(&c);
   if (config_load_file(&c, "tests/fixtures/commands_min.json5") != 0) {
@@ -45,6 +47,28 @@ int main(void) {
   }
   if (strstr(out, "stdin={\"ping\":1}") == NULL) {
     fprintf(stderr, "missing stdin in output:\n%s\n", out);
+    free(out);
+    config_free(&c);
+    return 1;
+  }
+  free(out);
+  out = NULL;
+
+  /* 绝对路径 argv[0]：白名单声明的 /bin/date */
+  memset(&abs_cmd, 0, sizeof(abs_cmd));
+  abs_cmd.name = (char *)"date_iso";
+  argv_abs[0] = (char *)"/bin/date";
+  argv_abs[1] = (char *)"-u";
+  argv_abs[2] = (char *)"+%Y-%m-%dT%H:%M:%SZ";
+  argv_abs[3] = NULL;
+  abs_cmd.argv = argv_abs;
+  abs_cmd.argv_count = 3;
+  abs_cmd.timeout_sec = 5;
+  abs_cmd.max_output_bytes = 256;
+  abs_cmd.pass_args = 1; /* env：避免把 JSON 喂给 date */
+  rc = command_tool_run(&c, root_real, &abs_cmd, "{}", &out, &out_len);
+  if (rc != 0 || !out || strlen(out) < 10) {
+    fprintf(stderr, "absolute argv run failed rc=%d out=%s\n", rc, out ? out : "(null)");
     free(out);
     config_free(&c);
     return 1;

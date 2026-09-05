@@ -1,0 +1,17 @@
+{
+  model: {
+    base_url: "http://127.0.0.1:9",
+    name: "test",
+    api_key: "x",
+  },
+  capability_matrix: {
+    enabled: false,
+    root: ".",
+    commands: [
+      {
+        name: "should_not_appear",
+        argv: ["./tests/fixtures/bin/count.sh"],
+      },
+    ],
+  },
+}

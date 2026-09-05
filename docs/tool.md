@@ -1,8 +1,8 @@
 # Neo 工具与能力矩阵（Capability Matrix）
 
-Neo 在 `config.json5` 启用 `tools` 后，会构建一张 **Capability Matrix（能力矩阵）**：行是能力（builtin / `tools.commands` / 后续 MCP），列是契约（schema、副作用、来源等）。`./neo "…"` 的 tool loop、workflow `type: tool`、以及 `neo plan` 的允许工具名，都共用这张表。
+Neo 在 `config.json5` 启用 `capability_matrix` 后，会构建一张 **Capability Matrix（能力矩阵）**：行是能力（builtin / `commands` / MCP），列是契约（schema、副作用、来源等）。`./neo "…"` 的 tool loop、workflow `type: tool`、以及 `neo plan` 的允许工具名，都共用这张表。顶层键名优先 **`capability_matrix`**；旧键 **`tools`** 仍可读（stderr 提示改名）。
 
-当前内置能力：`read_file`、`write_file`、`list_dir`、`grep`；可选 `http_get`（需 `http_fetch_enabled` + `http_allow_hosts`）。
+当前内置能力：`read_file`、`write_file`、`append_file`、`list_dir`、`stat`、`grep`、`mkdir`；可选 `http_get`（需 `http_fetch_enabled` + `http_allow_hosts`）、`run_command`（需 `shell_enabled`）。
 
 ---
 
@@ -12,7 +12,7 @@ Neo 在 `config.json5` 启用 `tools` 后，会构建一张 **Capability Matrix�
 
 ```json5
 {
-  tools: {
+  capability_matrix: {
     enabled: true,
     root: ".",
     max_rounds: 16,
@@ -25,6 +25,10 @@ Neo 在 `config.json5` 启用 `tools` 后，会构建一张 **Capability Matrix�
       {
         name: "echo_args",
         description: "Demo command",
+        when: ["Smoke-test tool args"],
+        when_not: ["Real domain work"],
+        tags: ["demo"],
+        outcome: "Args JSON on stdout",
         argv: ["./scripts/echo-args.sh"],
         parameters: {
           type: "object",
@@ -37,27 +41,31 @@ Neo 在 `config.json5` 启用 `tools` 后，会构建一张 **Capability Matrix�
 }
 ```
 
-- **`enabled: false`**（或未写 `tools:`）：不会发 `tools`，行为与旧版一致。
+- **`enabled: false`**（或未写 `capability_matrix:`）：不会发 `tools`，行为与旧版一致。
 - **临时关闭工具**：`NEO_DISABLE_TOOLS=1 ./neo "..."`。
 - **`commands[].parameters`**：可选 JSON Schema，原样进入 OpenAI `function.parameters`；省略则为 `{"type":"object"}`。
+- **选型元数据**（`when` / `when_not` / `tags` / `outcome`）：写入能力文件或 `commands[]`，进入矩阵 listing 与 `function.description`，供 LLM 决定何时调用。见 AGENTS.md §4.1。
 
 完整示例可与仓库内 `config/config.json5.example` 对照。
 
-### 1.1 `list_dir` / `grep` / `http_get`
+### 1.1 `list_dir` / `grep` / `stat` / `mkdir` / `append_file` / `http_get`
 
 | 工具 | 说明 |
 |------|------|
 | `list_dir` | 参数 `path`；非递归列目录。 |
-| `grep` | 参数 `pattern`（必填）、可选 `path`（默认 `.`）、可选 `glob`（如 `*.md`）；在 `tools.root` 下按行做字面量匹配，有匹配数上限。 |
-| `run_command` | 仅当 `shell_enabled: true`；参数 `argv` 为字符串数组（**无 shell**）；`argv[0]` 须相对 `tools.root`（与 `tools.commands` 相同沙箱规则）。 |
+| `grep` | 参数 `pattern`（必填）、可选 `path`（默认 `.`）、可选 `glob`（如 `*.md`）；在 `capability_matrix.root` 下按行做字面量匹配，有匹配数上限。 |
+| `stat` | 参数 `path`；返回 `type` / `size` / `mtime`（沙箱内）。 |
+| `mkdir` | 参数 `path`；可选 `parents: true` 创建中间目录。 |
+| `append_file` | 参数 `path` + `content`；追加写入（文件不存在则创建）。 |
+| `run_command` | 仅当 `shell_enabled: true`；参数 `argv` 为字符串数组（**无 shell**）。`argv[0]` 规则与 `commands` 相同（相对 root 或显式绝对路径）。 |
 | `http_get` | 仅当 `http_fetch_enabled: true` 且配置了 `http_allow_hosts`；HTTPS、无重定向。 |
 
 ### 1.2 MCP stdio（能力矩阵 loader）
 
-在 `tools.mcp_servers` 声明本地 MCP 子进程（**仅 stdio**；`url` 字段若填写会告警并跳过）：
+在 `capability_matrix.mcp_servers` 声明本地 MCP 子进程（**仅 stdio**；`url` 字段若填写会告警并跳过）：
 
 ```json5
-tools: {
+capability_matrix: {
   enabled: true,
   root: ".",
   mcp_servers: [
@@ -74,33 +82,48 @@ tools: {
 - 调用：与其它能力相同，经 OpenAI `tool_calls` 或 DAG `type: tool`。
 - 失败：单个 server 跳过，不影响 builtin / commands。
 
-### 1.3 `tools.commands`（自定义命令工具）
+### 1.4 能力目录（一文件一能力）
 
-在 `tools:` 下声明 `commands`，无需改 C / 重新 `make`。模型通过 `tool_calls` 调用；Neo 在 `tools.root` 下 `exec` 已声明的 `argv`（不拼 shell）。
+配置 `capability_matrix.directory`（例如 `"capabilities"`）后，Neo 读取该目录下的 **manifest** 与 `load[]` 子目录中的 `*.json5`，合并进矩阵（与内联 `commands` 相同校验）。
+
+```
+capabilities/
+  manifest.json5          # load: ["commands"], proposed: "proposed"
+  commands/echo_args.json5
+  proposed/               # propose_capability 写出草稿；默认不加载
+```
+
+- **`propose_capability`**：仅当配置了 `directory` 时出现在矩阵中。把新能力写到 `proposed/`，**当轮不生效**；把文件移到 `commands/`（或其它 `load` 子目录）并重启 `neo` 后可用。
+- 内联 `commands` 与目录加载可并存；重名会报错。
+
+### 1.5 `capability_matrix.commands`（自定义命令工具）
+
+在 `capability_matrix:` 下声明 `commands`，无需改 C / 重新 `make`。模型通过 `tool_calls` 调用；Neo **exec 已声明的 `argv`**（不拼 shell）。工作目录为 `capability_matrix.root`。
 
 ```json5
 {
-  tools: {
+  capability_matrix: {
     enabled: true,
     root: ".",
     commands: [
       {
-        name: "echo_args",
-        description: "Echo tool arguments JSON",
-        argv: ["./scripts/tools/echo-args.sh"],
-        timeout_sec: 30,
-        max_output_bytes: 65536,
-        pass_args: "stdin_json", // 或 "env"（NEO_TOOL_ARGS）
+        name: "date_iso",
+        description: "UTC ISO timestamp",
+        when: ["Need current UTC time"],
+        argv: ["/bin/date", "-u", "+%Y-%m-%dT%H:%M:%SZ"],
+        timeout_sec: 5,
+        pass_args: "env",
       },
     ],
   },
 }
 ```
 
-- `argv[0]` 必须相对 `tools.root`，禁止绝对路径与 `..`。
-- `pass_args: stdin_json`：arguments JSON 写入子进程 stdin；`NEO_TOOL_NAME` 环境变量始终设置。
+- `argv[0]`：**相对** `capability_matrix.root`（须落在 root 内），或**绝对路径**（须 `realpath` 为可执行普通文件；禁止路径中的 `..` 段）。不支持 PATH 上的裸命令名。
+- 读写类 builtin（`read_file` 等）仍只允许相对 root 的路径。
+- `pass_args: stdin_json`：arguments JSON 写入子进程 stdin；`pass_args: env`：写入 `NEO_TOOL_ARGS`。`NEO_TOOL_NAME` 始终设置。
 - 非 0 退出码：结果前缀 `EXIT:<code>\n`。
-- 样例脚本：`scripts/tools/echo-args.sh`。
+- 仓库示例能力包：`capabilities/commands/`（需配置 `capability_matrix.directory`）。
 
 ---
 
@@ -109,7 +132,7 @@ tools: {
 
 | 工具 | 说明 |
 |------|------|
-| `list_dir` | 参数 `path` 为相对 `tools.root` 的目录路径；返回该目录下条目名列表（有上限，见 `list_dir_max_entries`）。 |
+| `list_dir` | 参数 `path` 为相对 `capability_matrix.root` 的目录路径；返回该目录下条目名列表（有上限，见 `list_dir_max_entries`）。 |
 | `http_get` | 仅当 `http_fetch_enabled: true` 且 `http_allow_hosts` 配置了允许的主机名时出现；参数 `url` 必须为 `https://` 且 URL 的主机名（大小写不敏感）在允许列表中；不跟随 3xx；正文截断至 `http_fetch_max_bytes`。 |
 
 ---
@@ -224,20 +247,20 @@ cat demo-tool.txt
 | 工具是否执行 | 以 stderr 是否出现 `neo tool: <name>` 为准 |
 | 最终给用户的话 | 一律在 **stdout** |
 | 工具返回给模型的内容 | 纯文本；错误时多为 `ERROR: ...` 前缀 |
-| 路径规则 | `read_file` / `write_file` / `list_dir`：相对 `tools.root`；禁止绝对路径、禁止路径段中出现 `..` |
+| 路径规则 | `read_file` / `write_file` / `append_file` / `list_dir` / `stat` / `mkdir` / `grep`：相对 `capability_matrix.root`；禁止绝对路径、禁止路径段中出现 `..` |
 
 ---
 
 ## 4. 常见问题
 
 **Q：模型仍只给 `echo`/`cat` 和「我无法执行命令」**  
-**A：** 多数是 **`tools.enabled` 未为 true** 或未写 `tools:`。确认 YAML 已保存，并在仓库根执行 `./neo`。若已启用仍无 `neo tool:`，请换用**明确支持 function calling** 的模型或检查网关是否支持 `tools` / `tool_calls` 字段。
+**A：** 多数是 **`capability_matrix.enabled` 未为 true** 或未写该段。确认 JSON5 已保存，并在仓库根执行 `./neo`。若已启用仍无 `neo tool:`，请换用**明确支持 function calling** 的模型或检查网关是否支持 `tools` / `tool_calls` 字段。
 
 **Q：`path not allowed` / `ERROR: path not allowed`**  
-**A：** 路径越出 `tools.root` 的 realpath 范围，或使用了 `/`、`..`。
+**A：** 路径越出 `capability_matrix.root` 的 realpath 范围，或使用了 `/`、`..`。
 
 **Q：daemon 模式是否支持工具？**  
-**A：** 支持；同样依赖 `config.json5` 中 `tools.enabled`，且可用 `NEO_DISABLE_TOOLS` 关闭。
+**A：** 支持；同样依赖 `config.json5` 中 `capability_matrix.enabled`，且可用 `NEO_DISABLE_TOOLS` 关闭。
 
 **Q：出现 `neo tool: read_file` 后立刻 `neo: LLM request failed`、stdout 为空**  
 **A：** 多为**第二轮 POST** 失败（网络抖动、网关限流、请求体过大等）。可重试；若只读大文件，可适当降低 `max_read_bytes` 或换用较小测试文件（见 §2.1b）。
@@ -246,9 +269,10 @@ cat demo-tool.txt
 
 ## 5. 与代码的对应关系
 
-- 工具循环与 HTTP：`src/agent_tools.c`、`src/llm.c`（`llm_post_chat_completions_json`）
-- 配置解析：`src/config.c`（`tools:` 段）
-- 单次 / daemon 入口：`src/main.c`、`src/daemon.c`
-- JSON 解析：内置 `src/yyjson.c` / `src/yyjson.h`（MIT；LLM 与 tool_calls）
+- 工具循环与 HTTP：`src/capability/agent_tools.c`、`src/llm/llm.c`（`llm_post_chat_completions_json`）
+- 配置解析：`src/core/config.c`（`capability_matrix:` 段，兼容旧键 `tools`）
+- 单次 / daemon 入口：`src/cli/main.c`、`src/core/daemon.c`
+- JSON 解析：内置 `src/vendor/yyjson.c` / `src/vendor/yyjson.h`（MIT；LLM 与 tool_calls）
+- Capability Matrix：`src/capability/capability_matrix.c`；MCP loader：`src/capability/mcp_stdio.c`
 
 更多整体说明见仓库根目录 `README.md`。

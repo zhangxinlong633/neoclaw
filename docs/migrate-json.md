@@ -18,8 +18,8 @@ cp config/config.json5.example config/config.json5
 
 ## Shape notes
 
-- Same section names: `model`, `skills`, `tools`, `workflows`, `plan`, …
+- Same section names: `model`, `skills`, `capability_matrix` (legacy `tools`), `workflows`, `plan`, …
 - Lists must be arrays (`depends_on`, `then`, `else`, `paths`, `argv`, …).
 - `bootstrap.paths` / `rules.paths` are string arrays.
-- Step field `"tools": "off"` is a step field; top-level `tools` is the tools object.
+- Step field `"tools": "off"` is a step field; top-level `capability_matrix` is the Capability Matrix object (legacy alias: `tools`).
 - `neo plan` / `neo run` emit workflows as JSON (valid JSON5 on reload).

@@ -1,5 +1,6 @@
 #include "plan.h"
 #include "config.h"
+#include "workflow_dir.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -92,6 +93,12 @@ int main(void) {
       config_free(&base);
       return 1;
     }
+    if (!strstr(prompt, "DAG catalog") || !strstr(prompt, "\"use\"")) {
+      fprintf(stderr, "prompt missing DAG catalog / use preference\n");
+      free(prompt);
+      config_free(&base);
+      return 1;
+    }
     if (strstr(prompt, "Even for Q&A")) {
       fprintf(stderr, "prompt still forces Q&A team flow\n");
       free(prompt);
@@ -113,7 +120,52 @@ int main(void) {
     free(prompt);
   }
 
+  {
+    char **names = NULL;
+    int n = 0;
+    if (plan_extract_use("```json\n{\"use\":[\"dir_count\"]}\n```", &names, &n) != 0 || n != 1 ||
+        !names || strcmp(names[0], "dir_count") != 0) {
+      fprintf(stderr, "extract use array failed\n");
+      plan_free_use(names, n);
+      config_free(&base);
+      return 1;
+    }
+    plan_free_use(names, n);
+    if (plan_extract_use("{\"use\":\"solo\"}", &names, &n) != 0 || n != 1 || strcmp(names[0], "solo")) {
+      fprintf(stderr, "extract use string failed\n");
+      plan_free_use(names, n);
+      config_free(&base);
+      return 1;
+    }
+    plan_free_use(names, n);
+  }
+
   config_free(&base);
+
+  {
+    agent_config_t c;
+    char *cat;
+    config_init(&c);
+    if (config_load_file(&c, "tests/fixtures/tools_dag_dir.json5") != 0) {
+      fprintf(stderr, "load dag dir fixture failed\n");
+      return 1;
+    }
+    if (!config_find_workflow(&c, "dir_count")) {
+      fprintf(stderr, "dir_count not loaded from workflow_directory\n");
+      config_free(&c);
+      return 1;
+    }
+    cat = workflow_dir_catalog_listing(&c);
+    if (!cat || !strstr(cat, "dir_count")) {
+      fprintf(stderr, "catalog missing dir_count: %s\n", cat ? cat : "(null)");
+      free(cat);
+      config_free(&c);
+      return 1;
+    }
+    free(cat);
+    config_free(&c);
+  }
+
   if (fails) return 1;
   printf("ok\n");
   return 0;

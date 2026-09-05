@@ -1,0 +1,12 @@
+{
+  name: "dir_count",
+  description: "Fixture DAG from workflow_directory",
+  when: ["fixture", "count once via directory DAG"],
+  when_not: ["Non-fixture tasks"],
+  tags: ["fixture"],
+  requires: ["count_run"],
+  outcome: "count_run step output",
+  steps: [
+    { id: "c1", type: "tool", tool: "count_run", args: {} },
+  ],
+}

@@ -26,5 +26,18 @@ int main(void) {
   }
   config_free(&c);
   printf("ok\n");
+
+  config_init(&c);
+  if (config_load_file(&c, "tests/fixtures/tools_legacy_key.json5") != 0) {
+    fprintf(stderr, "legacy tools key load failed\n");
+    return 1;
+  }
+  if (c.tools.command_count != 1 || !c.tools.commands[0].name ||
+      strcmp(c.tools.commands[0].name, "legacy_echo") != 0) {
+    fprintf(stderr, "legacy tools key not parsed\n");
+    config_free(&c);
+    return 1;
+  }
+  config_free(&c);
   return 0;
 }

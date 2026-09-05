@@ -1,0 +1,97 @@
+{
+  model: {
+    base_url: "http://127.0.0.1:9",
+    name: "test",
+    api_key: "x",
+  },
+  capability_matrix: {
+    enabled: true,
+    root: ".",
+    shell_enabled: true,
+    commands: [
+      {
+        name: "count_run",
+        description: "Append one line to tests/fixtures/count.out",
+        argv: ["./tests/fixtures/bin/count.sh"],
+        timeout_sec: 5,
+        max_output_bytes: 4096,
+        pass_args: "stdin_json",
+      },
+    ],
+    mcp_servers: [
+      {
+        name: "mock",
+        command: "python3",
+        args: ["tests/fixtures/mock_mcp_echo.py"],
+      },
+    ],
+  },
+  workflows: [
+    {
+      name: "cli_count",
+      description: "CLI smoke: matrix command via workflow",
+      steps: [
+        { id: "c1", type: "tool", tool: "count_run", args: {} },
+      ],
+    },
+    {
+      name: "cli_mcp",
+      description: "CLI smoke: MCP row via workflow",
+      steps: [
+        {
+          id: "echo",
+          type: "tool",
+          tool: "mcp_mock_echo",
+          args: { text: "cli-mcp-hi" },
+        },
+      ],
+    },
+    {
+      name: "cli_run_command",
+      description: "CLI smoke: run_command when shell_enabled",
+      steps: [
+        {
+          id: "rc",
+          type: "tool",
+          tool: "run_command",
+          args: {
+            argv: ["tests/fixtures/bin/echo-argv.sh", "cli-shell-hi"],
+          },
+        },
+      ],
+    },
+    {
+      name: "cli_bad_tool",
+      description: "CLI smoke: unknown matrix name should fail",
+      steps: [
+        { id: "bad", type: "tool", tool: "not_in_matrix", args: {} },
+      ],
+    },
+    {
+      name: "cli_fs_extras",
+      description: "CLI smoke: mkdir + append_file + stat",
+      steps: [
+        {
+          id: "mk",
+          type: "tool",
+          tool: "mkdir",
+          args: { path: "tests/fixtures/_cli_fs_extra", parents: true },
+        },
+        {
+          id: "ap",
+          type: "tool",
+          tool: "append_file",
+          args: { path: "tests/fixtures/_cli_fs_extra/x.txt", content: "cli-fs" },
+          depends_on: ["mk"],
+        },
+        {
+          id: "st",
+          type: "tool",
+          tool: "stat",
+          args: { path: "tests/fixtures/_cli_fs_extra/x.txt" },
+          depends_on: ["ap"],
+        },
+      ],
+    },
+  ],
+}

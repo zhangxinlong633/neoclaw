@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# CLI-level Capability Matrix checks: drive ./neo as a user would.
+# Run from repo root: ./tests/cli_capability_matrix.sh  (or make test-cli / make test)
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$ROOT"
+
+CFG="tests/fixtures/cli_capability_matrix.json5"
+NEO="${NEO:-./neo}"
+PASS=0
+FAIL=0
+
+ok() {
+  PASS=$((PASS + 1))
+  printf '  ok %s\n' "$1"
+}
+
+bad() {
+  FAIL=$((FAIL + 1))
+  printf '  FAIL %s\n' "$1" >&2
+}
+
+need_neo() {
+  if [[ ! -x "$NEO" ]]; then
+    make neo
+  fi
+  if [[ ! -x "$NEO" ]]; then
+    echo "neo binary missing" >&2
+    exit 1
+  fi
+}
+
+run_capture() {
+  # Sets OUT, ERR, RC from running "$@".
+  local _out _err
+  _out="$(mktemp)"
+  _err="$(mktemp)"
+  set +e
+  "$@" >"$_out" 2>"$_err"
+  local _rc=$?
+  set -e
+  OUT="$(cat "$_out")"
+  ERR="$(cat "$_err")"
+  RC=$_rc
+  rm -f "$_out" "$_err"
+  return 0
+}
+
+need_neo
+
+echo "== CLI capability matrix =="
+
+# --- help mentions workflow ---
+run_capture "$NEO" -h
+if [[ "$RC" -eq 0 ]] && grep -q 'workflow run' <<<"$ERR$OUT"; then
+  ok "help lists workflow run"
+else
+  bad "help lists workflow run (rc=$RC)"
+fi
+
+# --- legacy tools key warns via CLI load ---
+run_capture "$NEO" -c tests/fixtures/tools_legacy_key.json5 workflow run no_such_wf
+if [[ "$RC" -ne 0 ]] && grep -q "deprecated" <<<"$ERR" && grep -q "capability_matrix" <<<"$ERR"; then
+  ok "legacy tools key deprecation on CLI"
+else
+  bad "legacy tools key deprecation (rc=$RC err=$ERR)"
+fi
+
+# --- matrix command via workflow ---
+rm -f tests/fixtures/count.out
+run_capture "$NEO" -c "$CFG" -v workflow run cli_count
+if [[ "$RC" -eq 0 ]] && grep -q 'neo tool: count_run' <<<"$ERR" && [[ -f tests/fixtures/count.out ]]; then
+  ok "workflow run cli_count (command row)"
+else
+  bad "workflow run cli_count (rc=$RC err=$ERR)"
+fi
+
+# --- MCP capability via workflow ---
+run_capture "$NEO" -c "$CFG" workflow run cli_mcp
+if [[ "$RC" -eq 0 ]] && grep -q 'cli-mcp-hi' <<<"$OUT"; then
+  ok "workflow run cli_mcp (mcp row)"
+else
+  bad "workflow run cli_mcp (rc=$RC out=$OUT err=$ERR)"
+fi
+
+# --- run_command policy row ---
+run_capture "$NEO" -c "$CFG" workflow run cli_run_command
+if [[ "$RC" -eq 0 ]] && grep -q 'cli-shell-hi' <<<"$OUT"; then
+  ok "workflow run cli_run_command (shell_enabled)"
+else
+  bad "workflow run cli_run_command (rc=$RC out=$OUT err=$ERR)"
+fi
+
+# --- unknown tool name fails ---
+run_capture "$NEO" -c "$CFG" workflow run cli_bad_tool
+if [[ "$RC" -ne 0 ]]; then
+  ok "workflow run cli_bad_tool fails"
+else
+  bad "cli_bad_tool should fail (out=$OUT)"
+fi
+
+# --- mkdir / append_file / stat via CLI ---
+rm -rf tests/fixtures/_cli_fs_extra
+run_capture "$NEO" -c "$CFG" workflow run cli_fs_extras
+if [[ "$RC" -eq 0 ]] && grep -q 'type: file' <<<"$OUT" && [[ -f tests/fixtures/_cli_fs_extra/x.txt ]] &&
+  grep -q 'cli-fs' tests/fixtures/_cli_fs_extra/x.txt; then
+  ok "workflow run cli_fs_extras (mkdir/append/stat)"
+else
+  bad "cli_fs_extras (rc=$RC out=$OUT err=$ERR)"
+fi
+rm -rf tests/fixtures/_cli_fs_extra
+
+# --- capability directory load + propose ---
+rm -f tests/fixtures/cap_pack/proposed/cli_prop.json5
+run_capture "$NEO" -c tests/fixtures/tools_cap_dir.json5 workflow run cli_dir_echo
+if [[ "$RC" -eq 0 ]]; then
+  ok "workflow run cli_dir_echo (directory pack)"
+else
+  bad "cli_dir_echo (rc=$RC out=$OUT err=$ERR)"
+fi
+run_capture "$NEO" -c tests/fixtures/tools_cap_dir.json5 workflow run cli_propose
+if [[ "$RC" -eq 0 ]] && grep -q 'proposed:' <<<"$OUT" && [[ -f tests/fixtures/cap_pack/proposed/cli_prop.json5 ]]; then
+  ok "workflow run cli_propose (draft only)"
+else
+  bad "cli_propose (rc=$RC out=$OUT err=$ERR)"
+fi
+rm -f tests/fixtures/cap_pack/proposed/cli_prop.json5
+
+# --- DAG directory ---
+rm -f tests/fixtures/count.out
+run_capture "$NEO" -c tests/fixtures/tools_dag_dir.json5 workflow run dir_count
+if [[ "$RC" -eq 0 ]] && [[ -f tests/fixtures/count.out ]]; then
+  ok "workflow run dir_count (workflow_directory)"
+else
+  bad "dir_count (rc=$RC out=$OUT err=$ERR)"
+fi
+
+# --- matrix disabled: no tool rows / workflow using command should fail or error ---
+run_capture "$NEO" -c tests/fixtures/tools_matrix_off.json5 workflow run demo_loop
+if [[ "$RC" -ne 0 ]]; then
+  ok "matrix off rejects unknown/missing workflow"
+else
+  bad "matrix off unexpected success"
+fi
+
+# --- profile path still works (demo_loop uses matrix commands) ---
+if [[ -f config/profiles/demo/neo.json5 ]]; then
+  rm -f config/profiles/demo/count.out tests/fixtures/count.out 2>/dev/null || true
+  # profile chdir into profile dir; count.sh path is relative to profile
+  run_capture "$NEO" -p demo -v workflow run demo_loop
+  if [[ "$RC" -eq 0 ]] && grep -q 'neo tool: count_run' <<<"$ERR"; then
+    ok "profile -p demo workflow run demo_loop"
+  else
+    bad "profile demo workflow (rc=$RC err=$ERR)"
+  fi
+else
+  ok "profile demo skipped (missing)"
+fi
+
+echo "== $PASS passed, $FAIL failed =="
+[[ "$FAIL" -eq 0 ]]

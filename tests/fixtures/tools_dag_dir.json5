@@ -1,0 +1,22 @@
+{
+  model: {
+    base_url: "http://127.0.0.1:9",
+    name: "test",
+    api_key: "x",
+  },
+  capability_matrix: {
+    enabled: true,
+    root: ".",
+    commands: [
+      {
+        name: "count_run",
+        description: "Append one line",
+        argv: ["./tests/fixtures/bin/count.sh"],
+        timeout_sec: 5,
+        max_output_bytes: 4096,
+        pass_args: "stdin_json",
+      },
+    ],
+  },
+  workflow_directory: "tests/fixtures/dag_pack",
+}

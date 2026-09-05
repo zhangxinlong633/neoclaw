@@ -68,10 +68,27 @@
 | 命令 | 行为 |
 |------|------|
 | `neo run "task"` | 规划 → 校验 → **执行**（stdout 只有执行结果） |
-| `neo plan "task"` | 规划 → 校验（stdout 为 workflows **JSON**） |
-| `neo workflow run NAME` | 跑配置里已声明的图 |
+| `neo plan "task"` | 规划 → 校验（stdout 为 `use` 或 workflows **JSON**） |
+| `neo workflow run NAME` | 跑配置 / `workflow_directory` 里已声明的图 |
 
-由 LLM **一次性**生成冻结的 `workflows` DAG；执行期不重规划。
+### DAG 目录（一图一文件）
+
+```json5
+workflow_directory: "dags",
+```
+
+```
+dags/
+  manifest.json5       # load: ["library"]
+  library/*.json5      # 每个文件一个 workflow（须含 description + when 等选型元数据）
+  proposed/            # 预留；默认不加载
+```
+
+每个 DAG 文件建议写：`description`、`when`、`when_not`、`requires`、`outcome`（见 AGENTS.md §4.1）。这些字段会出现在 planner 的 catalog listing。
+
+Planner **优先**输出 `{"use":["catalog_name"]}` 选用目录中的图；没有合适的再现编 `{"workflows":[...]}`。执行期仍是确定性 runner。
+
+由 LLM **一次性**选型或生成冻结的 DAG；执行期不重规划。
 
 ### 默认：按任务类型规划
 

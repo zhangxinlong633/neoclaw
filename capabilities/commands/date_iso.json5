@@ -1,0 +1,13 @@
+{
+  name: "date_iso",
+  description: "Print the current UTC time as an ISO-8601 timestamp.",
+  when: ["Need wall-clock or UTC time for logs, filenames, or answers"],
+  when_not: ["Do not use for scheduling or timezone conversion beyond UTC stamp"],
+  tags: ["system", "time"],
+  outcome: "Single line like 2026-09-05T12:34:56Z",
+  argv: ["/bin/date", "-u", "+%Y-%m-%dT%H:%M:%SZ"],
+  timeout_sec: 5,
+  max_output_bytes: 256,
+  pass_args: "env",
+  parameters: { type: "object", properties: {} },
+}

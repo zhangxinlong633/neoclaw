@@ -1,0 +1,31 @@
+{
+  name: "inspect_path",
+  description: "Stat then read a workspace file and summarize it with an LLM step.",
+  when: ["User points at one relative path and wants metadata plus a short explanation"],
+  when_not: ["Whole-repo search (use search_context); directory listing (use list_overview)"],
+  tags: ["fs", "read", "llm"],
+  requires: ["stat", "read_file"],
+  outcome: "File metadata, content excerpt context, and a brief Chinese or English summary",
+  steps: [
+    {
+      id: "meta",
+      type: "tool",
+      tool: "stat",
+      args: { path: "README.md" },
+    },
+    {
+      id: "body",
+      type: "tool",
+      tool: "read_file",
+      args: { path: "README.md" },
+      depends_on: ["meta"],
+    },
+    {
+      id: "summary",
+      type: "llm",
+      tools: "off",
+      prompt: "根据 stat 与文件内容，用三句话概括该文件用途与读者对象。stat={{steps.meta}} 内容={{steps.body}}",
+      depends_on: ["body"],
+    },
+  ],
+}

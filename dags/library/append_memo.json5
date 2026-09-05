@@ -1,0 +1,24 @@
+{
+  name: "append_memo",
+  description: "Draft a one-line memo with LLM then append it to MEMORY.md under the workspace.",
+  when: ["User asks to remember a short fact into the memory file"],
+  when_not: ["Large rewrites of MEMORY; use write_file only when full replace is intended"],
+  tags: ["memory", "write", "llm"],
+  requires: ["append_file"],
+  outcome: "A new line appended to MEMORY.md and confirmation text",
+  steps: [
+    {
+      id: "draft",
+      type: "llm",
+      tools: "off",
+      prompt: "把用户意图整理成一行可追加到 MEMORY.md 的事实句子（不要 Markdown 标题）。用户任务见会话上下文。",
+    },
+    {
+      id: "save",
+      type: "tool",
+      tool: "append_file",
+      args: { path: "MEMORY.md", content: "{{steps.draft}}\n" },
+      depends_on: ["draft"],
+    },
+  ],
+}

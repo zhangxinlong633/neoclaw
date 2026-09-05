@@ -1,0 +1,13 @@
+{
+  name: "uname_info",
+  description: "Print kernel name, hostname, release, version, and machine via uname -a.",
+  when: ["Need OS/kernel/host identity for diagnostics"],
+  when_not: ["Do not use for application version or git revision"],
+  tags: ["system", "os"],
+  outcome: "One-line uname -a text",
+  argv: ["/usr/bin/uname", "-a"],
+  timeout_sec: 5,
+  max_output_bytes: 1024,
+  pass_args: "env",
+  parameters: { type: "object", properties: {} },
+}

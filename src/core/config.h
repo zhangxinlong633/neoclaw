@@ -1,0 +1,170 @@
+#ifndef NEO_CONFIG_H
+#define NEO_CONFIG_H
+
+typedef struct yyjson_val yyjson_val;
+
+typedef struct {
+  char *provider;
+  char *base_url;
+  char *name;
+  char *api_key;
+  int max_tokens;
+  double temperature;
+} model_config_t;
+
+typedef struct {
+  char **paths;
+  int *priority;   /* 0=normal, 1=high; high is always injected full */
+  int path_count;
+  int unmatched;   /* 0=inject index when not matched (default), 1=skip to save context */
+  char *directory; /* optional: scan dir for subdir/SKILL.md and add as paths */
+  char **high_priority; /* names or paths to mark as high priority (e.g. ["nanjing"]) */
+  int high_priority_count;
+} skills_config_t;
+
+typedef struct {
+  char **paths;
+  int path_count;
+  int max_chars_per_file;
+} bootstrap_config_t;
+
+typedef struct {
+  char *path;
+  int max_chars;
+} memory_config_t;
+
+/* OpenClaw-style persona file (injected before bootstrap as ## Soul) */
+typedef struct {
+  char *path;
+  int max_chars;
+} soul_config_t;
+
+/* Project rules / constraints (like Cursor rules; injected after bootstrap) */
+typedef struct {
+  char **paths;
+  int path_count;
+  int max_chars_per_file;
+} rules_config_t;
+
+/* Anchor prompts to the process working directory (run neo from repo root). */
+typedef struct {
+  int prompt_cwd; /* 1: append cwd to system prompt */
+} workspace_config_t;
+
+/* Declared external command (capability_matrix.commands). pass_args: 0=stdin_json, 1=env */
+typedef struct {
+  char *name;
+  char *description;
+  char *when;     /* LLM 选型：适用场景（字符串或 JSON 数组文本） */
+  char *when_not; /* LLM 选型：不适用场景 */
+  char *tags;     /* 可选标签 */
+  char *outcome;  /* 可选：成功时可见结果 */
+  char **argv;
+  int argv_count;
+  int timeout_sec;
+  int max_output_bytes;
+  int pass_args;
+  char *parameters_json; /* optional JSON Schema object; NULL → default {"type":"object"} */
+} tool_command_t;
+
+typedef struct {
+  char *name;
+  char *command;
+  char **args;
+  int args_count;
+  char *url; /* reserved; nonempty → warn and skip in v1 */
+  int enabled; /* default 1 */
+} mcp_server_config_t;
+
+/*
+ * Capability Matrix + Policy 旋钮，来自 JSON 键 "capability_matrix"（旧别名 "tools"）。
+ * 结构体字段仍叫 tools 以保持历史命名；对外文档与错误路径用 /capability_matrix/...。
+ * 见 AGENTS.md。
+ */
+typedef struct {
+  int enabled;       /* 0 关，1 开（root 下路径类 builtin） */
+  char *root;        /* 沙箱根目录（默认 "."） */
+  int max_rounds;    /* tool API 最大轮次（默认 16） */
+  int max_read_bytes; /* 单次 read_file 上限（默认 262144） */
+  int list_dir_max_entries; /* list_dir 返回名数量上限 */
+  int http_fetch_enabled;   /* 0：不注册 http_get */
+  char *http_allow_hosts;   /* 逗号分隔主机名白名单 */
+  int http_fetch_max_bytes; /* 响应体上限 */
+  int shell_enabled;        /* 0：不注册 run_command */
+  char *directory;          /* 可选：能力文件包目录（一文件一能力） */
+  tool_command_t *commands;
+  int command_count;
+  mcp_server_config_t *mcp_servers;
+  int mcp_server_count;
+} tools_config_t;
+
+typedef enum {
+  WF_STEP_TOOL = 0,
+  WF_STEP_LLM = 1,
+  WF_STEP_LOOP = 2,
+  WF_STEP_ROUTE = 3
+} wf_step_type_t;
+
+typedef struct {
+  char *id;
+  wf_step_type_t type;
+  char *tool;
+  char *args_json;
+  char *prompt;
+  int tools_on; /* llm step JSON "tools":"on"|"off" — NOT the capability_matrix key */
+  char **over_ids;
+  int over_count;
+  int max_iters;
+  char **depends_on;
+  int depends_count;
+  /* route: expand `on`, if contains `match` take then[], else else[] */
+  char *route_on;
+  char *route_match;
+  char **route_then;
+  int route_then_count;
+  char **route_else;
+  int route_else_count;
+} workflow_step_t;
+
+typedef struct {
+  char *name;
+  char *description;
+  char *when;     /* LLM 选型：适用场景 */
+  char *when_not; /* LLM 选型：不适用场景 */
+  char *tags;
+  char *requires; /* 依赖的能力名（提示用） */
+  char *outcome;  /* 成功时可见结果 */
+  workflow_step_t *steps;
+  int step_count;
+} workflow_t;
+
+typedef struct {
+  int target_steps; /* 0 = unset; soft preference for planner */
+} plan_config_t;
+
+typedef struct {
+  model_config_t model;
+  bootstrap_config_t bootstrap;
+  soul_config_t soul;
+  rules_config_t rules;
+  workspace_config_t workspace;
+  skills_config_t skills;
+  memory_config_t memory;
+  tools_config_t tools;
+  plan_config_t plan;
+  char *workflow_directory; /* optional DAG pack dir (one workflow per file) */
+  workflow_t *workflows;
+  int workflow_count;
+  int session_max_turns;
+} agent_config_t;
+
+void config_init(agent_config_t *c);
+void config_free(agent_config_t *c);
+int config_load_file(agent_config_t *c, const char *path);
+void config_apply_env(agent_config_t *c);
+const workflow_t *config_find_workflow(const agent_config_t *c, const char *name);
+
+/* 追加单个 workflow 对象（内联数组或目录文件共用）。err_ctx 用于错误路径文案。 */
+int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *err_ctx);
+
+#endif
