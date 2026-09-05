@@ -17,7 +17,7 @@
 
 - **能做什么**：问答、翻译、解释、写代码片段、查领域数据、总结、记笔记、列待办、跑你声明的本地命令 / 短 workflow 等——取决于 `config/`、`skills/` 与脚本，而不是写死在二进制里。
 - **怎么用**：`./neo "问题"`；多轮用 `./neo daemon` 或 socket；场景切换用 `-p` profile；定时 / 管道用 `scripts/neo-ask`。
-- **配置放哪**：优先 `config/config.yaml`；profile 在 `config/profiles/<name>/`（仍兼容根目录 `config.yaml` 与旧 `profiles/`）。
+- **配置放哪**：优先 `config/config.json5`；profile 在 `config/profiles/<name>/`（仍兼容根目录 `config.json5` 与旧 `profiles/`）。
 
 ---
 
@@ -37,11 +37,11 @@ make
 复制示例配置并填入自己的 API 与模型名：
 
 ```bash
-cp config/config.yaml.example config/config.yaml
-# 编辑 config/config.yaml：model.api_key、model.name（如 qwen/qwen3-8b）
+cp config/config.json5.example config/config.json5
+# 编辑 config/config.json5：model.api_key、model.name（如 qwen/qwen3-8b）
 ```
 
-也兼容仓库根的 `config.yaml`（若存在则仍可读；默认优先 `config/config.yaml`）。
+也兼容仓库根的 `config.json5`（若存在则仍可读；默认优先 `config/config.json5`）。
 
 **4. 跑一条**
 
@@ -59,7 +59,7 @@ cp config/config.yaml.example config/config.yaml
 
 ```bash
 ./neo "你的问题"
-./neo -c config/config.yaml -m qwen/qwen3-8b "总结一下"
+./neo -c config/config.json5 -m qwen/qwen3-8b "总结一下"
 ```
 
 ### 多轮对话（daemon）
@@ -176,7 +176,7 @@ $ ./neo "将你是谁翻译成日文"
 
 ## 流程简述
 
-1. 读 **config/config.yaml**（或根目录 `config.yaml` / `NEO_CONFIG` / `-c`）。
+1. 读 **config/config.json5**（或根目录 `config.json5` / `NEO_CONFIG` / `-c`）。
 2. 拼 **system prompt**：固定说明 → 当前时间 →（可选）**cwd** → **高优先级 skills（全文）** →（可选）**soul** → bootstrap →（可选）**rules** → **普通 skills（匹配全文 / 未匹配摘要或跳过）** → memory 文件 →（若启用）tools 说明。
 3. 用户消息 = 命令行参数拼接（或 daemon 下当前行）。
 4. POST 到 `base_url/chat/completions`（OpenAI 兼容），带 `max_tokens`、`temperature`；非 200 时 stderr 打响应片段。

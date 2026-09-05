@@ -22,7 +22,7 @@ int main(void) {
 
   unlink("tests/fixtures/count.out");
   config_init(&c);
-  if (config_load_file(&c, "tests/fixtures/workflow_dag.yaml") != 0) {
+  if (config_load_file(&c, "tests/fixtures/workflow_dag.json") != 0) {
     fprintf(stderr, "load failed\n");
     return 1;
   }
@@ -32,7 +32,7 @@ int main(void) {
     config_free(&c);
     return 1;
   }
-  if (workflow_run(&c, "diamond", &out) != 0) {
+  if (workflow_run(&c, "diamond", &out, 0) != 0) {
     fprintf(stderr, "diamond run failed\n");
     free(out);
     config_free(&c);
@@ -47,7 +47,7 @@ int main(void) {
 
   unlink("tests/fixtures/count.out");
   out = NULL;
-  if (workflow_run(&c, "route_demo", &out) != 0) {
+  if (workflow_run(&c, "route_demo", &out, 0) != 0) {
     fprintf(stderr, "route run failed\n");
     free(out);
     config_free(&c);
@@ -63,7 +63,7 @@ int main(void) {
 
   unlink("tests/fixtures/count.out");
   out = NULL;
-  if (workflow_run(&c, "route_merge", &out) != 0) {
+  if (workflow_run(&c, "route_merge", &out, 0) != 0) {
     fprintf(stderr, "route_merge run failed\n");
     free(out);
     config_free(&c);

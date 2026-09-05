@@ -2,6 +2,10 @@ neo
 *.o
 config.yaml
 config/config.yaml
+config.json
+config/config.json
+config.json5
+config/config.json5
 demo-tool.txt
 .worktrees
 tests/fixtures/count.out

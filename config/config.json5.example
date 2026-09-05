@@ -1,0 +1,57 @@
+// Neo agent config example (JSON5 — comments & trailing commas OK).
+// Copy to config/config.json5 and adjust.
+// Env overrides: NEO_MODEL, NEO_API_KEY, NEO_CONFIG.
+
+{
+  model: {
+    provider: "openrouter",
+    base_url: "https://openrouter.ai/api/v1",
+    name: "qwen/qwen3-32b",
+    api_key: "YOUR_OPENROUTER_API_KEY",
+    max_tokens: 4096,
+    temperature: 0.7,
+  },
+
+  // soul: { path: "SOUL.md", max_chars: 8000 },
+
+  bootstrap: {
+    max_chars_per_file: 8000,
+    paths: ["AGENTS.md"],
+  },
+
+  // rules: { max_chars_per_file: 6000, paths: ["RULES.md"] },
+  // workspace: { prompt_cwd: true },
+
+  skills: {
+    directory: "skills",
+    high_priority: ["nanjing"],
+    unmatched: "index",
+  },
+
+  memory: {
+    path: "MEMORY.md",
+    max_chars: 4000,
+  },
+
+  session: {
+    max_turns: 10,
+  },
+
+  // tools: {
+  //   enabled: true,
+  //   root: ".",
+  //   max_rounds: 16,
+  //   commands: [
+  //     {
+  //       name: "echo_args",
+  //       description: "Echo tool arguments JSON",
+  //       argv: ["./scripts/tools/echo-args.sh"],
+  //       timeout_sec: 30,
+  //       max_output_bytes: 65536,
+  //       pass_args: "stdin_json",
+  //     },
+  //   ],
+  // },
+
+  // plan: { target_steps: 10 },
+}

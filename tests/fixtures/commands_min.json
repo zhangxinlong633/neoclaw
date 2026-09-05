@@ -1,0 +1,24 @@
+{
+  "model": {
+    "base_url": "http://127.0.0.1:9",
+    "name": "test",
+    "api_key": "x"
+  },
+  "tools": {
+    "enabled": true,
+    "root": ".",
+    "commands": [
+      {
+        "name": "echo_args",
+        "description": "Echo arguments JSON",
+        "argv": ["./scripts/tools/echo-args.sh"],
+        "timeout_sec": 5,
+        "max_output_bytes": 4096,
+        "pass_args": "stdin_json"
+      }
+    ]
+  },
+  "skills": { "directory": "skills" },
+  "memory": { "path": "MEMORY.md", "max_chars": 100 },
+  "session": { "max_turns": 2 }
+}

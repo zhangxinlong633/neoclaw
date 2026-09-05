@@ -389,7 +389,7 @@ static void wf_mark_skip_ids(const workflow_t *wf, int *skip, char **ids, int ni
 }
 
 static int wf_run_dag(const agent_config_t *conf, const char *root_real, const workflow_t *wf,
-                      char **out_text) {
+                      char **out_text, int verbose) {
   int order[WF_MAX_STEPS];
   int order_n = 0;
   int skip[WF_MAX_STEPS];
@@ -417,11 +417,11 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
     /* Route merge: skip only if every dependency was skipped (not if any was). */
     if (has_dep && dep_all_skipped) {
       skip[idx] = 1;
-      fprintf(stderr, "neo dag: %s skip %s\n", wf->name, st->id);
+      if (verbose) fprintf(stderr, "neo: step end   workflow=%s id=%s status=skip\n", wf->name, st->id);
       continue;
     }
     if (skip[idx]) {
-      fprintf(stderr, "neo dag: %s skip %s\n", wf->name, st->id);
+      if (verbose) fprintf(stderr, "neo: step end   workflow=%s id=%s status=skip\n", wf->name, st->id);
       continue;
     }
 
@@ -443,7 +443,7 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
       }
       if (st->route_match && st->route_match[0] && strstr(expanded, st->route_match))
         hit = 1;
-      fprintf(stderr, "neo dag: %s run %s (type=route hit=%d)\n", wf->name, st->id, hit);
+      if (verbose) fprintf(stderr, "neo: step end   workflow=%s id=%s type=route hit=%d status=ok\n", wf->name, st->id, hit);
       if (hit)
         wf_mark_skip_ids(wf, skip, st->route_else, st->route_else_count);
       else
@@ -453,7 +453,7 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
       continue;
     }
 
-    fprintf(stderr, "neo dag: %s run %s\n", wf->name, st->id ? st->id : "?");
+    if (verbose) fprintf(stderr, "neo: step start workflow=%s id=%s\n", wf->name, st->id ? st->id : "?");
     if (wf_run_step(conf, root_real, wf->name, wf, st, map, &map_n, &prev) != 0) {
       wf_map_free(map, map_n);
       free(prev);
@@ -466,7 +466,8 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
   return 0;
 }
 
-int workflow_run(const agent_config_t *conf, const char *workflow_name, char **out_text) {
+int workflow_run(const agent_config_t *conf, const char *workflow_name, char **out_text,
+                 int verbose) {
   const workflow_t *wf;
   char root_real[PATH_MAX];
   const char *root;
@@ -500,7 +501,12 @@ int workflow_run(const agent_config_t *conf, const char *workflow_name, char **o
   }
 
   if (wf_is_dag_mode(wf))
-    return wf_run_dag(conf, root_real, wf, out_text);
+    {
+      int r = wf_run_dag(conf, root_real, wf, out_text, verbose);
+      if (r == 0)
+        fprintf(stderr, "neo: run done workflow=%s status=ok\n", wf->name);
+      return r;
+    }
 
   memset(map, 0, sizeof(map));
 
@@ -534,6 +540,7 @@ int workflow_run(const agent_config_t *conf, const char *workflow_name, char **o
 
   *out_text = prev ? prev : strdup("");
   wf_map_free(map, map_n);
+  fprintf(stderr, "neo: run done workflow=%s status=ok\n", wf->name);
   return 0;
 #endif
 }

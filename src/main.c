@@ -65,25 +65,28 @@ static void print_usage(const char *prog) {
   fprintf(stderr, "       %s [OPTIONS] plan [--steps N] [-o FILE] \"task\"\n", prog);
   fprintf(stderr, "       %s [OPTIONS] run [--steps N] [-o FILE] \"task\"\n", prog);
   fprintf(stderr, "Options:\n");
-  fprintf(stderr, "  -c, --config PATH   Config file (default: config/config.yaml, else config.yaml)\n");
+  fprintf(stderr, "  -c, --config PATH   Config file (default: config/config.json5)\n");
   fprintf(stderr, "  -p, --profile NAME  Use config/profiles/NAME/ (fallback: profiles/NAME/)\n");
   fprintf(stderr, "  -m, --model NAME    Override model name\n");
   fprintf(stderr, "  -d, --debug         Print system prompt, user message and request params to stderr\n");
-  fprintf(stderr, "  -o, --output FILE   (with plan/run) Save planned workflows YAML\n");
+  fprintf(stderr, "  -v, --verbose       Workflow step summaries on stderr\n");
+  fprintf(stderr, "  -o, --output FILE   (with plan/run) Save planned workflows JSON\n");
   fprintf(stderr, "  --steps N           (with plan/run) Soft target step count (default 10, max 32)\n");
   fprintf(stderr, "  -h, --help          Show this help\n");
   fprintf(stderr, "  daemon              Run as daemon: read from stdin, reply to stdout\n");
   fprintf(stderr, "  --socket PATH       (with daemon) Listen on Unix socket instead of stdin\n");
   fprintf(stderr, "  workflow run NAME   Run a declarative workflow from config\n");
-  fprintf(stderr, "  plan \"task\"         LLM emits a DAG (validate only; YAML on stdout)\n");
+  fprintf(stderr, "  plan \"task\"         LLM emits a DAG (validate only; JSON on stdout)\n");
   fprintf(stderr, "  run \"task\"          Plan then execute the DAG (result on stdout)\n");
 }
 
 /* Prefer config/ layout; keep repo-root paths as fallback. */
 static const char *neo_default_config_path(void) {
-  if (access("config/config.yaml", R_OK) == 0) return "config/config.yaml";
-  if (access("config.yaml", R_OK) == 0) return "config.yaml";
-  return "config/config.yaml";
+  if (access("config/config.json5", R_OK) == 0) return "config/config.json5";
+  if (access("config.json5", R_OK) == 0) return "config.json5";
+  if (access("config/config.json", R_OK) == 0) return "config/config.json";
+  if (access("config.json", R_OK) == 0) return "config.json";
+  return "config/config.json5";
 }
 
 static int neo_resolve_profile_dir(const char *name, char *out, size_t out_sz) {
@@ -161,6 +164,7 @@ int main(int argc, char **argv) {
   const char *socket_path = NULL;
   int daemon_mode = 0;
   int debug = 0;
+  int verbose = 0;
   int workflow_mode = 0;
   const char *workflow_name = NULL;
   int plan_mode = 0;
@@ -269,7 +273,11 @@ int main(int argc, char **argv) {
     }
     used_profile = 1;
     if (!config_set) {
-      config_path = "neo.yaml";
+      {
+      if (access("neo.json5", R_OK) == 0) config_path = "neo.json5";
+      else if (access("neo.json", R_OK) == 0) config_path = "neo.json";
+      else config_path = "neo.json5";
+    }
     }
 #else
     fprintf(stderr, "neo: profiles require Linux/macOS\n");
@@ -313,7 +321,7 @@ int main(int argc, char **argv) {
       conf.model.name = malloc(strlen(model_override) + 1);
       if (conf.model.name) strcpy(conf.model.name, model_override);
     }
-    r = workflow_run(&conf, workflow_name, &out);
+    r = workflow_run(&conf, workflow_name, &out, verbose);
     if (r == 0 && out) fputs(out, stdout);
     if (out && out[0] && out[strlen(out) - 1] != '\n') fputc('\n', stdout);
     free(out);
@@ -351,7 +359,7 @@ int main(int argc, char **argv) {
     }
     /* plan: YAML on stdout; run: execute only (quiet_yaml) */
     r = plan_run(&conf, argv[arg_start], run_mode ? 1 : 0, run_mode ? 1 : 0, cli_steps, plan_out,
-                 debug);
+                 debug, verbose);
     config_free(&conf);
     return r != 0;
   }

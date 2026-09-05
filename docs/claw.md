@@ -74,9 +74,9 @@ Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdo
 
 ## 3. 配置文件怎么写
 
-配置文件默认可为 **`config/config.yaml`**（优先），其次仓库根 **`config.yaml`**；也可用 `-c /path/to/config.yaml` 或环境变量 `NEO_CONFIG`。Profile 优先 **`config/profiles/<name>/`**，兼容旧路径 **`profiles/<name>/`**。
+配置文件默认可为 **`config/config.json5`**（优先），其次仓库根 **`config.json5`**；也可用 `-c /path/to/config.json5` 或环境变量 `NEO_CONFIG`。Profile 优先 **`config/profiles/<name>/`**，兼容旧路径 **`profiles/<name>/`**。
 
-完整字段示例以仓库内 **`config/config.yaml.example`** 为准；下面只强调 **OpenClaw 相关三节**。
+完整字段示例以仓库内 **`config/config.json5.example`** 为准；下面只强调 **OpenClaw 相关三节**。
 
 ### 3.1 `soul:`（人格 / 语气）
 
@@ -125,7 +125,7 @@ workspace:
 | 目的 | 命令或操作 |
 |------|------------|
 | 单次提问 | `./neo "你的问题"` |
-| 指定配置 | `./neo -c /path/to/config.yaml "问题"` |
+| 指定配置 | `./neo -c /path/to/config.json5 "问题"` |
 | 换模型名（覆盖 YAML） | `./neo -m qwen/qwen3-8b "问题"` |
 | 看完整 system prompt 与请求 | `./neo -d "问题"`（详情在 stderr） |
 | 多轮 stdin | `./neo daemon`，逐行输入，输入 `exit` 或 EOF 结束 |
@@ -146,7 +146,7 @@ workspace:
 cd "$(git rev-parse --show-toplevel 2>/dev/null)"   # 在任意子目录时回到仓库根；非 git 仓库则请手写路径
 ```
 
-说明：**`MEMORY.md`** 与 **`README.md`** 仓库里已有；**`AGENTS.md` / `SOUL.md` / `RULES.md`** 默认不在版本库中（`config.yaml.example` 里写的是常见约定名）。示例里 bootstrap 用真实存在的 **`README.md`**；soul/rules 用「可复制落盘」的正文，避免指向不存在的路径。
+说明：**`MEMORY.md`** 与 **`README.md`** 仓库里已有；**`AGENTS.md` / `SOUL.md` / `RULES.md`** 默认不在版本库中（`config.json5.example` 里写的是常见约定名）。示例里 bootstrap 用真实存在的 **`README.md`**；soul/rules 用「可复制落盘」的正文，避免指向不存在的路径。
 
 ### 5.0 本仓库真实截取（帮助、`README`、skill、`-d`）
 
@@ -158,7 +158,7 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null)"   # 在任意子目录时回�
 Usage: ./neo [OPTIONS] "your message"
        ./neo daemon [--socket PATH]
 Options:
-  -c, --config PATH   Config file (default: config.yaml or NEO_CONFIG)
+  -c, --config PATH   Config file (default: config.json5 or NEO_CONFIG)
   -m, --model NAME    Override model name
   -d, --debug         Print system prompt, user message and request params to stderr
   -h, --help          Show this help
@@ -211,7 +211,7 @@ skills/translate/SKILL.md
 
 #### 5.0.5 `NEO_DISABLE_TOOLS=1 ./neo -d "ping"` 的调试形态（本机一次截取）
 
-在仓库根、已配置有效 **`config.yaml`**（本例未启用 `workspace` / `bootstrap` / `soul`，且关闭工具）、合并 **stderr + stdout** 后截取如下。**`Current date and time`** 会随运行变化；最后一行 **`pong`** 为模型 stdout 回复。
+在仓库根、已配置有效 **`config.json5`**（本例未启用 `workspace` / `bootstrap` / `soul`，且关闭工具）、合并 **stderr + stdout** 后截取如下。**`Current date and time`** 会随运行变化；最后一行 **`pong`** 为模型 stdout 回复。
 
 ```text
 
@@ -233,7 +233,7 @@ Current date and time: 2026-04-11 11:40 UTC
 
 # Memory (context for Neo)
 
-This file is loaded into the agent's system prompt (see `config.yaml` → `memory.path`). Keep it short; only the first `memory.max_chars` characters are sent to the model.
+This file is loaded into the agent's system prompt (see `config.json5` → `memory.path`). Keep it short; only the first `memory.max_chars` characters are sent to the model.
 
 ## Format
 
@@ -261,12 +261,12 @@ pong
 
 若启用 **`workspace.prompt_cwd: true`**，在 `Current date and time` 之后会出现 **`## Workspace`** 与 `Neo process working directory: ...`；若启用 **bootstrap / soul / rules**，`system prompt` 字节数与段落会相应增加。启用 **tools** 且未设置 `NEO_DISABLE_TOOLS=1` 时，末尾会多出 **「## Tools (executed by host)」** 长段（见 [tool.md](tool.md)）。
 
-### 5.1 与本仓库对齐的 `config.yaml` 片段
+### 5.1 与本仓库对齐的 `config.json5` 片段
 
-在仓库根已有 **`config.yaml.example`**；若你自建 `config.yaml`，可在此基础上增加 claw 段（模型与 key 请填你自己的，勿提交）：
+在仓库根已有 **`config.json5.example`**；若你自建 `config.json5`，可在此基础上增加 claw 段（模型与 key 请填你自己的，勿提交）：
 
 ```yaml
-# 与 config.yaml.example 一致的部分略；以下为 neoclaw 演示用的真实路径
+# 与 config.json5.example 一致的部分略；以下为 neoclaw 演示用的真实路径
 
 workspace:
   prompt_cwd: true
@@ -317,15 +317,15 @@ memory:
 # Rules（neoclaw）
 
 - C 源码在 `src/`；构建命令为仓库根执行 `make`，产物为同目录下的 `neo` 二进制。
-- 本地密钥与网关配置放在 `config.yaml`（该文件名在仓库 `.gitignore` 中，勿提交）。
+- 本地密钥与网关配置放在 `config.json5`（该文件名在仓库 `.gitignore` 中，勿提交）。
 - 技能 Markdown 位于 `skills/<name>/SKILL.md`；与 OpenClaw 相关的说明见 `docs/claw.md`，工具说明见 `docs/tool.md`。
 ```
 
-以上三条与当前 **`.gitignore`**（含 `config.yaml`）、**`Makefile`**（生成 `neo`）、目录布局一致。
+以上三条与当前 **`.gitignore`**（含 `config.json5`）、**`Makefile`**（生成 `neo`）、目录布局一致。
 
 ### 5.4 可选：自建 `AGENTS.md`
 
-若希望与 `config.yaml.example` 完全一致，可在仓库根添加 **`AGENTS.md`**，并把上节 `bootstrap` 改回 `- path: "AGENTS.md"`。本仓库未自带该文件，故演示用 **`README.md`** 作 bootstrap。
+若希望与 `config.json5.example` 完全一致，可在仓库根添加 **`AGENTS.md`**，并把上节 `bootstrap` 改回 `- path: "AGENTS.md"`。本仓库未自带该文件，故演示用 **`README.md`** 作 bootstrap。
 
 ### 5.5 仓库内真实的 `MEMORY.md`（节选即全文）
 
@@ -334,7 +334,7 @@ memory:
 ```markdown
 # Memory (context for Neo)
 
-This file is loaded into the agent's system prompt (see `config.yaml` → `memory.path`). Keep it short; only the first `memory.max_chars` characters are sent to the model.
+This file is loaded into the agent's system prompt (see `config.json5` → `memory.path`). Keep it short; only the first `memory.max_chars` characters are sent to the model.
 
 ## Format
 
@@ -389,22 +389,22 @@ echo "用一句话说明 session.max_turns 在配置里管什么" | nc -U /tmp/n
 
 ```json
 {
-  "description": "Same config.yaml, two user_suffix styles in parallel, then one merge pass.",
+  "description": "Same config.json5, two user_suffix styles in parallel, then one merge pass.",
   "mode": "parallel",
   "members": [
     {
       "name": "bullets",
-      "config": "config.yaml",
+      "config": "config.json5",
       "user_suffix": "Answer in bullet points only (max 5)."
     },
     {
       "name": "prose",
-      "config": "config.yaml",
+      "config": "config.json5",
       "user_suffix": "Answer in one short paragraph."
     }
   ],
   "merge": {
-    "config": "config.yaml",
+    "config": "config.json5",
     "user_intro": "Two teammates answered the same question below. Write a 2–3 sentence synthesis in Chinese."
   }
 }
@@ -416,7 +416,7 @@ echo "用一句话说明 session.max_turns 在配置里管什么" | nc -U /tmp/n
 ./scripts/neo-team team.example.json "README 里单次查询的示例命令是什么（只抄命令行）"
 ```
 
-该脚本会读取上述 JSON 中的 **`config.yaml`**（成员与 merge 共用）；若你尚未创建 `config.yaml`，请先 `cp config.yaml.example config.yaml` 并填入 API，否则子进程会失败。
+该脚本会读取上述 JSON 中的 **`config.json5`**（成员与 merge 共用）；若你尚未创建 `config.json5`，请先 `cp config.json5.example config.json5` 并填入 API，否则子进程会失败。
 
 ---
 

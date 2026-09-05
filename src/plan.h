@@ -14,11 +14,11 @@
 int plan_resolve_target_steps(const agent_config_t *conf, int cli_steps);
 
 /*
- * Extract a workflows: YAML document from planner LLM text.
- * Accepts fenced ```yaml blocks or a bare workflows: section.
- * Caller frees *out_yaml. Returns 0 on success.
+ * Extract a workflows JSON document from planner LLM text.
+ * Accepts fenced ```json blocks or a bare object containing "workflows".
+ * Caller frees *out_json. Returns 0 on success.
  */
-int plan_extract_workflows_yaml(const char *llm_text, char **out_yaml);
+int plan_extract_workflows_json(const char *llm_text, char **out_json);
 
 /*
  * Build planner system prompt listing allowed tools (builtins + commands).
@@ -28,21 +28,20 @@ int plan_extract_workflows_yaml(const char *llm_text, char **out_yaml);
 char *plan_build_system_prompt(const agent_config_t *conf, int target_steps);
 
 /*
- * Write a temporary config that merges conf's model/tools with workflows_yaml,
- * load into out_conf. on success out_path may receive tmp path (caller unlink) if non-NULL.
+ * Write a temporary JSON config that merges conf's model/tools with workflows_json,
+ * load into out_conf. On success out_path may receive tmp path (caller unlink) if non-NULL.
  * Returns 0 on success.
  */
-int plan_materialize_config(const agent_config_t *base, const char *workflows_yaml,
+int plan_materialize_config(const agent_config_t *base, const char *workflows_json,
                             agent_config_t *out_conf, char *out_path, size_t out_path_sz);
 
 /*
  * Ask LLM to plan task into a DAG; validate; optionally run.
- * target_steps: soft preference (use plan_resolve_target_steps before calling, or pass <=0 to resolve).
- * If quiet_yaml is 0, print planned YAML to stdout.
- * If do_run is set, execute and print workflow result to stdout.
+ * If quiet_plan is 0, print planned JSON to stdout.
+ * verbose: pass through to workflow_run when do_run.
  * Returns 0 on success.
  */
-int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet_yaml,
-             int target_steps, const char *save_path, int debug);
+int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet_plan,
+             int target_steps, const char *save_path, int debug, int verbose);
 
 #endif

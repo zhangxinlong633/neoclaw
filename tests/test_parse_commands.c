@@ -5,7 +5,7 @@
 int main(void) {
   agent_config_t c;
   config_init(&c);
-  if (config_load_file(&c, "tests/fixtures/commands_min.yaml") != 0) {
+  if (config_load_file(&c, "tests/fixtures/commands_min.json") != 0) {
     fprintf(stderr, "load failed\n");
     return 1;
   }

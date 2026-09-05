@@ -1,12 +1,12 @@
 # Neo 工具调用（read_file / write_file / list_dir / http_get）
 
-Neo 在 `config.yaml` 中启用 `tools` 后，会向兼容 OpenAI 的 `chat/completions` 接口附带 `tools` 定义，并根据模型返回的 `tool_calls` 在本地执行 **`read_file`**、**`write_file`**、**`list_dir`**（路径均在 `tools.root` 下）。若同时配置 **`http_fetch_enabled: true`** 且 **`http_allow_hosts`** 非空，还会注册 **`http_get`**（仅 HTTPS、主机名必须在允许列表中、不跟随重定向、响应体有字节上限）。
+Neo 在 `config.json5` 中启用 `tools` 后，会向兼容 OpenAI 的 `chat/completions` 接口附带 `tools` 定义，并根据模型返回的 `tool_calls` 在本地执行 **`read_file`**、**`write_file`**、**`list_dir`**（路径均在 `tools.root` 下）。若同时配置 **`http_fetch_enabled: true`** 且 **`http_allow_hosts`** 非空，还会注册 **`http_get`**（仅 HTTPS、主机名必须在允许列表中、不跟随重定向、响应体有字节上限）。
 
 ---
 
 ## 1. 配置示例
 
-在 `config.yaml` 末尾增加（路径相对你运行 `./neo` 时的当前工作目录；一般在仓库根执行则 `root: "."` 即可）：
+在 `config.json5` 末尾增加（路径相对你运行 `./neo` 时的当前工作目录；一般在仓库根执行则 `root: "."` 即可）：
 
 ```yaml
 tools:
@@ -23,7 +23,7 @@ tools:
 - **`enabled: false`**（或未写 `tools:`）：不会发 `tools`，行为与旧版一致，模型只能「口头」给 shell，**不会**真实读写文件。
 - **临时关闭工具**：`NEO_DISABLE_TOOLS=1 ./neo "..."`（环境变量存在即视为关闭）。
 
-完整示例可与仓库内 `config/config.yaml.example` 对照。
+完整示例可与仓库内 `config/config.json5.example` 对照。
 
 ### 1.1 `list_dir` 与 `http_get` 行为摘要
 
@@ -189,7 +189,7 @@ cat demo-tool.txt
 **A：** 路径越出 `tools.root` 的 realpath 范围，或使用了 `/`、`..`。
 
 **Q：daemon 模式是否支持工具？**  
-**A：** 支持；同样依赖 `config.yaml` 中 `tools.enabled`，且可用 `NEO_DISABLE_TOOLS` 关闭。
+**A：** 支持；同样依赖 `config.json5` 中 `tools.enabled`，且可用 `NEO_DISABLE_TOOLS` 关闭。
 
 **Q：出现 `neo tool: read_file` 后立刻 `neo: LLM request failed`、stdout 为空**  
 **A：** 多为**第二轮 POST** 失败（网络抖动、网关限流、请求体过大等）。可重试；若只读大文件，可适当降低 `max_read_bytes` 或换用较小测试文件（见 §2.1b）。

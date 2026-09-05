@@ -1,0 +1,23 @@
+{
+  "model": {
+    "base_url": "http://127.0.0.1:9",
+    "name": "test",
+    "api_key": "x"
+  },
+  "tools": {
+    "enabled": false,
+    "root": "."
+  },
+  "workflows": [
+    {
+      "name": "omit_type",
+      "steps": [
+        {
+          "id": "explain_vxworks",
+          "prompt": "Explain VxWorks briefly",
+          "tools": "off"
+        }
+      ]
+    }
+  ]
+}
