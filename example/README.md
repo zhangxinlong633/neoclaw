@@ -34,4 +34,4 @@ NEO_DISABLE_TOOLS=1 ./neo -c example/neo-claw-example.json5 -d "只回答：SOUL
 | `RULES.md` | `rules` 列表中的 `path` |
 | `MEMORY.md` | `memory.path` |
 
-`skills` 仍使用仓库根 `skills/`。本目录无子目录。
+`skills` 已废弃；示例配置改为加载仓库根 `rules/` 与 `capability_matrix.directory`。本目录无子目录。

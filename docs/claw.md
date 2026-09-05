@@ -7,7 +7,7 @@ Neo 的产品选择是 **灵活、可移植**，不是 **能力天花板**：
 | 更在意 | Neo 怎么做 |
 |--------|------------|
 | 到处能跑 | 单二进制 + libcurl；配置集中在 `config/`；profile / 脚本可整包拷走 |
-| 随时加刀刃 | **Capability Matrix（能力矩阵）** 统一 builtin / `tools.commands` / MCP stdio；skills、**DAG workflow** 按需挂上 |
+| 随时加刀刃 | **Capability Matrix** 统一 builtin / `commands` / MCP；**DAG** 按需挂上；身份与硬知识用 claw（soul/bootstrap/rules/memory） |
 | 到处能唤起 | CLI、daemon socket、`neo-ask`、cron / 管道、`neo-team` |
 | 三件套 | **DAG** 管编排怎么走；**能力矩阵** 管能调用什么；**Policy**（如 `shell_enabled` / host allowlist）管许不许 |
 | 不做什么 | 不做「最强 IDE agent」、不做重插件宿主、不做通用 hooks 总线 |
@@ -16,9 +16,9 @@ Neo 的产品选择是 **灵活、可移植**，不是 **能力天花板**：
 
 ---
 
-Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdown 文件**：身份（bootstrap）、人格（soul）、硬约束（rules）、长期笔记（memory）、按需技能（skills），以及可选的 **工作区 cwd 提示**、**本地工具 / 能力矩阵** 与 **声明式 workflow**。本文说明这些块的**用途、在 prompt 里的顺序、JSON5 写法与日常操作**。
+Neo 把「钉在仓库上的助手」拆成 **配置 + Markdown（claw）+ 能力矩阵 + DAG**：**身份**（bootstrap）、**人格**（soul）、**硬约束与答法**（rules）、**长期笔记**（memory），以及可选的工作区 cwd、**Capability Matrix** 与声明式 workflow。**Skills（`SKILL.md` 扫描）已废弃**，原内容迁入 `rules/`；可发现能力只走矩阵与 DAG catalog。
 
-更细的工具与能力矩阵见 [tool.md](tool.md)；workflow / DAG 见 [workflow.md](workflow.md)。
+更细的工具与能力矩阵见 [tool.md](tool.md)；workflow / DAG 见 [workflow.md](workflow.md)；废弃说明见 [superpowers/specs/2026-09-05-deprecate-skills-design.md](superpowers/specs/2026-09-05-deprecate-skills-design.md)。
 
 ---
 
@@ -44,12 +44,11 @@ Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdo
 |------|----------|--------|
 | **bootstrap** | 仓库身份、协作约定、AGENTS 类说明 | 团队 / 仓库维护者 |
 | **soul** | 语气、自称、幽默程度等人格层（OpenClaw 常叫 SOUL） | 个人或团队 |
-| **rules** | 编码规范、禁止事项、必须用的栈（类似 Cursor Rules） | 团队 |
+| **rules** | 编码规范、禁止事项、领域必引数据、答法手册（含原 skills 迁入内容） | 团队 |
 | **memory** | 会话间要记住的事实、偏好、进行中的任务摘要 | 你 + 模型建议后手改 |
-| **skills** | 按主题拆好的 SKILL.md，按匹配与高优注入 | 仓库 |
+| **capability_matrix** | 可发现/可调用能力（builtin / commands / MCP） | 配置 + `capabilities/` |
 | **workspace.prompt_cwd** | 告诉模型 Neo 进程**当前工作目录**（一般是仓库根） | 配置开关 |
-| **tools** | 模型发起 tool_calls，Neo 在本地读/写/列目录、受控 HTTPS，或跑 **`tools.commands`** 声明的 argv | 配置 + 允许列表 / 命令白名单 |
-| **workflows** | 声明式 `tool` / `llm` / `loop`，适合简单重复任务 | YAML + `neo workflow run` |
+| **workflows** | 声明式 DAG（`tool` / `llm` / `loop` / `route`） | JSON5 + `neo workflow run` |
 | **profiles** | 整套人设与工具根切换（`config/profiles/<name>/`） | `-p` / `NEO_PROFILE` |
 
 ---
@@ -58,18 +57,18 @@ Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdo
 
 单次 `./neo` 与 `neo daemon` 使用**同一套顺序**（便于你对照 `-d` 打出来的全文）：
 
-1. 固定开场白（要求遵守 soul / rules / skills / bootstrap）
+1. 固定开场白（要求遵守 soul / rules / bootstrap）
 2. **当前 UTC 时间**
 3. 若 `workspace.prompt_cwd: true`：**工作目录**（`getcwd()`，仅 Linux / macOS）
-4. **高优先级 skills**（`high_priority` 命中者，全文）
-5. 若配置了 **soul**：`## Soul` + `soul.path` 文件内容（截断到 `max_chars`）
-6. **bootstrap**：每个 `## Bootstrap: <path>` + 内容（`max_chars_per_file`）
-7. 若配置了 **rules**：每个 `## Rules: <path>` + 内容
-8. **普通 skills**（匹配全文，或未匹配时的 index/skip 策略）
-9. **memory**：`## Memory` + `memory.path` 内容
-10. 若启用 tools：工具说明段（见 [tool.md](tool.md)）
+4. 若配置了 **soul**：`## Soul` + `soul.path` 文件内容（截断到 `max_chars`）
+5. **bootstrap**：每个 `## Bootstrap: <path>` + 内容（`max_chars_per_file`）
+6. 若配置了 **rules**：每个 `## Rules: <path>` + 内容
+7. **memory**：`## Memory` + `memory.path` 内容
+8. 若启用 `capability_matrix`：工具说明与矩阵 listing（见 [tool.md](tool.md)）
 
-**操作建议**：在仓库根目录执行 `./neo`，并与 `tools.root: "."`（或指向仓库 realpath）一起使用，这样 cwd、bootstrap 里的相对路径、工具沙箱三者一致。
+**操作建议**：在仓库根目录执行 `./neo`，并与 `capability_matrix.root: "."` 一起使用，这样 cwd、bootstrap 相对路径与沙箱一致。
+
+> **已移除**：`skills:` 配置与 `skills/*/SKILL.md` 扫描。请将知识迁入 `rules/`，能力发现迁入矩阵 / DAG。
 
 ---
 
@@ -141,7 +140,7 @@ Neo 把「钉在仓库上的助手」常见做法拆成 **配置 + 若干 Markdo
 
 ## 5. 示例（与本仓库真实路径、文件一致）
 
-下列命令默认在 **neoclaw 仓库根**（即含 `Makefile`、`src/`、`skills/` 的目录）执行；二进制为 **`./neo`**（先在该目录 `make`）。进入目录可用：
+下列命令默认在 **neoclaw 仓库根**（含 `Makefile`、`src/`、`rules/`、`capabilities/`）执行；二进制为 **`./neo`**（先 `make`）。
 
 ```bash
 cd "$(git rev-parse --show-toplevel 2>/dev/null)"   # 在任意子目录时回到仓库根；非 git 仓库则请手写路径
@@ -149,7 +148,9 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null)"   # 在任意子目录时回�
 
 说明：**`MEMORY.md`** 与 **`README.md`** 仓库里已有；**`AGENTS.md` / `SOUL.md` / `RULES.md`** 默认不在版本库中（`config.json5.example` 里写的是常见约定名）。示例里 bootstrap 用真实存在的 **`README.md`**；soul/rules 用「可复制落盘」的正文，避免指向不存在的路径。
 
-### 5.0 本仓库真实截取（帮助、`README`、skill、`-d`）
+### 5.0 本仓库截取说明
+
+下列 5.0.x 中部分「skills」实录为历史截图；现行仓库已删除 `skills/`，请改看 `rules/identity.md`、`rules/nanjing.md`、`rules/response-playbook.md`，并用 `./neo -d` 核对当前 system prompt。
 
 下列内容来自 **neoclaw 仓库** 当前文件与一次本机命令输出；其中 **UTC 日期**、**模型回复** 会随你运行时间与网关变化，仅作形态参考。
 

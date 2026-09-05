@@ -1,6 +1,5 @@
 // Demo Neo loading example/ soul, bootstrap, rules, memory (run from repo root).
 // Usage: ./neo -c example/neo-claw-example.json5 "你是谁"
-// Debug: ./neo -c example/neo-claw-example.json5 -d "用一句话概括 example/SOUL.md 里对自称的要求"
 // Paths are relative to cwd. Run from neoclaw root with -c.
 
 {
@@ -23,13 +22,13 @@
   },
 
   rules: {
-    max_chars_per_file: 3000,
-    paths: ["example/RULES.md"],
-  },
-
-  skills: {
-    directory: "skills",
-    unmatched: "index",
+    max_chars_per_file: 4000,
+    paths: [
+      "example/RULES.md",
+      "rules/identity.md",
+      "rules/nanjing.md",
+      "rules/response-playbook.md",
+    ],
   },
 
   memory: {
@@ -37,5 +36,11 @@
     max_chars: 2000,
   },
 
-  // capability_matrix: { enabled: true, root: "." },
+  capability_matrix: {
+    enabled: true,
+    root: ".",
+    directory: "capabilities",
+  },
+
+  workflow_directory: "dags",
 }

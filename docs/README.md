@@ -8,7 +8,7 @@
 |------|------|
 | `tool.md` | Capability Matrix、commands、MCP、能力目录 |
 | `workflow.md` | DAG、plan/run、workflow 目录 |
-| `claw.md` | soul / bootstrap / rules / memory 注入 |
+| `claw.md` | soul / bootstrap / rules / memory（skills 已废弃） |
 | `migrate-json.md` | YAML → JSON5 迁移 |
 
 ## 子目录

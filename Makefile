@@ -15,7 +15,6 @@ SRC = \
 	src/cli/main.c \
 	src/core/config.c \
 	src/core/daemon.c \
-	src/core/skills.c \
 	src/llm/llm.c \
 	src/capability/agent_tools.c \
 	src/capability/command_tools.c \

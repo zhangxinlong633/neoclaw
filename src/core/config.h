@@ -14,16 +14,6 @@ typedef struct {
 
 typedef struct {
   char **paths;
-  int *priority;   /* 0=normal, 1=high; high is always injected full */
-  int path_count;
-  int unmatched;   /* 0=inject index when not matched (default), 1=skip to save context */
-  char *directory; /* optional: scan dir for subdir/SKILL.md and add as paths */
-  char **high_priority; /* names or paths to mark as high priority (e.g. ["nanjing"]) */
-  int high_priority_count;
-} skills_config_t;
-
-typedef struct {
-  char **paths;
   int path_count;
   int max_chars_per_file;
 } bootstrap_config_t;
@@ -148,7 +138,6 @@ typedef struct {
   soul_config_t soul;
   rules_config_t rules;
   workspace_config_t workspace;
-  skills_config_t skills;
   memory_config_t memory;
   tools_config_t tools;
   plan_config_t plan;

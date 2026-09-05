@@ -19,14 +19,16 @@
     paths: ["AGENTS.md"],
   },
 
-  // rules: { max_chars_per_file: 6000, paths: ["RULES.md"] },
-  // workspace: { prompt_cwd: true },
-
-  skills: {
-    directory: "skills",
-    high_priority: ["nanjing"],
-    unmatched: "index",
+  rules: {
+    max_chars_per_file: 6000,
+    paths: [
+      "rules/identity.md",
+      "rules/nanjing.md",
+      "rules/response-playbook.md",
+    ],
   },
+
+  // workspace: { prompt_cwd: true },
 
   memory: {
     path: "MEMORY.md",
@@ -37,20 +39,15 @@
     max_turns: 10,
   },
 
-  // capability_matrix: {
-  //   enabled: true,
-  //   root: ".",
-  //   directory: "capabilities", // one file per capability; see capabilities/manifest.json5
-  //   max_rounds: 16,
-  //   shell_enabled: false, // true → expose run_command (argv under root, no shell)
-  //   // optional inline commands (merged with directory load[]):
-  //   // commands: [ { name: "date_iso", argv: ["/bin/date", "-u", "+%Y-%m-%dT%H:%M:%SZ"] } ],
-  //   // mcp_servers: [
-  //   //   { name: "mock", command: "python3", args: ["tests/fixtures/mock_mcp_echo.py"] },
-  //   // ],
-  // },
+  capability_matrix: {
+    enabled: true,
+    root: ".",
+    directory: "capabilities",
+    max_rounds: 16,
+    shell_enabled: false,
+  },
 
-  // workflow_directory: "dags", // one DAG per file; see dags/manifest.json5
+  workflow_directory: "dags",
 
   // plan: { target_steps: 10 },
 }

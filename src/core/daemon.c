@@ -5,7 +5,6 @@
 #include "capability_matrix.h"
 #include "config.h"
 #include "llm.h"
-#include "skills.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,7 +50,7 @@ static void build_system_prompt(agent_config_t *conf, const char *user_message, 
   if (!tmp) { out[0] = '\0'; return; }
   out[0] = '\0';
   strncat(out,
-          "You are a helpful assistant. Follow any soul, rules, skills, and bootstrap instructions below.\n\n",
+          "You are a helpful assistant. Follow any soul, rules, and bootstrap instructions below.\n\n",
           cap - 1);
   {
     time_t now = time(NULL);
@@ -74,7 +73,6 @@ static void build_system_prompt(agent_config_t *conf, const char *user_message, 
     }
   }
 #endif
-  skills_append_to_system_prompt(conf, user_message, out, cap, 1); /* high priority first */
   if (conf->soul.path && conf->soul.path[0]) {
     size_t max_soul = (conf->soul.max_chars > 0) ? (size_t)conf->soul.max_chars : 8000;
     if (read_file_into(tmp, 65536, conf->soul.path, max_soul) > 0)
@@ -90,7 +88,6 @@ static void build_system_prompt(agent_config_t *conf, const char *user_message, 
     if (read_file_into(tmp, 65536, conf->rules.paths[i], max_c) > 0)
       append_section(out, cap, "## Rules: ", conf->rules.paths[i], tmp);
   }
-  skills_append_to_system_prompt(conf, user_message, out, cap, 0); /* normal skills */
   if (conf->memory.path) {
     if (read_file_into(tmp, 65536, conf->memory.path, (size_t)conf->memory.max_chars) > 0)
       append_section(out, cap, "## Memory (context)\n\n", "", tmp);
@@ -100,8 +97,8 @@ static void build_system_prompt(agent_config_t *conf, const char *user_message, 
     char *listing;
     strncat(out,
             "\n\n## Tools (executed by host)\n"
-            "Capabilities below are executed by Neo under tools.root (relative paths only). "
-            "Prefer tool calls over shell snippets.\n"
+            "Capabilities below are executed by Neo (Capability Matrix). "
+            "Prefer tool calls / existing DAGs over inventing shell.\n"
             "### Capability Matrix\n",
             cap - strlen(out) - 1);
     capability_matrix_init(&mx);
@@ -201,10 +198,10 @@ static void daemon_debug_print(agent_config_t *conf, const char *system_prompt, 
   fprintf(stderr, "%sbase_url: %s\nmodel: %s\nmax_tokens: %d\ntemperature: %.2f\n%s", cy,
           conf->model.base_url ? conf->model.base_url : "(null)", conf->model.name ? conf->model.name : "(null)",
           conf->model.max_tokens, conf->model.temperature, re);
-  if (conf->skills.path_count > 0) {
-    fprintf(stderr, "%sloaded skills: ", cy);
-    for (int i = 0; i < conf->skills.path_count; i++)
-      fprintf(stderr, "%s%s", i ? ", " : "", conf->skills.paths[i] ? conf->skills.paths[i] : "(null)");
+  if (conf->rules.path_count > 0) {
+    fprintf(stderr, "%srules: ", cy);
+    for (int i = 0; i < conf->rules.path_count; i++)
+      fprintf(stderr, "%s%s", i ? ", " : "", conf->rules.paths[i] ? conf->rules.paths[i] : "(null)");
     fprintf(stderr, "%s\n", re);
   }
   fprintf(stderr, "\n%s%s=== NEO DEBUG: system prompt (%zu chars) ===%s\n%s%s%s\n%s%s=== END system prompt ===%s\n",

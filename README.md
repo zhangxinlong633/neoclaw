@@ -8,7 +8,7 @@
 
 | 原则 | 说明 |
 |------|------|
-| 接缝优先 | 能力通过 JSON5（`capability_matrix.commands`、skills、MCP stdio）挂载；换机拷贝配置即可复用 |
+| 接缝优先 | 能力通过 JSON5（`capability_matrix`、MCP stdio）与 claw 文件（soul/bootstrap/rules/memory）挂载；换机拷贝配置即可复用 |
 | 编排确定性 | **DAG** 决定执行拓扑（`workflow` / `neo plan` / `neo run`）；LLM 作为步骤内工人，不改写图结构 |
 | 能力可发现 | **Capability Matrix** 统一 builtin / commands / MCP 的稳定 `name`，供 tool loop、DAG `type: tool` 与 planner 共用 |
 | 边界可控 | **Policy** 约束 shell、HTTP、轮次与输出上限等；物化矩阵时裁剪 `enabled` 行 |
@@ -90,9 +90,9 @@ cp config/config.json5.example config/config.json5
 |------|------|
 | `src/` | C 源码（`cli` / `core` / `llm` / `capability` / `workflow` / `vendor`）；对象文件在 `build/` |
 | `config/` | 默认配置示例与 profiles |
-| `capabilities/` | 能力目录包（一能力一文件，可选） |
-| `dags/` | DAG 目录包（一图一文件，可选） |
-| `skills/` | Skill 包（`SKILL.md`） |
+| `capabilities/` | 能力目录包（一能力一文件） |
+| `dags/` | DAG 目录包（一图一文件） |
+| `rules/` | claw Rules：身份、领域必引数据、答法手册 |
 | `docs/` | 用户文档与设计稿 |
 | `tests/` | 单元测试与 CLI 冒烟；夹具在 `fixtures/` |
 | `scripts/` | 仓库级辅助脚本 |
@@ -107,38 +107,29 @@ cp config/config.json5.example config/config.json5
 | `model` | `base_url`、`name`、`api_key`；可选 `max_tokens`、`temperature` |
 | `capability_matrix` | 矩阵总开关、沙箱 `root`、commands、MCP、directory、Policy 旋钮（旧顶层键 `tools` 仅兼容读取） |
 | `workflows` / `workflow_directory` | 内联 DAG 与/或目录加载 |
-| `soul` / `bootstrap` / `rules` | 人格与身份 Markdown 注入（见 [`docs/claw.md`](docs/claw.md)） |
+| `soul` / `bootstrap` / `rules` | 人格、身份与硬约束 Markdown（见 [`docs/claw.md`](docs/claw.md)；原 skills 内容迁入 `rules/`） |
 | `workspace` | 可选 `prompt_cwd: true`，将进程 cwd 写入 system |
-| `skills` | `directory`、`high_priority`、`unmatched: index \| skip` |
 | `memory` | `path`、`max_chars` |
 | `session` | daemon 用 `max_turns` |
 | `plan` | 可选规划软目标（如 `target_steps`） |
 
-完整字段与迁移说明：[`docs/tool.md`](docs/tool.md)、[`docs/workflow.md`](docs/workflow.md)、[`docs/migrate-json.md`](docs/migrate-json.md)。
+完整字段与迁移说明：[`docs/tool.md`](docs/tool.md)、[`docs/workflow.md`](docs/workflow.md)、[`docs/migrate-json.md`](docs/migrate-json.md)。旧键 `skills` 已移除（配置中若仍出现仅 stderr 提示）。
 
-## Skills 与 Memory
-
-配置 `skills.directory: "skills"` 时扫描子目录；每个 skill 以 `SKILL.md` 为权威说明。
+## Rules、Memory 与能力发现
 
 | 路径 | 作用 |
 |------|------|
-| `skills/me/` | 身份与能力自述 |
-| `skills/summarize/` | 总结；可建议写入 memory |
-| `skills/note/` | 整理可追加到 MEMORY 的句子 |
-| `skills/todo/` | 待办提取与格式建议 |
-| `skills/explain/` | 概念与用法说明 |
-| `skills/code/` | 可运行代码/命令片段 |
-| `skills/translate/` | 翻译并标注原文/译文 |
-| `skills/nanjing/` | 领域示例数据（建议 `high_priority`） |
+| `rules/identity.md` | 自称 Neo；能力以矩阵为准 |
+| `rules/nanjing.md` | 南京旅游必引数据 |
+| `rules/response-playbook.md` | 总结/笔记/待办/解释/代码/翻译答法 |
+| `MEMORY.md`（`memory.path`） | 长期笔记，按 `max_chars` 截断注入 |
 
-注入规则：`high_priority` 全文置顶；普通 skill 按用户消息匹配注入全文，未匹配项由 `unmatched` 决定注入摘要或跳过。
-
-排查：`./neo -d "消息"` 查看 loaded skills 与完整 system prompt。
+可发现能力不再扫描 Skill 包，而依赖 **Capability Matrix**（`capabilities/`）与 **DAG catalog**（`dags/`）。排查：`./neo -d "消息"` 查看完整 system prompt。
 
 ## 请求流程（摘要）
 
 1. 加载配置（`config/config.json5` 或 `-c` / `NEO_CONFIG`）。
-2. 组装 system prompt：固定说明 → 时间 →（可选）cwd → 高优 skills → soul → bootstrap → rules → 普通 skills → memory →（若启用）能力矩阵说明。
+2. 组装 system prompt：固定说明 → 时间 →（可选）cwd → soul → bootstrap → rules → memory →（若启用）能力矩阵 listing。
 3. 用户消息来自命令行参数或 daemon 当前行。
 4. 若矩阵启用：进入 tool loop 或执行 DAG；否则仅 chat completion。
 5. 助手可见内容写入 **stdout**；诊断与步骤日志写入 **stderr**。

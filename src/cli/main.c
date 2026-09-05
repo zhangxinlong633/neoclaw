@@ -9,7 +9,6 @@
 #include "daemon.h"
 #include "llm.h"
 #include "plan.h"
-#include "skills.h"
 #include "workflow.h"
 #include <limits.h>
 #include <stdio.h>
@@ -133,13 +132,11 @@ static void debug_print_request(agent_config_t *conf,
   fprintf(stderr, "\n%s%s=== NEO DEBUG: request params ===%s\n", bd, cy, re);
   fprintf(stderr, "%sbase_url: %s\nmodel: %s\nmax_tokens: %d\ntemperature: %.2f\n%s",
           cy, base_url ? base_url : "(null)", model ? model : "(null)", max_tokens, temperature, re);
-  if (conf && conf->skills.path_count > 0) {
-    fprintf(stderr, "%sloaded skills: ", cy);
-    for (int i = 0; i < conf->skills.path_count; i++)
-      fprintf(stderr, "%s%s", i ? ", " : "", conf->skills.paths[i] ? conf->skills.paths[i] : "(null)");
+  if (conf && conf->rules.path_count > 0) {
+    fprintf(stderr, "%srules: ", cy);
+    for (int i = 0; i < conf->rules.path_count; i++)
+      fprintf(stderr, "%s%s", i ? ", " : "", conf->rules.paths[i] ? conf->rules.paths[i] : "(null)");
     fprintf(stderr, "%s\n", re);
-    if (conf->skills.unmatched)
-      fprintf(stderr, "%s(unmatched: skip → only high-priority + matched skills in prompt; set unmatched: index to include short index for all)%s\n", cy, re);
   }
   fprintf(stderr, "\n%s%s=== NEO DEBUG: system prompt (%zu chars) ===%s\n%s%s%s\n%s%s=== END system prompt ===%s\n",
           bd, yl, system_prompt ? strlen(system_prompt) : 0u, re, yl, system_prompt ? system_prompt : "", re, bd, yl, re);
@@ -396,7 +393,7 @@ int main(int argc, char **argv) {
   if (!tmp) tmp = malloc(1024);
 
   strncat(system_prompt,
-          "You are a helpful assistant. Follow any soul, rules, skills, and bootstrap instructions below.\n\n",
+          "You are a helpful assistant. Follow any soul, rules, and bootstrap instructions below.\n\n",
           SYSTEM_MAX - 1);
 
   {
@@ -423,7 +420,6 @@ int main(int argc, char **argv) {
 #endif
 
   build_user_message(user_message, USER_MAX, argv, arg_start, argc);
-  skills_append_to_system_prompt(&conf, user_message, system_prompt, SYSTEM_MAX, 1); /* high priority first */
   if (tmp && conf.soul.path && conf.soul.path[0]) {
     size_t max_soul = (conf.soul.max_chars > 0) ? (size_t)conf.soul.max_chars : 8000;
     if (read_file_into(tmp, 65536, conf.soul.path, max_soul) > 0)
@@ -445,7 +441,6 @@ int main(int argc, char **argv) {
         append_section(system_prompt, SYSTEM_MAX, "## Rules: ", path, tmp);
     }
   }
-  skills_append_to_system_prompt(&conf, user_message, system_prompt, SYSTEM_MAX, 0); /* normal skills */
 
   if (conf.memory.path && tmp) {
     if (read_file_into(tmp, 65536, conf.memory.path, (size_t)conf.memory.max_chars) > 0)
@@ -457,8 +452,10 @@ int main(int argc, char **argv) {
     char *listing;
     strncat(system_prompt,
             "\n\n## Tools (executed by host)\n"
-            "Capabilities below are executed by Neo under tools.root (relative paths only; no leading /, no `..`). "
-            "Prefer tool calls over asking the user to run shell. "
+            "Capabilities below are executed by Neo (Capability Matrix). "
+            "Prefer tool calls / existing DAGs over inventing shell. "
+            "Path tools are relative to capability_matrix.root (no leading /, no `..`). "
+            "Command argv[0] may be relative under root or an absolute allowlisted path. "
             "http_get (when listed) is HTTPS-only with host allowlist and no redirects.\n"
             "### Capability Matrix\n",
             SYSTEM_MAX - strlen(system_prompt) - 1);

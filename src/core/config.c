@@ -5,10 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#if defined(__linux__) || defined(__APPLE__)
-#include <dirent.h>
-#include <sys/stat.h>
-#endif
 
 #define MAX_STR 512
 #define MAX_PATHS 32
@@ -299,16 +295,6 @@ void config_free(agent_config_t *c) {
   free_path_list(c->rules.paths, c->rules.path_count);
   c->rules.paths = NULL;
   c->rules.path_count = 0;
-  free_path_list(c->skills.paths, c->skills.path_count);
-  free(c->skills.priority);
-  free(c->skills.directory);
-  free_path_list(c->skills.high_priority, c->skills.high_priority_count);
-  c->skills.paths = NULL;
-  c->skills.priority = NULL;
-  c->skills.directory = NULL;
-  c->skills.high_priority = NULL;
-  c->skills.path_count = 0;
-  c->skills.high_priority_count = 0;
   free(c->memory.path);
   c->memory.path = NULL;
   free(c->tools.root);
@@ -525,81 +511,6 @@ static int fill_paths_section(yyjson_val *obj, char ***paths, int *count, int *m
   if (!arr) return 0;
   snprintf(pathbuf, sizeof(pathbuf), "/%s/paths", section);
   return yy_string_array(arr, paths, count, MAX_PATHS, pathbuf);
-}
-
-static int fill_skills(agent_config_t *c, yyjson_val *obj) {
-  yyjson_val *v, *arr, *el;
-  size_t i, n;
-  if (!yyjson_is_obj(obj)) {
-    fprintf(stderr, "neo: config error at /skills: expected object\n");
-    return -1;
-  }
-  cfg_set_str(&c->skills.directory, obj, "directory");
-  v = yyjson_obj_get(obj, "unmatched");
-  if (yyjson_is_str(v)) {
-    const char *s = yyjson_get_str(v);
-    if (s && !strcmp(s, "skip")) c->skills.unmatched = 1;
-    else c->skills.unmatched = 0;
-  }
-  arr = yyjson_obj_get(obj, "high_priority");
-  if (arr) {
-    if (yy_string_array(arr, &c->skills.high_priority, &c->skills.high_priority_count, MAX_PATHS,
-                        "/skills/high_priority") != 0)
-      return -1;
-  }
-  arr = yyjson_obj_get(obj, "paths");
-  if (!arr) return 0;
-  if (!yyjson_is_arr(arr)) {
-    fprintf(stderr, "neo: config error at /skills/paths: expected array\n");
-    return -1;
-  }
-  n = yyjson_arr_size(arr);
-  for (i = 0; i < n; i++) {
-    yyjson_val *path_v, *pri_v;
-    char *dup;
-    int *np;
-    int pri = 0;
-    el = yyjson_arr_get(arr, i);
-    if (yyjson_is_str(el)) {
-      path_v = el;
-    } else if (yyjson_is_obj(el)) {
-      path_v = yyjson_obj_get(el, "path");
-      pri_v = yyjson_obj_get(el, "priority");
-      if (yyjson_is_str(pri_v)) {
-        const char *ps = yyjson_get_str(pri_v);
-        if (ps && (!strcmp(ps, "high") || !strcmp(ps, "1"))) pri = 1;
-      } else if (yyjson_is_int(pri_v) && yyjson_get_sint(pri_v) == 1)
-        pri = 1;
-    } else {
-      fprintf(stderr, "neo: config error at /skills/paths/%zu: expected string or object\n", i);
-      return -1;
-    }
-    if (!yyjson_is_str(path_v)) {
-      fprintf(stderr, "neo: config error at /skills/paths/%zu: missing path\n", i);
-      return -1;
-    }
-    if (c->skills.path_count >= MAX_PATHS) {
-      fprintf(stderr, "neo: config error at /skills/paths: too many entries\n");
-      return -1;
-    }
-    dup = yy_dup_str(path_v);
-    if (!dup) return -1;
-    {
-      char **pp = realloc(c->skills.paths, (c->skills.path_count + 1) * sizeof(char *));
-      if (!pp) {
-        free(dup);
-        return -1;
-      }
-      c->skills.paths = pp;
-      c->skills.paths[c->skills.path_count] = dup;
-    }
-    np = realloc(c->skills.priority, (c->skills.path_count + 1) * sizeof(int));
-    if (!np) return -1;
-    c->skills.priority = np;
-    c->skills.priority[c->skills.path_count] = pri;
-    c->skills.path_count++;
-  }
-  return 0;
 }
 
 static int fill_tools(agent_config_t *c, yyjson_val *obj) {
@@ -870,94 +781,6 @@ static int fill_workflows(agent_config_t *c, yyjson_val *arr) {
   return 0;
 }
 
-static void scan_skills_directory(agent_config_t *c) {
-#if defined(__linux__) || defined(__APPLE__)
-  if (c->skills.directory && c->skills.directory[0]) {
-    DIR *dir = opendir(c->skills.directory);
-    if (dir) {
-      char **scanned = NULL;
-      int n_scan = 0;
-      struct dirent *e;
-      while (n_scan < MAX_PATHS && (e = readdir(dir)) != NULL) {
-        if (e->d_name[0] == '.') continue;
-        {
-          char subpath[1024];
-          struct stat st;
-          snprintf(subpath, sizeof(subpath), "%s/%s/SKILL.md", c->skills.directory, e->d_name);
-          if (stat(subpath, &st) == 0 && S_ISREG(st.st_mode)) {
-            char *dup = dup_str(subpath);
-            if (dup) {
-              char **np = realloc(scanned, (n_scan + 1) * sizeof(char *));
-              if (np) {
-                scanned = np;
-                scanned[n_scan++] = dup;
-              } else
-                free(dup);
-            }
-          }
-        }
-      }
-      closedir(dir);
-      if (n_scan > 0) {
-        char **new_paths = malloc((size_t)(n_scan + c->skills.path_count) * sizeof(char *));
-        int *new_pri = malloc((size_t)(n_scan + c->skills.path_count) * sizeof(int));
-        if (new_paths && new_pri) {
-          int i;
-          for (i = 0; i < n_scan; i++) {
-            new_paths[i] = scanned[i];
-            new_pri[i] = 0;
-          }
-          for (i = 0; i < c->skills.path_count; i++) {
-            new_paths[n_scan + i] = c->skills.paths[i];
-            new_pri[n_scan + i] = c->skills.priority ? c->skills.priority[i] : 0;
-          }
-          free(c->skills.paths);
-          free(c->skills.priority);
-          c->skills.paths = new_paths;
-          c->skills.priority = new_pri;
-          c->skills.path_count = n_scan + c->skills.path_count;
-        } else {
-          free(new_paths);
-          free(new_pri);
-          free_path_list(scanned, n_scan);
-        }
-      } else
-        free_path_list(scanned, n_scan);
-    }
-  }
-  if (c->skills.high_priority_count > 0 && c->skills.priority) {
-    int i, j;
-    for (i = 0; i < c->skills.path_count; i++) {
-      const char *spath = c->skills.paths[i];
-      const char *last_slash = spath ? strrchr(spath, '/') : NULL;
-      const char *name = spath;
-      size_t namelen = 0;
-      if (last_slash && last_slash > spath) {
-        const char *prev = last_slash;
-        while (prev > spath && prev[-1] != '/') prev--;
-        if (prev < last_slash) {
-          name = prev;
-          if (*name == '/') name++;
-          namelen = (size_t)(last_slash - name);
-        }
-      }
-      for (j = 0; j < c->skills.high_priority_count; j++) {
-        const char *hp = c->skills.high_priority[j];
-        if (!hp) continue;
-        if ((spath && strstr(spath, hp)) ||
-            (namelen > 0 && strlen(hp) == namelen && strncmp(name, hp, namelen) == 0) ||
-            (spath && !strcmp(spath, hp))) {
-          c->skills.priority[i] = 1;
-          break;
-        }
-      }
-    }
-  }
-#else
-  (void)c;
-#endif
-}
-
 int config_load_file(agent_config_t *c, const char *path) {
   yyjson_read_err err;
   yyjson_doc *doc;
@@ -1004,7 +827,10 @@ int config_load_file(agent_config_t *c, const char *path) {
       fill_paths_section(sec, &c->rules.paths, &c->rules.path_count, &c->rules.max_chars_per_file,
                          "rules") != 0)
     goto fail;
-  if ((sec = yyjson_obj_get(root, "skills")) && fill_skills(c, sec) != 0) goto fail;
+  if (yyjson_obj_get(root, "skills"))
+    fprintf(stderr,
+            "neo: config key 'skills' is removed; migrate to rules/bootstrap and "
+            "capability_matrix (see docs/superpowers/specs/2026-09-05-deprecate-skills-design.md)\n");
   {
     yyjson_val *mx = yyjson_obj_get(root, "capability_matrix");
     if (!mx) {
@@ -1036,7 +862,6 @@ int config_load_file(agent_config_t *c, const char *path) {
   if (validate_tool_commands(c) != 0) return -1;
   if (validate_workflows(c) != 0) return -1;
 
-  scan_skills_directory(c);
 
   if (!c->model.base_url) c->model.base_url = dup_str("http://127.0.0.1:11434/v1");
   if (!c->model.name) c->model.name = dup_str("qwen3:8b");

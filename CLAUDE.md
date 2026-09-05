@@ -30,7 +30,7 @@
 |------|------|
 | `src/cli/main.c` | CLI 入口、`-v` / 子命令分发 |
 | `src/core/config.c` / `config.h` | JSON5 解析；内部结构体字段可叫 `tools`，**对外键名**见下节 |
-| `src/core/skills.c` / `daemon.c` | skills 注入、多轮 daemon |
+| `src/core/config.c` / `daemon.c` | 配置解析、daemon 多轮会话 |
 | `src/llm/llm.c` | OpenAI 兼容 HTTP |
 | `src/capability/capability_matrix.c` | 建表、OpenAI `tools` JSON、prompt 列表 |
 | `src/capability/capability_dir.c` | 能力目录加载器 + `propose_capability` |
@@ -121,9 +121,9 @@ capability_matrix: {
 
 1. **本目录职责**：用完整陈述句说明用途与边界（禁止只写目录名或空口号）。
 2. **子目录说明**：若有子目录，用表格或列表逐条写清各自职责。
-3. **关联入口**：指向权威文档（如 `docs/tool.md`、`docs/workflow.md`、同目录 `SKILL.md`、本文相关节），避免在 README 中复述大段实现细节。
+3. **关联入口**：指向权威文档（如 `docs/tool.md`、`docs/workflow.md`、本文相关节），避免在 README 中复述大段实现细节。
 
-特别适用：`capabilities/`、`dags/`、`src/` 各模块、`config/`、`tests/`、`docs/`、`scripts/`、`skills/` 及其子目录。
+特别适用：`capabilities/`、`dags/`、`rules/`、`src/` 各模块、`config/`、`tests/`、`docs/`、`scripts/` 及其子目录。
 
 ### 6.2 文风（正式）
 
@@ -136,7 +136,7 @@ capability_matrix: {
 
 例外（可不写 README）：纯生成物目录（如 `build/`）、git 元数据。仅含瞬时/忽略产物的空壳若保留，仍须简短说明「仅产物 / 已 gitignore」。
 
-若目录已有约定入口（例如 `skills/<name>/SKILL.md`），`README.md` 可短，但必须存在，并明确指向该入口。
+若目录已有约定入口文档，`README.md` 可短，但必须存在，并明确指向该入口。
 
 新增目录时：**先写 README，再堆文件。** 目录职责或对外约定变更时，**同一变更内**更新对应 README。
 
