@@ -162,6 +162,10 @@ static int wf_run_tool_step(const agent_config_t *conf, const char *root_real, c
   const char *ids[WF_MAX_STEPS];
   const char *texts[WF_MAX_STEPS];
   int i;
+  int attempts = 1 + (st->retry_max > 0 ? st->retry_max : 0);
+  int attempt;
+  int last_fail = -1;
+
   for (i = 0; i < *map_n; i++) {
     ids[i] = map[i].id;
     texts[i] = map[i].text;
@@ -177,28 +181,54 @@ static int wf_run_tool_step(const agent_config_t *conf, const char *root_real, c
     free(args);
     return -1;
   }
-  if (neo_dispatch_tool(conf, root_real, st->tool, args, &out, &out_len) != 0) {
-    fprintf(stderr, "neo: workflow:%s step:%s: tool dispatch failed\n", wf_name, st->id);
-    free(args);
+
+  for (attempt = 0; attempt < attempts; attempt++) {
     free(out);
-    return -1;
+    out = NULL;
+    out_len = 0;
+    if (attempt > 0)
+      fprintf(stderr, "neo: workflow:%s step:%s: retry attempt %d/%d\n", wf_name,
+              st->id ? st->id : "?", attempt + 1, attempts);
+    if (neo_dispatch_tool(conf, root_real, st->tool, args, &out, &out_len) != 0) {
+      fprintf(stderr, "neo: workflow:%s step:%s: tool dispatch failed\n", wf_name, st->id);
+      last_fail = -1;
+      continue;
+    }
+    if (out && strncmp(out, "ERROR:", 6) == 0) {
+      fprintf(stderr, "neo: workflow:%s step:%s: %s\n", wf_name, st->id, out);
+      last_fail = -1;
+      continue;
+    }
+    if (out && strncmp(out, "EXIT:", 5) == 0) {
+      fprintf(stderr, "neo: workflow:%s step:%s: tool non-zero exit\n", wf_name, st->id);
+      last_fail = -1;
+      continue;
+    }
+    free(args);
+    wf_map_set(map, map_n, st->id, out ? out : "");
+    free(*prev_io);
+    *prev_io = out ? strdup(out) : strdup("");
+    free(out);
+    return 0;
   }
   free(args);
-  if (out && strncmp(out, "ERROR:", 6) == 0) {
-    fprintf(stderr, "neo: workflow:%s step:%s: %s\n", wf_name, st->id, out);
-    free(out);
-    return -1;
-  }
-  if (out && strncmp(out, "EXIT:", 5) == 0) {
-    fprintf(stderr, "neo: workflow:%s step:%s: tool non-zero exit\n", wf_name, st->id);
-    free(out);
-    return -1;
-  }
-  wf_map_set(map, map_n, st->id, out ? out : "");
-  free(*prev_io);
-  *prev_io = out ? strdup(out) : strdup("");
   free(out);
-  return 0;
+  return last_fail;
+}
+
+/* 多路 cases：返回选中下标；无 cases 返回 -1；未命中且无默认返回 -1。 */
+static int wf_route_select_case(const workflow_step_t *st, const char *expanded) {
+  int i, def = -1;
+  if (!st || st->route_case_count < 1) return -1;
+  for (i = 0; i < st->route_case_count; i++) {
+    const char *m = st->route_cases[i].match;
+    if (!m || !m[0]) {
+      def = i;
+      continue;
+    }
+    if (expanded && strstr(expanded, m)) return i;
+  }
+  return def;
 }
 
 /* Max byte length ending on a UTF-8 boundary. */
@@ -487,6 +517,7 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
       char *expanded;
       char kind[96];
       int hit = 0;
+      int sel = -1;
       for (i = 0; i < map_n; i++) {
         ids[i] = map[i].id;
         texts[i] = map[i].text;
@@ -498,18 +529,38 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
         free(prev);
         return -1;
       }
-      if (st->route_match && st->route_match[0] && strstr(expanded, st->route_match))
-        hit = 1;
       wf_step_kind(st, kind, sizeof(kind));
-      if (verbose)
-        fprintf(stderr, "neo: step end   workflow=%s id=%s %s hit=%d status=ok\n", wf->name,
-                st->id ? st->id : "?", kind, hit);
-      if (hit)
-        wf_mark_skip_ids(wf, skip, st->route_else, st->route_else_count);
-      else
-        wf_mark_skip_ids(wf, skip, st->route_then, st->route_then_count);
+      if (st->route_case_count > 0) {
+        /* 多路 cases：选中一支，skip 其余支的 then[] */
+        sel = wf_route_select_case(st, expanded);
+        for (i = 0; i < st->route_case_count; i++) {
+          if (i == sel) continue;
+          wf_mark_skip_ids(wf, skip, st->route_cases[i].then_ids, st->route_cases[i].then_count);
+        }
+        if (verbose)
+          fprintf(stderr, "neo: step end   workflow=%s id=%s %s case=%d status=ok\n", wf->name,
+                  st->id ? st->id : "?", kind, sel);
+        {
+          char label[32];
+          if (sel >= 0)
+            snprintf(label, sizeof(label), "case:%d", sel);
+          else
+            snprintf(label, sizeof(label), "case:none");
+          wf_map_set(map, &map_n, st->id, label);
+        }
+      } else {
+        if (st->route_match && st->route_match[0] && strstr(expanded, st->route_match))
+          hit = 1;
+        if (verbose)
+          fprintf(stderr, "neo: step end   workflow=%s id=%s %s hit=%d status=ok\n", wf->name,
+                  st->id ? st->id : "?", kind, hit);
+        if (hit)
+          wf_mark_skip_ids(wf, skip, st->route_else, st->route_else_count);
+        else
+          wf_mark_skip_ids(wf, skip, st->route_then, st->route_then_count);
+        wf_map_set(map, &map_n, st->id, hit ? "then" : "else");
+      }
       free(expanded);
-      wf_map_set(map, &map_n, st->id, hit ? "then" : "else");
       continue;
     }
 
