@@ -6,7 +6,7 @@ Neo 的产品选择是 **灵活、可移植**，不是 **能力天花板**：
 
 | 更在意 | Neo 怎么做 |
 |--------|------------|
-| 到处能跑 | 单二进制 + libcurl；配置集中在 `config/`；profile / 脚本可整包拷走 |
+| 到处能跑 | 单二进制 + 内置 HTTPS（BearHttpsClient）；配置集中在 `config/`；profile / 脚本可整包拷走 |
 | 随时加刀刃 | **Capability Matrix** 统一 builtin / `commands` / MCP；**DAG** 按需挂上；身份与硬知识用 claw（soul/bootstrap/rules/memory） |
 | 到处能唤起 | CLI、daemon socket、`neo-ask`、cron / 管道、`neo-team` |
 | 三件套 | **DAG** 管编排怎么走；**能力矩阵** 管能调用什么；**Policy**（如 `shell_enabled` / host allowlist）管许不许 |

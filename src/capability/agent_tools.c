@@ -7,8 +7,8 @@
 #include "capability_matrix.h"
 #include "command_tools.h"
 #include "mcp_stdio.h"
+#include "neo_http.h"
 #include "yyjson.h"
-#include <curl/curl.h>
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
@@ -370,32 +370,11 @@ static int url_https_extract_host(const char *url, char *host, size_t hostcap) {
   return 0;
 }
 
-struct neohttp_write_ctx {
-  NeoBuf *buf;
-  size_t max;
-  int truncated;
-};
-
-static size_t neohttp_write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
-  struct neohttp_write_ctx *w = (struct neohttp_write_ctx *)userdata;
-  size_t add = size * nmemb;
-  size_t room = w->max > w->buf->len ? w->max - w->buf->len : 0;
-  if (add > room) {
-    w->truncated = 1;
-    add = room;
-  }
-  if (add > 0 && neo_buf_append(w->buf, ptr, add) != 0) return 0;
-  return size * nmemb;
-}
-
 static int tool_http_get(const agent_config_t *conf, const char *args_json, NeoBuf *result) {
   char urlbuf[2048];
   char host[256];
-  NeoBuf out = {0};
-  struct neohttp_write_ctx w;
-  CURL *curl;
-  CURLcode cr;
-  long code = 0;
+  neo_http_response_t hr;
+  size_t max_bytes;
   if (!conf->tools.http_fetch_enabled || conf->tools.http_allow_hosts == NULL || conf->tools.http_allow_hosts[0] == '\0')
     return neo_buf_append(result, "ERROR: http_get disabled (set http_fetch_enabled: true and http_allow_hosts)", 0);
   if (extract_string_field(args_json, "url", urlbuf, sizeof(urlbuf)) != 0)
@@ -405,37 +384,21 @@ static int tool_http_get(const agent_config_t *conf, const char *args_json, NeoB
   if (!http_host_in_allowlist(host, conf->tools.http_allow_hosts))
     return neo_buf_append(result, "ERROR: host not in tools.http_allow_hosts", 0);
 
-  w.buf = &out;
-  w.max = (size_t)(conf->tools.http_fetch_max_bytes > 0 ? conf->tools.http_fetch_max_bytes : 262144);
-  w.truncated = 0;
-
-  curl = curl_easy_init();
-  if (!curl) return neo_buf_append(result, "ERROR: curl init failed", 0);
-  curl_easy_setopt(curl, CURLOPT_URL, urlbuf);
-  curl_easy_setopt(curl, CURLOPT_HTTPGET, 1L);
-  curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, neohttp_write_cb);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &w);
-  curl_easy_setopt(curl, CURLOPT_USERAGENT, "neo-tools/1");
-  cr = curl_easy_perform(curl);
-  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &code);
-  curl_easy_cleanup(curl);
-  if (cr != CURLE_OK) {
-    neo_buf_free(&out);
-    neo_buf_append(result, "ERROR: ", 0);
-    neo_json_escape(curl_easy_strerror(cr), result);
-    return 0;
+  max_bytes = (size_t)(conf->tools.http_fetch_max_bytes > 0 ? conf->tools.http_fetch_max_bytes : 262144);
+  memset(&hr, 0, sizeof(hr));
+  if (neo_http_get(urlbuf, max_bytes, 30, &hr) != 0) {
+    neo_http_response_free(&hr);
+    return neo_buf_append(result, "ERROR: http request failed", 0);
   }
   neo_buf_append(result, "HTTP ", 0);
   {
     char nb[40];
-    snprintf(nb, sizeof(nb), "%ld\n", code);
+    snprintf(nb, sizeof(nb), "%ld\n", hr.status);
     neo_buf_append(result, nb, strlen(nb));
   }
-  neo_buf_append(result, out.s ? out.s : "", out.len);
-  if (w.truncated) neo_buf_append(result, "\n...[truncated]", 0);
-  neo_buf_free(&out);
+  neo_buf_append(result, hr.body ? hr.body : "", hr.body_len);
+  if (max_bytes > 0 && hr.body_len >= max_bytes) neo_buf_append(result, "\n...[truncated]", 0);
+  neo_http_response_free(&hr);
   return 0;
 }
 

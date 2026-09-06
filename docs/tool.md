@@ -163,7 +163,7 @@ capabilities/
 
 ```text
 neo tool: read_file
-1. **Neo 是一个用 C 语言编写的命令行 AI 助手**，依赖 libcurl，通过 OpenAI 兼容 API 提供服务，支持问答、代码、翻译等多种技能。  
+1. **Neo 是一个用 C 语言编写的命令行 AI 助手**，HTTPS 经内置 BearHttpsClient（`neo_http`），通过 OpenAI 兼容 API 提供服务。 
 2. **功能通过 YAML 配置注入技能（如南京旅游数据）**，支持单次查询和多轮对话模式，适合本地/边缘部署，资源占用低。  
 3. **项目特点包括轻量级设计、多技能扩展、会话模式灵活**，可运行在树莓派等 IoT 设备，适合开发者和需要本地化部署的场景。
 ```

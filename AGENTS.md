@@ -30,6 +30,7 @@
 |------|------|
 | `src/cli/main.c` | CLI 入口、`-v` / 子命令分发 |
 | `src/core/config.c` / `config.h` | JSON5 解析；内部结构体字段可叫 `tools`，**对外键名**见下节 |
+| `src/core/neo_http.c` / `neo_http.h` | HTTPS 门面（BearHttpsClient）；`llm` / `http_get` 只经此调用 |
 | `src/core/config.c` / `daemon.c` | 配置解析、daemon 多轮会话 |
 | `src/llm/llm.c` | OpenAI 兼容 HTTP |
 | `src/capability/capability_matrix.c` | 建表、OpenAI `tools` JSON、prompt 列表 |
@@ -165,7 +166,7 @@ capability_matrix: {
 
 ## 8. 改动习惯
 
-- **语言 / 风格**：C99 风格、与邻文件一致；少加依赖（已有 libcurl + 内置 yyjson）。
+- **语言 / 风格**：C99 风格、与邻文件一致；少加依赖（内置 yyjson + 内置 BearHttpsClient，经 `neo_http` 调用）。
 - **测试**：相关改动后跑 `make test`（含单元测试 + `tests/cli_capability_matrix.sh` CLI 冒烟；勿对 `make test` 盲目 `| tail` 以致看起来挂死）。仅 CLI：`make test-cli`。fixture 用 `tests/fixtures/*.json5`；旧键兼容可放 `tools_legacy_key.json5`。
 - **文档**：用户可见行为变了再改 `docs/*.md` / 根 `README.md`（及中文 `README_zh.md`）；超长设计放 `docs/superpowers/`。目录职责变了须按 §6 **正式更新**该目录 `README.md`。
 - **Plan materialize**：写出的临时配置顶层键用 `capability_matrix`，并带上需要的 policy 字段。

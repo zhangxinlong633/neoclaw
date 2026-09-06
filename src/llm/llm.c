@@ -1,22 +1,10 @@
 #include "llm.h"
+#include "neo_http.h"
 #include "yyjson.h"
-#include <curl/curl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-static size_t write_cb(char *ptr, size_t size, size_t nmemb, void *userdata) {
-  llm_response_t *r = (llm_response_t *)userdata;
-  size_t total = size * nmemb;
-  char *n = realloc(r->data, r->size + total + 1);
-  if (!n) return 0;
-  r->data = n;
-  memcpy(r->data + r->size, ptr, total);
-  r->size += total;
-  r->data[r->size] = '\0';
-  return total;
-}
 
 /*
  * Copy in → heap string with only valid UTF-8; drop ASCII controls except \n\t;
@@ -208,21 +196,30 @@ int llm_extract_content_json(const char *json, llm_response_t *out) {
   return 0;
 }
 
-static int do_request(CURL *curl, const char *body, llm_response_t *out, long *http_code) {
+static int do_request(const char *url, const char *api_key, const char *body, llm_response_t *out,
+                      long *http_code) {
+  neo_http_response_t hr;
+  int err;
+
   out->data = NULL;
   out->size = 0;
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
-  curl_easy_setopt(curl, CURLOPT_WRITEDATA, out);
-  if (curl_easy_perform(curl) != CURLE_OK) return -1;
-  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, http_code);
+  memset(&hr, 0, sizeof(hr));
+  err = neo_http_post_json(url, api_key, body, 120, &hr);
+  if (err != 0) {
+    neo_http_response_free(&hr);
+    return -1;
+  }
+  *http_code = hr.status;
+  out->data = hr.body;
+  out->size = hr.body_len;
+  hr.body = NULL; /* 所有权交给 out */
+  neo_http_response_free(&hr);
   return 0;
 }
 
 static int llm_post_body(const char *base_url, const char *api_key, const char *body,
                          llm_response_t *out) {
   char url[1024];
-  CURL *curl;
-  struct curl_slist *headers = NULL;
   long code = 0;
   int err;
 
@@ -230,30 +227,16 @@ static int llm_post_body(const char *base_url, const char *api_key, const char *
   out->data = NULL;
   out->size = 0;
   snprintf(url, sizeof(url), "%s/chat/completions", base_url);
-  curl = curl_easy_init();
-  if (!curl) return -1;
-  headers = curl_slist_append(headers, "Content-Type: application/json");
-  if (api_key && api_key[0]) {
-    char auth[1024];
-    snprintf(auth, sizeof(auth), "Authorization: Bearer %s", api_key);
-    headers = curl_slist_append(headers, auth);
-  }
-  curl_easy_setopt(curl, CURLOPT_URL, url);
-  curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-  curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_cb);
-  curl_easy_setopt(curl, CURLOPT_TIMEOUT, 120L);
 
-  err = do_request(curl, body, out, &code);
+  err = do_request(url, api_key, body, out, &code);
   if (err == 0 && (code == 429 || code == 503 || (code >= 500 && code < 600))) {
     llm_response_free(out);
     {
       struct timespec ts = {1, 0};
       nanosleep(&ts, NULL);
     }
-    err = do_request(curl, body, out, &code);
+    err = do_request(url, api_key, body, out, &code);
   }
-  curl_slist_free_all(headers);
-  curl_easy_cleanup(curl);
 
   if (err != 0) {
     llm_response_free(out);
