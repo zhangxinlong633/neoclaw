@@ -20,6 +20,33 @@ typedef struct {
   char *text;
 } wf_out_map_t;
 
+/* 拼步骤类型摘要，供 -v / 失败路径 stderr 可读（如 type=tool tool=date_iso）。 */
+static void wf_step_kind(const workflow_step_t *st, char *buf, size_t buf_sz) {
+  if (!buf || buf_sz < 8) return;
+  buf[0] = '\0';
+  if (!st) {
+    snprintf(buf, buf_sz, "type=?");
+    return;
+  }
+  switch (st->type) {
+    case WF_STEP_TOOL:
+      snprintf(buf, buf_sz, "type=tool tool=%s", st->tool && st->tool[0] ? st->tool : "?");
+      break;
+    case WF_STEP_LLM:
+      snprintf(buf, buf_sz, "type=llm tools=%s", st->tools_on ? "on" : "off");
+      break;
+    case WF_STEP_LOOP:
+      snprintf(buf, buf_sz, "type=loop");
+      break;
+    case WF_STEP_ROUTE:
+      snprintf(buf, buf_sz, "type=route");
+      break;
+    default:
+      snprintf(buf, buf_sz, "type=?");
+      break;
+  }
+}
+
 static void wf_map_free(wf_out_map_t *m, int n) {
   int i;
   for (i = 0; i < n; i++) {
@@ -437,12 +464,20 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
     }
     /* 路由汇合：只有依赖全部被 skip 才 skip 本步；任一依赖跑过则继续。 */
     if (has_dep && dep_all_skipped) {
+      char kind[96];
       skip[idx] = 1;
-      if (verbose) fprintf(stderr, "neo: step end   workflow=%s id=%s status=skip\n", wf->name, st->id);
+      wf_step_kind(st, kind, sizeof(kind));
+      if (verbose)
+        fprintf(stderr, "neo: step end   workflow=%s id=%s %s status=skip\n", wf->name,
+                st->id ? st->id : "?", kind);
       continue;
     }
     if (skip[idx]) {
-      if (verbose) fprintf(stderr, "neo: step end   workflow=%s id=%s status=skip\n", wf->name, st->id);
+      char kind[96];
+      wf_step_kind(st, kind, sizeof(kind));
+      if (verbose)
+        fprintf(stderr, "neo: step end   workflow=%s id=%s %s status=skip\n", wf->name,
+                st->id ? st->id : "?", kind);
       continue;
     }
 
@@ -450,6 +485,7 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
       const char *ids[WF_MAX_STEPS];
       const char *texts[WF_MAX_STEPS];
       char *expanded;
+      char kind[96];
       int hit = 0;
       for (i = 0; i < map_n; i++) {
         ids[i] = map[i].id;
@@ -464,7 +500,10 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
       }
       if (st->route_match && st->route_match[0] && strstr(expanded, st->route_match))
         hit = 1;
-      if (verbose) fprintf(stderr, "neo: step end   workflow=%s id=%s type=route hit=%d status=ok\n", wf->name, st->id, hit);
+      wf_step_kind(st, kind, sizeof(kind));
+      if (verbose)
+        fprintf(stderr, "neo: step end   workflow=%s id=%s %s hit=%d status=ok\n", wf->name,
+                st->id ? st->id : "?", kind, hit);
       if (hit)
         wf_mark_skip_ids(wf, skip, st->route_else, st->route_else_count);
       else
@@ -474,11 +513,23 @@ static int wf_run_dag(const agent_config_t *conf, const char *root_real, const w
       continue;
     }
 
-    if (verbose) fprintf(stderr, "neo: step start workflow=%s id=%s\n", wf->name, st->id ? st->id : "?");
-    if (wf_run_step(conf, root_real, wf->name, wf, st, map, &map_n, &prev) != 0) {
-      wf_map_free(map, map_n);
-      free(prev);
-      return -1;
+    {
+      char kind[96];
+      wf_step_kind(st, kind, sizeof(kind));
+      if (verbose)
+        fprintf(stderr, "neo: step start workflow=%s id=%s %s\n", wf->name,
+                st->id ? st->id : "?", kind);
+      if (wf_run_step(conf, root_real, wf->name, wf, st, map, &map_n, &prev) != 0) {
+        /* 失败摘要始终打出，便于无 -v 时定位卡在哪一步。 */
+        fprintf(stderr, "neo: step end   workflow=%s id=%s %s status=fail\n", wf->name,
+                st->id ? st->id : "?", kind);
+        wf_map_free(map, map_n);
+        free(prev);
+        return -1;
+      }
+      if (verbose)
+        fprintf(stderr, "neo: step end   workflow=%s id=%s %s status=ok\n", wf->name,
+                st->id ? st->id : "?", kind);
     }
   }
 
@@ -536,11 +587,21 @@ int workflow_run(const agent_config_t *conf, const char *workflow_name, char **o
     int skip = 0;
     int j, k;
     if (wf->steps[i].type == WF_STEP_LOOP) {
+      char kind[96];
+      wf_step_kind(&wf->steps[i], kind, sizeof(kind));
+      if (verbose)
+        fprintf(stderr, "neo: step start workflow=%s id=%s %s\n", wf->name,
+                wf->steps[i].id ? wf->steps[i].id : "?", kind);
       if (wf_run_step(conf, root_real, wf->name, wf, &wf->steps[i], map, &map_n, &prev) != 0) {
+        fprintf(stderr, "neo: step end   workflow=%s id=%s %s status=fail\n", wf->name,
+                wf->steps[i].id ? wf->steps[i].id : "?", kind);
         wf_map_free(map, map_n);
         free(prev);
         return -1;
       }
+      if (verbose)
+        fprintf(stderr, "neo: step end   workflow=%s id=%s %s status=ok\n", wf->name,
+                wf->steps[i].id ? wf->steps[i].id : "?", kind);
       continue;
     }
     for (j = 0; j < wf->step_count; j++) {
@@ -552,15 +613,23 @@ int workflow_run(const agent_config_t *conf, const char *workflow_name, char **o
       }
     }
     if (skip) continue;
-    if (verbose) fprintf(stderr, "neo: step start workflow=%s id=%s\n", wf->name,
-                         wf->steps[i].id ? wf->steps[i].id : "?");
-    if (wf_run_step(conf, root_real, wf->name, wf, &wf->steps[i], map, &map_n, &prev) != 0) {
-      wf_map_free(map, map_n);
-      free(prev);
-      return -1;
+    {
+      char kind[96];
+      wf_step_kind(&wf->steps[i], kind, sizeof(kind));
+      if (verbose)
+        fprintf(stderr, "neo: step start workflow=%s id=%s %s\n", wf->name,
+                wf->steps[i].id ? wf->steps[i].id : "?", kind);
+      if (wf_run_step(conf, root_real, wf->name, wf, &wf->steps[i], map, &map_n, &prev) != 0) {
+        fprintf(stderr, "neo: step end   workflow=%s id=%s %s status=fail\n", wf->name,
+                wf->steps[i].id ? wf->steps[i].id : "?", kind);
+        wf_map_free(map, map_n);
+        free(prev);
+        return -1;
+      }
+      if (verbose)
+        fprintf(stderr, "neo: step end   workflow=%s id=%s %s status=ok\n", wf->name,
+                wf->steps[i].id ? wf->steps[i].id : "?", kind);
     }
-    if (verbose) fprintf(stderr, "neo: step end   workflow=%s id=%s status=ok\n", wf->name,
-                         wf->steps[i].id ? wf->steps[i].id : "?");
   }
 
   *out_text = prev ? prev : strdup("");

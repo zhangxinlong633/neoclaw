@@ -59,13 +59,23 @@
 ```bash
 ./neo workflow run show_time
 ./neo workflow run repo_pulse
+./neo workflow run workspace_brief
 ./neo workflow run list_overview
 ./neo -p demo workflow run demo_loop
-./neo -v workflow run show_time   # stderr 步骤摘要
+./neo -v workflow run show_time   # stderr：步骤 type / tool / status
 ./scripts/neo-ask --workflow diamond
 ```
 
-常用 catalog 图（需 `workflow_directory: "dags"`）：`show_time`、`repo_pulse`、`list_overview`、`inspect_path`、`search_context`、`append_memo`。详见 [`../dags/README.md`](../dags/README.md)。
+常用 catalog 图（需 `workflow_directory: "dags"`）：`show_time`、`repo_pulse`、**`workspace_brief`**、`list_overview`、`inspect_path`、`search_context`、`append_memo`。详见 [`../dags/README.md`](../dags/README.md)。
+
+### 可观测（stderr）
+
+| 开关 | 行为 |
+|------|------|
+| 默认 | 整图结束 `neo: run done … status=ok`；**任一步失败**另打 `neo: step end … type=… status=fail` |
+| `-v` / `--verbose` | 另打每步 `step start` / `step end`，含 `type=tool tool=…` 或 `type=llm tools=on\|off` |
+
+约定：`type:tool` 走 Capability Matrix 本地能力；`type:llm` 才调用远端模型（完整「计算漂移」仍见架构远期路线图）。
 
 ## Plan then Run
 

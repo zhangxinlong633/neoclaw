@@ -135,11 +135,14 @@ Neo 的差异化不在于追求单一场景下的模型上限，而在于：
 | 场景层次 | 与现行仓库的相关性 | 主要依托 |
 |----------|--------------------|----------|
 | 基础层：多步骤确定性任务 | 高 | `dags/baseline/`、`neo plan` / `neo run` |
-| 基础层：工作区旁路助手 | 高 | `dags/workspace/` |
+| 基础层：工作区旁路助手 | 高 | `dags/workspace/`（含旗舰 SOP `workspace_brief`） |
 | 基础层：工具工程化 | 高 | `capability_matrix`、`capabilities/git/`、`capabilities/unix/`（白名单）、MCP |
-| 基础层：成本与时延优化 | 中（部分） | `capabilities/local/` + 远端模型；计算漂移为路线图 |
-| 行业层：边缘 / 具身 / 物联网 | 低（方向正确） | 预留 `capabilities/industry/`、`dags/edge/`（默认不加载）；架构见 [`architecture.md`](architecture.md) |
+| 基础层：步骤可观测 / 失败定位 | 高 | `./neo -v workflow run …`；失败时 `status=fail` 含步骤类型 |
+| 基础层：成本与时延优化 | 中（部分） | `type:tool` 本地能力 + `type:llm` 远端；计算漂移为远期 |
+| 行业层：边缘 / 具身 / 物联网 | 低（方向正确） | 预留 `capabilities/industry/`、`dags/edge/`（默认不加载）；架构见 [`architecture.md`](architecture.md) §8.1 |
 | 未来层：操作系统化 / 分发标准 | 愿景 | 非现行交付范围 |
+
+近端优先补齐基础层可复查与可观测；行业与愿景层勿当作已交付。细则见 [`architecture.md`](architecture.md) §8.1。
 
 ---
 

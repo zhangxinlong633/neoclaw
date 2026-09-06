@@ -413,16 +413,31 @@ DAG 为调度层认可的标准编排输入。目标元素集合如下；本仓�
 | 调度层 | `src/workflow/workflow.c` | 本机 DAG、循环与路由 |
 | 执行层 | `src/capability/*` | 矩阵、分发与 MCP stdio 装载 |
 | 能力目录 | `capabilities/` | 已实现 |
-| DAG 目录 | `dags/` | 已实现 |
-| 规划层 | `src/workflow/plan.c` | 已实现（可选） |
+| DAG 目录 | `dags/` | 已实现（含 `workspace_brief` 等 SOP） |
+| 规划层 | `src/workflow/plan.c` | 已实现（可选；catalog `use` + 现编） |
 | claw | `rules/` 以及 soul、bootstrap、memory | Skills 已废止 |
+| HTTPS | `neo_http` + vendored BearHttpsClient | 已实现（系统 DNS + known_ips） |
 | 层间结构化信封 | — | 路线图（现行为文本步骤输出） |
-| 计算漂移与位置决策 | — | 未实现 |
-| 多态变体与服务质量标签 | — | 未实现 |
-| L1–L3 自动降级 | — | 未实现（可人工再次规划） |
-| 检查点与断点续跑 | — | 未实现 |
-| WASM、容器隔离与分布式调度 | — | 未实现 |
-| OAuth 与独立审计总线 | — | 未实现 |
+| 计算漂移与位置决策 | — | 未实现（远期） |
+| 多态变体与服务质量标签 | — | 未实现（远期） |
+| L1–L3 自动降级 | — | 未实现（远期；可人工再次规划） |
+| 检查点与断点续跑 | — | 未实现（远期） |
+| WASM、容器隔离与分布式调度 | — | 未实现（远期） |
+| OAuth 与独立审计总线 | — | 未实现（远期） |
+
+### 8.1 近端演进（基础层，优先于行业/愿景）
+
+下列项支撑 README / [`applications.md`](applications.md) 的「今天就能落地」，**不是**边缘自治或 Agent-as-OS：
+
+| 主题 | 现状 | 说明 |
+|------|------|------|
+| 步骤可观测 | 已具备 | `-v` 打印 `type` / `tool` / `tools=on\|off`；失败时即使无 `-v` 也打印 `status=fail` |
+| Catalog SOP | 已具备 | 如 `show_time`、`repo_pulse`、`workspace_brief`（取数→整理→落盘） |
+| 规划选型稳健 | 部分 | `use` 误写能力名可降级为 ad-hoc tool 图；混用/未知名失败可读 |
+| 本地优先约定 | 文档约定 | DAG 中 `type:tool` 走矩阵本地能力，`type:llm` 才调远端模型；完整计算漂移仍为远期 |
+| 图级重试 / 并行 | 路线图 | 不在近端切片；失败由上层脚本或再次 `neo plan` 承担 |
+
+行业层（`capabilities/industry/`、`dags/edge/`）与未来层保持**预留、默认不加载**，见 [`applications.md`](applications.md) §3–4。
 
 工程变更须遵守 [`AGENTS.md`](../AGENTS.md) 所规定的产品三角。本文与实现不一致时，以第 8 章回写结果及用户文档为准。
 
