@@ -8,6 +8,7 @@ config/config.json
 config.json5
 config/config.json5
 demo-tool.txt
+WORKSPACE_BRIEF.md
 .worktrees
 tests/fixtures/count.out
 profiles/demo/count.out

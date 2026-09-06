@@ -42,11 +42,14 @@
   capability_matrix: {
     enabled: true,
     root: ".",
+    // Default pack: capabilities/{local,git,unix} via capabilities/manifest.json5.
+    // See docs/examples.md §1.1「开箱组合」.
     directory: "capabilities",
     max_rounds: 16,
     shell_enabled: false,
   },
 
+  // Default pack: dags/{baseline,workspace}. Flagship SOP: workspace_brief.
   workflow_directory: "dags",
 
   // plan: { target_steps: 10 },

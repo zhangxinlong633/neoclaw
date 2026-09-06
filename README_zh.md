@@ -112,6 +112,9 @@ cp config/config.json5.example config/config.json5
 # 按现成 DAG 跑一个小目标：查看当前时间
 ./neo workflow run show_time
 
+# 旗舰工作区 SOP：列目录 → 简报 → 追加 WORKSPACE_BRIEF.md
+./neo workflow run workspace_brief
+
 # 用一句话交代目标：规划并执行
 ./neo run "看下系统时间"
 

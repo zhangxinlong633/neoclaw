@@ -2,7 +2,7 @@
 
 | 属性 | 内容 |
 |------|------|
-| 文档版本 | 1.1 |
+| 文档版本 | 1.2 |
 | 发布日期 | 2026-09-05 |
 | 文档状态 | 正式说明 |
 | 前置条件 | 已在仓库根执行 `make`；已配置 `config/config.json5`（可自 `config/config.json5.example` 复制） |
@@ -44,6 +44,25 @@
 | `unix/enabled.json5` | 控制 Unix 工具集实际装入矩阵的子集 |
 
 未设置 `workflow_directory` 时，`neo workflow run` / `neo run` 的 catalog 选型不可用。
+
+---
+
+## 1.1 开箱组合（默认包）
+
+复制 `config/config.json5.example` 且不改 `directory` / `workflow_directory` / 各 `manifest.load` 时，默认组合如下。细则见 [`../capabilities/README.md`](../capabilities/README.md)、[`../dags/README.md`](../dags/README.md)。
+
+| 场景 | capabilities `load` | dags `load` | 推荐试跑 | Policy 注意 |
+|------|---------------------|-------------|----------|-------------|
+| 默认旁路助手 | `local` + `git` + `unix`（仅 `enabled.json5`） | `baseline` + `workspace` | `show_time`、`repo_pulse`、**`workspace_brief`** | `shell_enabled: false`；Unix 危险命令默认不在白名单 |
+| 行业 / 边缘预留 | `industry/` 存在但不在 `load` | `edge/` 同理 | — | 勿当作现行交付 |
+
+旗舰 SOP（列目录 → LLM 简报 → 落盘）：
+
+```bash
+./neo workflow run workspace_brief
+```
+
+成功后工作区根会出现或追加 `WORKSPACE_BRIEF.md`（可复查；与 `MEMORY.md` 分离）。
 
 ---
 
@@ -150,15 +169,23 @@ neo: run done workflow=show_time status=ok
 
 步骤：`git_status_short` → `git_log_five` → LLM 一段话汇总。需本机有 `git`，且矩阵中已加载对应能力。
 
-### 4.3 工作区概览（`list_overview`）
+### 4.3 工作区旗舰 SOP（`workspace_brief`）
+
+```bash
+./neo workflow run workspace_brief
+```
+
+步骤：`list_dir` → LLM 简报 → `append_file` 写入 `WORKSPACE_BRIEF.md`。适合演示「取数 → 整理 → 落盘」；不要用它改 `MEMORY.md`（长期记忆用 `append_memo`）。
+
+### 4.4 工作区概览（`list_overview`）
 
 ```bash
 ./neo workflow run list_overview
 ```
 
-步骤：`list_dir` → LLM 说明顶层布局。
+步骤：`list_dir` → LLM 说明顶层布局（不落盘）。
 
-### 4.4 单文件检视（`inspect_path`）
+### 4.5 单文件检视（`inspect_path`）
 
 默认图内路径为 `README.md`：
 
@@ -166,7 +193,7 @@ neo: run done workflow=show_time status=ok
 ./neo workflow run inspect_path
 ```
 
-### 4.5 详细步骤日志
+### 4.6 详细步骤日志
 
 ```bash
 ./neo -v workflow run show_time

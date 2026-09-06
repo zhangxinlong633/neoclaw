@@ -1,0 +1,38 @@
+{
+  name: "workspace_brief",
+  description: "List the workspace root, draft a short structural brief with LLM, then append it to WORKSPACE_BRIEF.md for review.",
+  when: [
+    "Need a repeatable orient → summarize → persist SOP for the current workspace root",
+    "Want a reviewable brief file without touching MEMORY.md",
+  ],
+  when_not: [
+    "Long-term claw memory (use append_memo / MEMORY.md)",
+    "Deep recursive tree walks or single-file inspection (use inspect_path)",
+    "Git health pulse (use repo_pulse)",
+  ],
+  tags: ["fs", "llm", "workspace", "sop"],
+  requires: ["list_dir", "append_file"],
+  outcome: "Directory listing folded into a short brief appended to WORKSPACE_BRIEF.md",
+  steps: [
+    {
+      id: "ls",
+      type: "tool",
+      tool: "list_dir",
+      args: { path: "." },
+    },
+    {
+      id: "brief",
+      type: "llm",
+      tools: "off",
+      prompt: "根据工作区根目录列表，写一段可复查的简报（用用户语言）：(1) 顶层结构要点；(2) 至多 3 条可执行观察或下一步建议。不要 Markdown 大标题。列表={{steps.ls}}",
+      depends_on: ["ls"],
+    },
+    {
+      id: "save",
+      type: "tool",
+      tool: "append_file",
+      args: { path: "WORKSPACE_BRIEF.md", content: "{{steps.brief}}\n\n---\n" },
+      depends_on: ["brief"],
+    },
+  ],
+}

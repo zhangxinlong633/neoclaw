@@ -140,6 +140,21 @@ int main(void) {
     plan_free_use(names, n);
   }
 
+  {
+    char *tool_names[2];
+    char *syn = NULL;
+    tool_names[0] = (char *)"date_iso";
+    tool_names[1] = (char *)"list_dir";
+    syn = plan_workflows_json_for_tools(tool_names, 2);
+    if (!syn || !strstr(syn, "adhoc_tools") || !strstr(syn, "date_iso") || !strstr(syn, "list_dir")) {
+      fprintf(stderr, "synthesize adhoc_tools failed: %s\n", syn ? syn : "(null)");
+      free(syn);
+      config_free(&base);
+      return 1;
+    }
+    free(syn);
+  }
+
   config_free(&base);
 
   {
@@ -156,8 +171,8 @@ int main(void) {
       return 1;
     }
     cat = workflow_dir_catalog_listing(&c);
-    if (!cat || !strstr(cat, "dir_count")) {
-      fprintf(stderr, "catalog missing dir_count: %s\n", cat ? cat : "(null)");
+    if (!cat || !strstr(cat, "dir_count") || !strstr(cat, "DAG:")) {
+      fprintf(stderr, "catalog missing dir_count or DAG: prefix: %s\n", cat ? cat : "(null)");
       free(cat);
       config_free(&c);
       return 1;

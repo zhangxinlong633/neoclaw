@@ -4,7 +4,7 @@
 
 Planner（`neo plan` / `neo run`）生成 catalog（含 `when` / `when_not` / `requires` / `outcome`），并优先输出 `{"use":["name"]}`；无合适条目时再现编 `{"workflows":[...]}`。
 
-权威说明：[`docs/workflow.md`](../docs/workflow.md)、[`docs/examples.md`](../docs/examples.md)、[`docs/applications.md`](../docs/applications.md)、[`docs/architecture.md`](../docs/architecture.md)、[`AGENTS.md`](../AGENTS.md) §4.1。
+权威说明：[`docs/workflow.md`](../docs/workflow.md)、[`docs/examples.md`](../docs/examples.md)（含 **开箱组合** 与 `workspace_brief`）、[`docs/applications.md`](../docs/applications.md)、[`docs/architecture.md`](../docs/architecture.md)、[`AGENTS.md`](../AGENTS.md) §4.1。
 
 ## 职责边界
 
@@ -26,7 +26,7 @@ Planner（`neo plan` / `neo run`）生成 catalog（含 `when` / `when_not` / `r
 | 子目录 | 职责 |
 |--------|------|
 | `baseline/` | 多步 tool→LLM 稳定编排示范 |
-| `workspace/` | 仓库旁路：读览、搜索、备忘 |
+| `workspace/` | 仓库旁路：读览、搜索、备忘；旗舰 SOP 为 `workspace_brief`（列目录 → LLM 简报 → 落盘 `WORKSPACE_BRIEF.md`） |
 | `edge/` | 边缘 / 工业联锁图预留；**不**列入 `load` |
 | `proposed/` | 草稿区；当前默认不加载 |
 

@@ -229,7 +229,8 @@ char *workflow_dir_catalog_listing(const agent_config_t *conf) {
     const workflow_t *wf = &conf->workflows[i];
     char line[1536];
     if (!wf->name) continue;
-    snprintf(line, sizeof(line), "- %s: %s\n", wf->name,
+    /* 前缀 DAG: 与能力矩阵名单区分，降低 planner 把 tool 名写入 use 的概率。 */
+    snprintf(line, sizeof(line), "- DAG: %s — %s\n", wf->name,
              wf->description ? wf->description : "(no description)");
     if (catalog_append(&buf, &len, &cap, line) != 0) {
       free(buf);

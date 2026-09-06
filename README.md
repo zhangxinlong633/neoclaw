@@ -112,6 +112,9 @@ From the repo root (after API key is set):
 # Run a catalog DAG: show current time
 ./neo workflow run show_time
 
+# Flagship workspace SOP: list → brief → append WORKSPACE_BRIEF.md
+./neo workflow run workspace_brief
+
 # One-line goal: plan and execute
 ./neo run "show the system time"
 

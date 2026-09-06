@@ -36,7 +36,7 @@ static int plan_name_is_capability(const agent_config_t *conf, const char *name)
 }
 
 /* 把误放入 use 的能力名降级成单图多 tool 步，供 materialize / 执行。调用方 free。 */
-static char *plan_workflows_json_for_tools(char **names, int n) {
+char *plan_workflows_json_for_tools(char **names, int n) {
   yyjson_mut_doc *doc;
   yyjson_mut_val *root, *wfs, *wf, *steps, *st, *deps;
   char *out;
@@ -282,7 +282,8 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "- Prefer selecting an existing DAG from the catalog below when it fits.\n"
       "- Selection output (preferred):\n```json\n{\"use\":[\"catalog_name\"]}\n```\n"
       "  (\"use\" may also be a single string.)\n"
-      "- CRITICAL: names in \"use\" MUST be DAG catalog names only. "
+      "- CRITICAL: names in \"use\" MUST be DAG catalog names only "
+      "(listed below as \"DAG: <name> — ...\"). "
       "Never put Capability Matrix tool names (e.g. date_iso, read_file, unix_wc) in \"use\". "
       "Those belong only in invented steps with \"type\":\"tool\" and a \"tool\" field.\n"
       "- Only invent a full workflows array if no catalog entry fits.\n"
@@ -600,8 +601,10 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
         for (ui = 0; ui < use_n; ui++) {
           if (!config_find_workflow(conf, use_names[ui]) &&
               !plan_name_is_capability(conf, use_names[ui])) {
-            fprintf(stderr, "neo %s: unknown catalog DAG '%s'\n", do_run ? "run" : "plan",
-                    use_names[ui]);
+            fprintf(stderr,
+                    "neo %s: '%s' is neither a catalog DAG nor a Capability Matrix name "
+                    "(use a DAG catalog name in \"use\", or invent type:tool steps)\n",
+                    do_run ? "run" : "plan", use_names[ui]);
           }
         }
         plan_free_use(use_names, use_n);

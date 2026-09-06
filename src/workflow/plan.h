@@ -22,6 +22,12 @@ int plan_extract_workflows_json(const char *llm_text, char **out_json);
 int plan_extract_use(const char *llm_text, char ***out_names, int *out_n);
 void plan_free_use(char **names, int n);
 
+/*
+ * 把误写入 use 的能力名合成单图多 tool 步的 workflows JSON（name=adhoc_tools）。
+ * 供 plan_run 降级路径与单测；调用方 free 返回值。
+ */
+char *plan_workflows_json_for_tools(char **names, int n);
+
 /* 拼 planner system prompt：DAG catalog + 能力矩阵名单 + 知识/工程路由规则。调用方 free。 */
 char *plan_build_system_prompt(const agent_config_t *conf, int target_steps);
 
