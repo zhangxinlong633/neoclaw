@@ -48,7 +48,7 @@ Neo 把「钉在仓库上的助手」拆成 **配置 + Markdown（claw）+ 能�
 | **memory** | 会话间要记住的事实、偏好、进行中的任务摘要 | 你 + 模型建议后手改 |
 | **capability_matrix** | 可发现/可调用能力（builtin / commands / MCP） | 配置 + `capabilities/` |
 | **workspace.prompt_cwd** | 告诉模型 Neo 进程**当前工作目录**（一般是仓库根） | 配置开关 |
-| **workflows** | 声明式 DAG（`tool` / `llm` / `loop` / `route`） | JSON5 + `neo workflow run` |
+| **workflows** | 声明式 DAG（`tool` / `llm` / `loop` / `route`） | JSON5 + `neo dag run` |
 | **profiles** | 整套人设与工具根切换（`config/profiles/<name>/`） | `-p` / `NEO_PROFILE` |
 
 ---

@@ -1,7 +1,7 @@
 # Neo 确定性 DAG Workflow
 
 编排路径主张：**拓扑在配置（JSON5）里声明，LLM 只当 Worker**（不参与「下一步走哪」）。  
-自然语言 `./neo "..."` 仍可自由对话；`neo workflow run` 走确定性图。
+自然语言 `./neo "..."` 仍可自由对话；`neo dag run`（或 `neo run <已知名>`）走确定性图。`workflow run` 为弃用别名。
 
 不引入 Temporal / Airflow；引擎就是 `neo` 进程内的小 DAG runner。  
 配置迁移见 [migrate-json.md](migrate-json.md)。命令样例见 [examples.md](examples.md)。
@@ -89,12 +89,12 @@
 ## 运行
 
 ```bash
-./neo workflow run show_time
-./neo workflow run repo_pulse
-./neo workflow run workspace_brief
-./neo workflow run list_overview
-./neo -p demo workflow run demo_loop
-./neo -v workflow run show_time   # stderr：步骤 type / tool / status
+./neo dag run show_time
+./neo dag run repo_pulse
+./neo dag run workspace_brief
+./neo dag run list_overview
+./neo -p demo dag run demo_loop
+./neo -v dag run show_time   # stderr：步骤 type / tool / status
 ./scripts/neo-ask --workflow diamond
 ```
 
@@ -115,7 +115,8 @@
 |------|------|
 | `neo run "task"` | 规划 → 校验 → **执行**（stdout 只有执行结果） |
 | `neo plan "task"` | 规划 → 校验（stdout 为 `use` 或 workflows **JSON**） |
-| `neo workflow run NAME` | 跑配置 / `workflow_directory` 里已声明的图 |
+| `neo dag run NAME` | 跑配置 / `workflow_directory` 里已声明的图 |
+| `neo run NAME` | 若 NAME 为已加载图名则直接跑图；否则 plan+execute |
 
 ### DAG 目录（一图一文件）
 

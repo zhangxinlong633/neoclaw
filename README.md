@@ -110,10 +110,10 @@ From the repo root (after API key is set):
 ./neo "In three sentences, what goal-oriented tasks is Neo good for?"
 
 # Run a catalog DAG: show current time
-./neo workflow run show_time
+./neo dag run show_time
 
 # Flagship workspace SOP: list → brief → append WORKSPACE_BRIEF.md
-./neo workflow run workspace_brief
+./neo dag run workspace_brief
 
 # One-line goal: plan and execute
 ./neo run "show the system time"
@@ -134,7 +134,7 @@ More examples: [`docs/examples.md`](docs/examples.md).
 | You want… | Say |
 |-----------|-----|
 | A quick question | `./neo "your question"` |
-| Finish a goal via a fixed DAG | `./neo workflow run <dag-name>` |
+| Finish a goal via a fixed DAG | `./neo dag run <dag-name>` (or `./neo run <dag-name>`) |
 | State a goal in one line and finish it | `./neo run "the goal"` |
 
 Plan without executing: use `plan` instead of `run`.

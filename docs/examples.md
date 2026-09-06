@@ -43,7 +43,7 @@
 | `workflow_directory` | 加载 `dags/{baseline,workspace}/` 的 DAG catalog |
 | `unix/enabled.json5` | 控制 Unix 工具集实际装入矩阵的子集 |
 
-未设置 `workflow_directory` 时，`neo workflow run` / `neo run` 的 catalog 选型不可用。
+未设置 `workflow_directory` 时，`neo dag run` / `neo run`（名命中图）的 catalog 选型不可用。
 
 ---
 
@@ -59,7 +59,7 @@
 旗舰 SOP（列目录 → LLM 简报 → 落盘）：
 
 ```bash
-./neo workflow run workspace_brief
+./neo dag run workspace_brief
 ```
 
 成功后工作区根会出现或追加 `WORKSPACE_BRIEF.md`（可复查；与 `MEMORY.md` 分离）。
@@ -138,14 +138,16 @@ neo tool: read_file
 
 ---
 
-## 4. 确定性 DAG：`workflow run`
+## 4. 确定性 DAG：`dag run`
+
+> `neo workflow run` 已弃用，等价于 `neo dag run`。已知图名也可用 `neo run <name>`（不经 planner）。
 
 不经过规划器，直接执行已声明的图。
 
 ### 4.1 查看系统时间（`show_time`）
 
 ```bash
-./neo workflow run show_time
+./neo dag run show_time
 ```
 
 典型输出（stdout）：
@@ -164,7 +166,7 @@ neo: run done workflow=show_time status=ok
 ### 4.2 仓库脉搏（`repo_pulse`）
 
 ```bash
-./neo workflow run repo_pulse
+./neo dag run repo_pulse
 ```
 
 步骤：`git_status_short` → `git_log_five` → LLM 一段话汇总。需本机有 `git`，且矩阵中已加载对应能力。
@@ -172,7 +174,7 @@ neo: run done workflow=show_time status=ok
 ### 4.3 工作区旗舰 SOP（`workspace_brief`）
 
 ```bash
-./neo workflow run workspace_brief
+./neo dag run workspace_brief
 ```
 
 步骤：`list_dir` → LLM 简报 → `append_file` 写入 `WORKSPACE_BRIEF.md`。适合演示「取数 → 整理 → 落盘」；不要用它改 `MEMORY.md`（长期记忆用 `append_memo`）。
@@ -180,7 +182,7 @@ neo: run done workflow=show_time status=ok
 ### 4.4 工作区概览（`list_overview`）
 
 ```bash
-./neo workflow run list_overview
+./neo dag run list_overview
 ```
 
 步骤：`list_dir` → LLM 说明顶层布局（不落盘）。
@@ -190,13 +192,13 @@ neo: run done workflow=show_time status=ok
 默认图内路径为 `README.md`：
 
 ```bash
-./neo workflow run inspect_path
+./neo dag run inspect_path
 ```
 
 ### 4.6 详细步骤日志
 
 ```bash
-./neo -v workflow run show_time
+./neo -v dag run show_time
 ```
 
 ---
@@ -252,7 +254,7 @@ Planner 倾向约 4 步编辑流水线（理解 → 起草 → 自检 → 终稿
 
 ```bash
 ./neo run --steps 1 "用一句话说明 Policy 是什么"
-./neo plan --steps 4 "解释 neo plan 与 neo workflow run 的区别"
+./neo plan --steps 4 "解释 neo plan 与 neo dag run 的区别"
 ```
 
 ### 5.5 保存规划结果
@@ -288,7 +290,7 @@ echo "现在几点（UTC）？请用工具" | nc -U /tmp/neo.sock
 ### 7.1 Profile
 
 ```bash
-./neo -p demo workflow run demo_loop
+./neo -p demo dag run demo_loop
 ```
 
 会切换到 `config/profiles/demo/` 下的配置与工作目录（以该 profile 的 README / `neo.json5` 为准）。
@@ -318,10 +320,10 @@ echo "现在几点（UTC）？请用工具" | nc -U /tmp/neo.sock
 ## 9. 推荐练习路径
 
 1. `./neo "你是谁"` — 确认模型与 claw 注入  
-2. `./neo workflow run show_time` — 确认矩阵 + DAG 目录  
+2. `./neo dag run show_time` — 确认矩阵 + DAG 目录  
 3. `./neo run "看下系统时间"` — 确认 planner 选型  
 4. `./neo "read_file README.md 并概括"` — 确认反应式 tool loop  
-5. `./neo workflow run repo_pulse` — 确认多步 tool→LLM  
+5. `./neo dag run repo_pulse` — 确认多步 tool→LLM  
 
 ---
 

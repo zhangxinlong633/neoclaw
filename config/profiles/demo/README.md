@@ -8,4 +8,4 @@
 |--------|------|
 | `scripts/` | 本 profile 专用辅助脚本（含命令工具脚本） |
 
-入口配置为同目录 `neo.json5`。运行示例：`./neo -p demo -v workflow run demo_loop`。
+入口配置为同目录 `neo.json5`。运行示例：`./neo -p demo -v dag run demo_loop`。

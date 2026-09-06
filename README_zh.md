@@ -110,10 +110,10 @@ cp config/config.json5.example config/config.json5
 ./neo "用三句话说明 Neo 适合完成哪些目标型任务"
 
 # 按现成 DAG 跑一个小目标：查看当前时间
-./neo workflow run show_time
+./neo dag run show_time
 
 # 旗舰工作区 SOP：列目录 → 简报 → 追加 WORKSPACE_BRIEF.md
-./neo workflow run workspace_brief
+./neo dag run workspace_brief
 
 # 用一句话交代目标：规划并执行
 ./neo run "看下系统时间"
@@ -134,7 +134,7 @@ cp config/config.json5.example config/config.json5
 | 你想… | 怎么说 |
 |-------|--------|
 | 随便问一句 | `./neo "你的问题"` |
-| 按已定 DAG 完成目标 | `./neo workflow run 流程名` |
+| 按已定 DAG 完成目标 | `./neo dag run 流程名`（或 `./neo run 流程名`） |
 | 用一句话交代目标并自动办完 | `./neo run "要完成的目标"` |
 
 只要计划、先不执行：把 `run` 换成 `plan`。

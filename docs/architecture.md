@@ -61,7 +61,7 @@ Neo 的逻辑内核划分为两层：**调度层（Scheduler）** 与 **执行�
 
 | 架构层 | 产品三角对应 | 本仓库主要实现入口 |
 |--------|--------------|--------------------|
-| 调度层 | DAG（拓扑、依赖、分支与跳过） | `src/workflow/workflow.c`；`neo workflow run`、`neo plan`、`neo run` |
+| 调度层 | DAG（拓扑、依赖、分支与跳过） | `src/workflow/workflow.c`；`neo dag run`、`neo plan`、`neo run` |
 | 执行层 | Capability Matrix 与 Policy | `src/capability/*`；配置键 `capability_matrix`；目录 `capabilities/` |
 | 规划层（可选） | 自然语言至 DAG 的转化 | `src/workflow/plan.c`；可省略，直接提交 workflows |
 
