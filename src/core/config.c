@@ -104,6 +104,18 @@ static void free_workflows(workflow_t *wfs, int n) {
           for (k = 0; k < s->route_else_count; k++) free(s->route_else[k]);
           free(s->route_else);
         }
+        if (s->route_cases) {
+          for (k = 0; k < s->route_case_count; k++) {
+            int t;
+            free(s->route_cases[k].match);
+            if (s->route_cases[k].then_ids) {
+              for (t = 0; t < s->route_cases[k].then_count; t++)
+                free(s->route_cases[k].then_ids[t]);
+              free(s->route_cases[k].then_ids);
+            }
+          }
+          free(s->route_cases);
+        }
       }
       free(wfs[i].steps);
     }
@@ -209,22 +221,48 @@ static int validate_workflows(agent_config_t *c) {
           fprintf(stderr, "neo: workflow '%s' step '%s': route on required\n", wf->name, s->id);
           return -1;
         }
-        if (s->route_then_count < 1 && s->route_else_count < 1) {
+        if (s->route_case_count > 0) {
+          int defaults = 0;
+          for (k = 0; k < s->route_case_count; k++) {
+            int t;
+            const char *m = s->route_cases[k].match;
+            if (!m || !m[0]) defaults++;
+            for (t = 0; t < s->route_cases[k].then_count; t++) {
+              if (!wf_id_exists(wf, s->route_cases[k].then_ids[t])) {
+                fprintf(stderr, "neo: workflow '%s' step '%s': unknown cases[%d] then id\n",
+                        wf->name, s->id, k);
+                return -1;
+              }
+            }
+          }
+          if (defaults > 1) {
+            fprintf(stderr, "neo: workflow '%s' step '%s': at most one default route case\n",
+                    wf->name, s->id);
+            return -1;
+          }
+        } else if (s->route_then_count < 1 && s->route_else_count < 1) {
           fprintf(stderr, "neo: workflow '%s' step '%s': route then/else empty\n", wf->name, s->id);
           return -1;
         }
-        for (k = 0; k < s->route_then_count; k++) {
-          if (!wf_id_exists(wf, s->route_then[k])) {
-            fprintf(stderr, "neo: workflow '%s' step '%s': unknown then id\n", wf->name, s->id);
-            return -1;
+        if (s->route_case_count < 1) {
+          for (k = 0; k < s->route_then_count; k++) {
+            if (!wf_id_exists(wf, s->route_then[k])) {
+              fprintf(stderr, "neo: workflow '%s' step '%s': unknown then id\n", wf->name, s->id);
+              return -1;
+            }
+          }
+          for (k = 0; k < s->route_else_count; k++) {
+            if (!wf_id_exists(wf, s->route_else[k])) {
+              fprintf(stderr, "neo: workflow '%s' step '%s': unknown else id\n", wf->name, s->id);
+              return -1;
+            }
           }
         }
-        for (k = 0; k < s->route_else_count; k++) {
-          if (!wf_id_exists(wf, s->route_else[k])) {
-            fprintf(stderr, "neo: workflow '%s' step '%s': unknown else id\n", wf->name, s->id);
-            return -1;
-          }
-        }
+      }
+      if (s->retry_max > 0 && s->type != WF_STEP_TOOL) {
+        fprintf(stderr, "neo: workflow '%s' step '%s': retry only allowed on type tool\n",
+                wf->name, s->id);
+        return -1;
       }
     }
   }
@@ -695,7 +733,8 @@ int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *
     workflow_step_t *s;
     workflow_step_t *snp;
     yyjson_val *type_v, *tools_v, *args_v, *max_v, *dep, *over, *then_a, *else_a;
-    char pathbuf[96];
+    yyjson_val *cases_a, *retry_v;
+    char pathbuf[128];
     st = yyjson_arr_get(steps, si);
     if (!yyjson_is_obj(st)) {
       fprintf(stderr, "neo: %s: steps/%zu expected object\n", ctx, si);
@@ -758,6 +797,45 @@ int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *
       snprintf(pathbuf, sizeof(pathbuf), "%s/steps/%zu/else", ctx, si);
       if (yy_string_array(else_a, &s->route_else, &s->route_else_count, MAX_ARGV, pathbuf) != 0)
         return -1;
+    }
+    /* 多路 cases：存在时运行时忽略顶层 match/then/else 的分支语义 */
+    cases_a = yyjson_obj_get(st, "cases");
+    if (yyjson_is_arr(cases_a)) {
+      size_t ci, cn = yyjson_arr_size(cases_a);
+      if (cn < 1 || cn > (size_t)WF_MAX_ROUTE_CASES) {
+        fprintf(stderr, "neo: %s/steps/%zu: cases length must be 1..%d\n", ctx, si,
+                WF_MAX_ROUTE_CASES);
+        return -1;
+      }
+      s->route_cases = calloc(cn, sizeof(wf_route_case_t));
+      if (!s->route_cases) return -1;
+      s->route_case_count = (int)cn;
+      for (ci = 0; ci < cn; ci++) {
+        yyjson_val *co = yyjson_arr_get(cases_a, ci);
+        yyjson_val *th;
+        if (!yyjson_is_obj(co)) {
+          fprintf(stderr, "neo: %s/steps/%zu/cases/%zu: expected object\n", ctx, si, ci);
+          return -1;
+        }
+        s->route_cases[ci].match = yy_dup_str(yyjson_obj_get(co, "match"));
+        th = yyjson_obj_get(co, "then");
+        if (th) {
+          snprintf(pathbuf, sizeof(pathbuf), "%s/steps/%zu/cases/%zu/then", ctx, si, ci);
+          if (yy_string_array(th, &s->route_cases[ci].then_ids, &s->route_cases[ci].then_count,
+                              MAX_ARGV, pathbuf) != 0)
+            return -1;
+        }
+      }
+    }
+    retry_v = yyjson_obj_get(st, "retry");
+    if (yyjson_is_obj(retry_v)) {
+      yyjson_val *rm = yyjson_obj_get(retry_v, "max");
+      if (yyjson_is_int(rm) || yyjson_is_uint(rm)) {
+        int m = (int)yyjson_get_sint(rm);
+        if (m < 0) m = 0;
+        if (m > 3) m = 3;
+        s->retry_max = m;
+      }
     }
     wf->step_count++;
   }

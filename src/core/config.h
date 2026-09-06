@@ -95,6 +95,15 @@ typedef enum {
   WF_STEP_ROUTE = 3
 } wf_step_type_t;
 
+#define WF_MAX_ROUTE_CASES 16
+
+/* 多路 route 的一支；match 为空表示默认支。 */
+typedef struct {
+  char *match;
+  char **then_ids;
+  int then_count;
+} wf_route_case_t;
+
 typedef struct {
   char *id;
   wf_step_type_t type;
@@ -107,13 +116,16 @@ typedef struct {
   int max_iters;
   char **depends_on;
   int depends_count;
-  /* route: expand `on`, if contains `match` take then[], else else[] */
+  /* route: expand `on`；无 cases 时用 match/then/else；有 cases 时忽略三者分支语义 */
   char *route_on;
   char *route_match;
   char **route_then;
   int route_then_count;
   char **route_else;
   int route_else_count;
+  wf_route_case_t *route_cases;
+  int route_case_count;
+  int retry_max; /* 仅 tool：首次失败后的额外尝试次数，0..3 */
 } workflow_step_t;
 
 typedef struct {
