@@ -15,12 +15,17 @@ profiles/demo/count.out
 config/profiles/demo/count.out
 tests/test_parse_commands
 tests/test_command_exec
+tests/test_parse_dags
+tests/test_dag_loop
+tests/test_dag_template
+tests/test_dag_runner
+tests/test_plan_extract
+tests/test_capability_matrix
+# legacy names (pre workflow→DAG rename)
 tests/test_parse_workflows
 tests/test_workflow_loop
 tests/test_workflow_template
 tests/test_workflow_dag
-tests/test_plan_extract
-tests/test_capability_matrix
 capabilities/proposed/*.json5
 !capabilities/proposed/README.md
 tests/fixtures/cap_pack/proposed/*.json5
