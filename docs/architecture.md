@@ -435,7 +435,8 @@ DAG 为调度层认可的标准编排输入。目标元素集合如下；本仓�
 | Catalog SOP | 已具备 | 如 `show_time`、`repo_pulse`、`workspace_brief`（取数→整理→落盘） |
 | 规划选型稳健 | 部分 | `use` 误写能力名可降级为 ad-hoc tool 图；混用/未知名失败可读 |
 | 本地优先约定 | 文档约定 | DAG 中 `type:tool` 走矩阵本地能力，`type:llm` 才调远端模型；完整计算漂移仍为远期 |
-| 图级重试 / 并行 | 路线图 | 不在近端切片；失败由上层脚本或再次 `neo plan` 承担 |
+| 多路 route / tool retry | 已具备 | `route.cases` 有序多臂；`retry.max` 仅 tool、0..3；仍无 LLM `decide` |
+| 图级重试 / 并行 | 路线图 | 整图重试引擎与并行调度不在近端；失败可由上层脚本或再次 `neo plan` 承担 |
 
 行业层（`capabilities/industry/`、`dags/edge/`）与未来层保持**预留、默认不加载**，见 [`applications.md`](applications.md) §3–4。
 

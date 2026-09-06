@@ -13,7 +13,7 @@
 | `tool` | 确定性 / 本地命令算子 |
 | `llm` | LLM Worker（步骤字段 `"tools": "on"|"off"`） |
 | `loop` | 按 `over`×`max` 重复（兼容旧写法） |
-| `route` | **确定性**路由：`on` 展开后是否包含 `match` → `then` / `else` |
+| `route` | **确定性**路由：多路 `cases`，或二路 `match` → `then` / `else` |
 
 ## DAG：`depends_on`
 
@@ -40,6 +40,8 @@
 
 ## 确定性 route
 
+二路（兼容旧写法）：
+
 ```json5
 {
   id: "branch",
@@ -52,7 +54,37 @@
 }
 ```
 
+多路 `cases`（有序，**首个**子串命中胜出；无 `match` 或空串为默认臂，最多一个）。当 `cases` 非空时，**忽略**顶层 `match` / `then` / `else`：
+
+```json5
+{
+  id: "branch",
+  type: "route",
+  depends_on: ["classify"],
+  on: "{{steps.classify}}",
+  cases: [
+    { match: "pdf", then: ["as_pdf"] },
+    { match: "docx", then: ["as_docx"] },
+    { then: ["as_other"] },
+  ],
+}
+```
+
 未选中分支会 `skip`；**仅当某步的全部 `depends_on` 都被 skip 时**，该步才连带 skip（route 之后的汇合/总结步在另一侧分支被 skip 时仍可执行）。
+
+## tool 步可选 retry
+
+仅 `type: tool` 可写 `retry.max`（首次失败后的额外尝试次数，钳制到 **0..3**；非 tool 配置报错）：
+
+```json5
+{
+  id: "flaky",
+  type: "tool",
+  tool: "flaky_count",
+  retry: { max: 1 },
+  args: {},
+}
+```
 
 ## 运行
 
