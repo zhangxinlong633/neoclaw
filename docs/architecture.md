@@ -452,7 +452,7 @@ DAG 为调度层认可的标准编排输入。目标元素集合如下；本仓�
 | [`tool.md`](tool.md) | 能力矩阵、命令、MCP 与能力目录 |
 | [`workflow.md`](workflow.md) | DAG、规划与执行 |
 | [`claw.md`](claw.md) | soul、bootstrap、rules、memory |
-| [`README.md`](../README.md) | 产品概述与快速开始 |
+| [`README.md`](../README.md) / [`README_zh.md`](../README_zh.md) | 产品概述与快速开始（英 / 中） |
 | [`AGENTS.md`](../AGENTS.md) | 开发约束与产品三角 |
 
 ---

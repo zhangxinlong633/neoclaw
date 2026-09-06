@@ -2,7 +2,7 @@
 
 给在本仓库改代码的人与 AI agent。**与 `AGENTS.md` 保持同步。**
 
-产品定位见 `README.md`：瑞士军刀、可移植、轻量——**不是**最强 IDE agent。
+产品定位见 `README.md`（英文）/ `README_zh.md`（中文）：瑞士军刀、可移植、轻量——**不是**最强 IDE agent。
 
 > 注意：`example/AGENTS.md` 是给 Neo **运行时** bootstrap 注入的示例身份文件，与本文无关。
 
@@ -167,7 +167,7 @@ capability_matrix: {
 
 - **语言 / 风格**：C99 风格、与邻文件一致；少加依赖（已有 libcurl + 内置 yyjson）。
 - **测试**：相关改动后跑 `make test`（含单元测试 + `tests/cli_capability_matrix.sh` CLI 冒烟；勿对 `make test` 盲目 `| tail` 以致看起来挂死）。仅 CLI：`make test-cli`。fixture 用 `tests/fixtures/*.json5`；旧键兼容可放 `tools_legacy_key.json5`。
-- **文档**：用户可见行为变了再改 `docs/*.md` / 根 `README.md`；超长设计放 `docs/superpowers/`。目录职责变了须按 §6 **正式更新**该目录 `README.md`。
+- **文档**：用户可见行为变了再改 `docs/*.md` / 根 `README.md`（及中文 `README_zh.md`）；超长设计放 `docs/superpowers/`。目录职责变了须按 §6 **正式更新**该目录 `README.md`。
 - **Plan materialize**：写出的临时配置顶层键用 `capability_matrix`，并带上需要的 policy 字段。
 - **Verbose**：`-v` / `--verbose` 必须真正解析；步骤与 capability 日志走 stderr。
 

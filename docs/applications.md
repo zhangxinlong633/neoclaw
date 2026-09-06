@@ -154,7 +154,7 @@ Neo 的差异化不在于追求单一场景下的模型上限，而在于：
 | [`claw.md`](claw.md) | 身份、规则与记忆 |
 | [`../capabilities/README.md`](../capabilities/README.md) | 能力目录场景分层契约 |
 | [`../dags/README.md`](../dags/README.md) | DAG 目录场景分层契约 |
-| [`README.md`](../README.md) | 产品概述与简单样例 |
+| [`README.md`](../README.md) / [`README_zh.md`](../README_zh.md) | 产品概述（英 / 中）：目标型 Agent、业务层次与上手样例 |
 | [`AGENTS.md`](../AGENTS.md) | 开发约束与非目标 |
 
 ---

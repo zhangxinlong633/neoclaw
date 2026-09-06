@@ -6,7 +6,7 @@
 | 发布日期 | 2026-09-05 |
 | 文档状态 | 正式说明 |
 | 前置条件 | 已在仓库根执行 `make`；已配置 `config/config.json5`（可自 `config/config.json5.example` 复制） |
-| 精简入口 | 仓库根 [`README.md`](../README.md)「简单样例」 |
+| 精简入口 | 仓库根 [`README.md`](../README.md) / [`README_zh.md`](../README_zh.md) 上手样例 |
 
 ### 文档目的
 
@@ -302,7 +302,7 @@ echo "现在几点（UTC）？请用工具" | nc -U /tmp/neo.sock
 
 | 文档 | 用途 |
 |------|------|
-| [`README.md`](../README.md) | 产品概述与快速开始 |
+| [`README.md`](../README.md) / [`README_zh.md`](../README_zh.md) | 产品概述与快速开始（英 / 中） |
 | [`tool.md`](tool.md) | 能力矩阵、commands、Unix 包、MCP |
 | [`workflow.md`](workflow.md) | DAG、plan/run |
 | [`applications.md`](applications.md) | 场景与生态位 |

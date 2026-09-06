@@ -1,127 +1,157 @@
 # Neo
 
-**让 AI 可靠地办事，而不是只会聊天。**
+**A goal-oriented, flexible agent system.**
 
-Neo 是一个轻量、可移植的命令行智能助手：把「多步骤任务怎么走」「能调用哪些工具」「哪些事不许做」拆开管好，让云端大模型专心推理，本地负责执行与守门。
+Give Neo a concrete goal (check status, organize materials, run a fixed ops flow…), and it carries the work through as agreed. It is not built to “chat about anything”; it is built to **get a defined class of work done solidly**.
 
-它不是要做成最强 IDE Agent，而是做成可拷到任意机器上的**瑞士军刀**——换环境改配置就能用，边界默认偏安全。
+Two pillars drive that:
 
-> 场景与战略定位见 [`docs/applications.md`](docs/applications.md)；上手命令见下文与 [`docs/examples.md`](docs/examples.md)。
+| Pillar | Business meaning | What it governs |
+|--------|------------------|-----------------|
+| **DAG (flow blueprint)** | How work advances step by step, and how data/results hand off | **Scheduling**: what runs first, what next, which steps depend on which |
+| **Capability matrix** | The allow-list of “moves” (read files, whitelisted commands, external APIs, …) | **Invocation**: which capability a step may actually call |
 
----
+Add policy (what is forbidden by default), and you get operating discipline: the LLM understands and generates; Neo **schedules by the graph and invokes only from the matrix**.
 
-## 它解决什么问题
+Copy it to another machine, adjust config, and use it—a portable **Swiss Army knife**, not a heavyweight studio.
 
-| 业务痛点 | Neo 怎么帮 |
-|----------|------------|
-| 长任务容易跑偏、死循环 | 用**可复现的流程蓝图**（多步任务按图执行），而不是纯临场发挥 |
-| 企业内部工具/脚本散乱，难给 AI 用 | 把可调用能力登记成一张**能力清单**，统一发现与调用 |
-| 事事回云端，贵又慢 | **简单事本地做**（读文件、查时间、跑白名单命令），难事再问大模型 |
-| 权限一开就怕出事 | **策略守门**（默认关随意 shell 等），按需放开 |
+Full scenarios and positioning: [`docs/applications.md`](docs/applications.md). Hands-on commands: below and [`docs/examples.md`](docs/examples.md).
 
-一句话：ChatGPT 像「大家共用的大脑」；Neo 更像「钉在你这台机器 / 这套流程上的手脚与纪律」。
+[中文版 README](README_zh.md)
 
 ---
 
-## 适合谁
+## Where the business can extend
 
-- 需要把 AI **接到真实文件、脚本、仓库、定时任务**上的个人或小团队  
-- 希望流程**可审计、可重复**（同一任务多次跑结果路径一致）的业务/运维场景  
-- 资源有限、希望**单文件二进制、少依赖**就能部署的环境  
+Neo’s value is not “which model is smarter,” but whether a **goal-oriented agent can schedule stably, invoke from an allow-list, and keep cost and boundaries under control**. The layers below match [`docs/applications.md`](docs/applications.md): ship what works today first; treat the later layers as direction and vision (not fully delivered yet).
 
-不太适合：追求 Cursor 级多文件 IDE 体验、重型工作流平台（Temporal 等）替代品——那不是本产品目标。
+### Ship today: make agent tasks actually finish
+
+For the common “hard to land” problems of individuals, small teams, and ops:
+
+| Business need | How Neo holds it up |
+|---------------|---------------------|
+| **Multi-step goals must complete and be reviewable** | Encode “fetch → tidy → decide → notify/persist” as a repeatable DAG; the same goal follows a clear path every run |
+| **Lots of internal skills—usable by agents, but governed** | Register scripts, commands, APIs as atomic capabilities in the matrix; tasks may call only listed capabilities |
+| **Don’t send everything to the cloud: costly, slow, and data-sensitive** | Prefer local capabilities for simple steps; call the LLM for hard reasoning; keep sensitive ops inside the trust boundary when policy allows |
+
+Typical picture: repo/doc sidekick, fire-and-forget goals on a schedule, SOP-style daily checks—**this layer is what the repo delivers today**.
+
+### Next: field and edge (direction)
+
+When “near the data, low latency, and closed loops under weak networks” become hard requirements, the same **DAG + capability matrix** can extend on-site (full form is on the architecture roadmap; today this is mostly reserved contracts):
+
+| Direction | Business picture | Neo’s role |
+|-----------|------------------|------------|
+| **Industrial edge** | Inspection, interlocking, anomaly handling must close on the line | Schedule on industrial hosts; run registered capabilities on nodes; finish critical paths even when the network is unstable |
+| **Embodied / mobile platforms** | Patrol, service robots, onboard task orchestration | Task-level scheduling and capability governance (not a replacement for hard real-time motion control) |
+| **Building / plant linkage** | Sensor-triggered cross-device actions need short paths | Regional scheduling by graph; reduce “everything via the public cloud” inside policy |
+
+### Further: intelligent infrastructure (vision)
+
+As the architecture matures, the product may grow from “an assistant” into “a layer of infrastructure” (**not a current feature list**):
+
+- Extend devices with **capability packs**, not only traditional apps  
+- A **private digital assistant** on a home or org gateway: mail, docs, browser capabilities scheduled by graph; sensitive data stays in the trust domain by default  
+- Cross-system capability distribution and reuse—a governable capability ecosystem  
+
+### Ecological niche (one line)
+
+Cloud LLMs supply deep cognition; **Neo is the scheduling and execution spine that plugs intelligence into real systems**—not a substitute for the brain, but a way to make goals orchestrable, capabilities governable, and boundaries enforceable. Detail and maturity: [`docs/applications.md`](docs/applications.md) §§5–6.
 
 ---
 
-## 你能拿它做什么（现行能力）
+## Who it is for
 
-- **问一句就答**：终端里直接对话，可挂上身份、规则、记忆（例如领域必答材料）  
-- **按流程办事**：先规划再执行，或直接跑已写好的流程（查时间、看仓库状态、列目录再总结……）  
-- **让模型动手**：在授权范围内读文件、搜仓库、调用登记过的命令（含精选 Unix 工具）  
-- **嵌进日常自动化**：daemon、管道、cron 脚本，同一核心多种唤起方式  
+- Individuals or small teams that need **goal-oriented** agent work (not just chat)  
+- Business / ops that want the **same class of goals** to run controllably and reviewably  
+- Anyone who wants light deploy: change config per environment—no heavy platform first  
 
-更完整的产业愿景（边缘、具身、IoT 等）见应用文档；**当前交付**以本机命令行助手为主。
+If you want “the strongest coding IDE” or “a huge workflow middle platform,” that is not Neo’s direction—we deliberately stay flexible, landable, and sharp-edged on boundaries.
 
 ---
 
-## 五分钟上手
+## What you can do now
 
-1. 安装依赖：macOS 一般已有 libcurl；Linux 可装发行版的 libcurl 开发包。  
-2. 在仓库根目录构建：`make`  
-3. 复制配置并填入模型密钥：
+Matching “ship today” above, on a local machine you can already:
+
+1. **State a goal and get it done**: natural language in; plan then execute (or plan only).  
+2. **Run a fixed DAG**: encode common goals as flows; one command schedules by the graph.  
+3. **Invoke via the capability matrix**: read files, search the repo, run registered commands within policy.  
+4. **Fit daily rhythm**: terminal, long-running listener, cron / pipes—one agent, many entry points.
+
+---
+
+## Five-minute start
+
+1. A Mac or Linux box with network access (to call your chosen LLM API).  
+2. In this repo: `make` (builds the `neo` binary).  
+3. Copy config and fill in endpoint + key:
 
 ```bash
 cp config/config.json5.example config/config.json5
-# 编辑 api_key、模型名
+# Edit the file: set api_key and model name
 ```
 
-4. 试跑：
+4. Try:
 
 ```bash
-./neo "你是谁"
+./neo "Who are you?"
 ```
 
 ---
 
-## 简单样例
+## A few commands to learn by doing
 
-在仓库根执行（需已配置可用的模型密钥）：
+From the repo root (after API key is set):
 
 ```bash
-# 日常问答
-./neo "用三句话说明 Neo 能帮业务团队做什么"
+# What kinds of goal-oriented work Neo is good for
+./neo "In three sentences, what goal-oriented tasks is Neo good for?"
 
-# 按固定流程查看当前 UTC 时间
+# Run a catalog DAG: show current time
 ./neo workflow run show_time
 
-# 用自然语言交代任务：规划并执行
-./neo run "看下系统时间"
+# One-line goal: plan and execute
+./neo run "show the system time"
 
-# 让助手读 README 并概括（会调用本地读文件能力）
-./neo "请阅读 README.md，用三句中文概括产品价值。" 2>&1
+# Use the read-file capability, then summarize product value
+./neo "Read README.md and summarize the product value in three English sentences."
 
-# 只看计划、先不执行
-./neo plan "帮我摸清当前仓库最近在忙什么"
+# Plan only (DAG draft), do not execute yet
+./neo plan "figure out what this repo has been busy with lately"
 ```
 
-更多场景（多轮会话、仓库脉搏、排错对照）见 [`docs/examples.md`](docs/examples.md)。
+More examples: [`docs/examples.md`](docs/examples.md).
 
 ---
 
-## 三种常用工作方式
+## Everyday usage (three modes)
 
-| 你想… | 怎么用 |
-|-------|--------|
-| 随便问一句 | `./neo "…"` |
-| 跑已经定好的流程 | `./neo workflow run 流程名` |
-| 用自然语言交代，再自动规划执行 | `./neo run "…"`（只要计划用 `./neo plan`） |
+| You want… | Say |
+|-----------|-----|
+| A quick question | `./neo "your question"` |
+| Finish a goal via a fixed DAG | `./neo workflow run <dag-name>` |
+| State a goal in one line and finish it | `./neo run "the goal"` |
 
-后台常驻、定时任务等：`./neo daemon`、[`scripts/`](scripts/) 下的辅助脚本。细节见 [`docs/workflow.md`](docs/workflow.md)、[`docs/claw.md`](docs/claw.md)。
-
----
-
-## 文档导航
-
-| 文档 | 适合谁 |
-|------|--------|
-| [`docs/examples.md`](docs/examples.md) | 想对着命令练手 |
-| [`docs/applications.md`](docs/applications.md) | 想了解业务场景与生态位 |
-| [`docs/architecture.md`](docs/architecture.md) | 想了解目标架构与演进 |
-| [`docs/tool.md`](docs/tool.md) | 要登记/治理可调用能力 |
-| [`docs/workflow.md`](docs/workflow.md) | 要写或跑多步流程 |
-| [`docs/claw.md`](docs/claw.md) | 要配身份、规则与记忆 |
-| [`AGENTS.md`](AGENTS.md) | 要改本仓库代码的人与 AI |
+Plan without executing: use `plan` instead of `run`.
 
 ---
 
-## 给开发者（摘要）
+## Learn more
 
-仓库布局、配置键名、构建测试等技术细节以 [`AGENTS.md`](AGENTS.md) 为准。常用命令：
+| Topic | Doc |
+|-------|-----|
+| Scenarios & positioning (full) | [`docs/applications.md`](docs/applications.md) |
+| Hands-on examples | [`docs/examples.md`](docs/examples.md) |
+| Capability matrix | [`docs/tool.md`](docs/tool.md) |
+| DAG scheduling | [`docs/workflow.md`](docs/workflow.md) |
+| Identity, rules, memory | [`docs/claw.md`](docs/claw.md) |
+| Contributing | [`AGENTS.md`](AGENTS.md) |
+| Chinese README | [`README_zh.md`](README_zh.md) |
 
-```bash
-make          # 生成 ./neo
-make test     # 单元测试 + CLI 冒烟
-make test-cli # 仅 CLI 冒烟
-```
+---
 
-产品实现上对应三层协作：**流程怎么走（DAG）∥ 能调用什么（能力矩阵）∥ 许不许做（策略）**。配置里对应 `workflow_directory` / `workflows`、`capability_matrix`、各类 Policy 开关。旧键 `skills` 已移除；旧顶层键 `tools` 仅兼容读取。
+## For developers
+
+Build / test: `make` / `make test`. Product triad: **DAG ∥ Capability Matrix ∥ Policy**. Conventions: [`AGENTS.md`](AGENTS.md). Architecture: [`docs/architecture.md`](docs/architecture.md).
