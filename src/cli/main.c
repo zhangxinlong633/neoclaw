@@ -1,6 +1,6 @@
 /*
- * Neo CLI 入口：单次查询、daemon、workflow run、plan/run。
- * 用法：neo [OPTIONS] "user message" | neo daemon | neo workflow run NAME | neo plan|run ...
+ * Neo CLI 入口：单次查询、daemon、dag run、plan/run。
+ * 用法：neo [OPTIONS] "user message" | neo daemon | neo dag run NAME | neo plan|run ...
  * 环境：NEO_CONFIG / NEO_MODEL / NEO_API_KEY；助手回复走 stdout，诊断走 stderr。
  */
 #include "agent_tools.h"
@@ -59,9 +59,9 @@ static void build_user_message(char *buf, size_t cap, char **argv, int start, in
 static void print_usage(const char *prog) {
   fprintf(stderr, "Usage: %s [OPTIONS] \"your message\"\n", prog);
   fprintf(stderr, "       %s [OPTIONS] daemon [--socket PATH]\n", prog);
-  fprintf(stderr, "       %s [OPTIONS] workflow run NAME\n", prog);
+  fprintf(stderr, "       %s [OPTIONS] dag run NAME\n", prog);
   fprintf(stderr, "       %s [OPTIONS] plan [--steps N] [-o FILE] \"task\"\n", prog);
-  fprintf(stderr, "       %s [OPTIONS] run [--steps N] [-o FILE] \"task\"\n", prog);
+  fprintf(stderr, "       %s [OPTIONS] run NAME|\"task\" [--steps N] [-o FILE]\n", prog);
   fprintf(stderr, "Options:\n");
   fprintf(stderr, "  -c, --config PATH   Config file (default: config/config.json5)\n");
   fprintf(stderr, "  -p, --profile NAME  Use config/profiles/NAME/ (fallback: profiles/NAME/)\n");
@@ -73,9 +73,10 @@ static void print_usage(const char *prog) {
   fprintf(stderr, "  -h, --help          Show this help\n");
   fprintf(stderr, "  daemon              Run as daemon: read from stdin, reply to stdout\n");
   fprintf(stderr, "  --socket PATH       (with daemon) Listen on Unix socket instead of stdin\n");
-  fprintf(stderr, "  workflow run NAME   Run a declarative workflow from config\n");
+  fprintf(stderr, "  dag run NAME        Run a declarative DAG from config/catalog\n");
   fprintf(stderr, "  plan \"task\"         LLM emits a DAG (validate only; JSON on stdout)\n");
-  fprintf(stderr, "  run \"task\"          Plan then execute the DAG (result on stdout)\n");
+  fprintf(stderr, "  run NAME|\"task\"     Run named DAG, or plan+execute a task\n");
+  fprintf(stderr, "  workflow run NAME   Deprecated alias for dag run\n");
 }
 
 /* Prefer config/ layout; keep repo-root paths as fallback. */
@@ -230,11 +231,14 @@ int main(int argc, char **argv) {
       arg_start++;
       continue;
     }
-    if (strcmp(argv[arg_start], "workflow") == 0) {
+    if (strcmp(argv[arg_start], "dag") == 0 || strcmp(argv[arg_start], "workflow") == 0) {
+      int deprecated = (strcmp(argv[arg_start], "workflow") == 0);
       if (arg_start + 2 >= argc || strcmp(argv[arg_start + 1], "run") != 0) {
-        fprintf(stderr, "neo: usage: workflow run NAME\n");
+        fprintf(stderr, "neo: usage: %s run NAME\n", deprecated ? "workflow" : "dag");
         return 1;
       }
+      if (deprecated)
+        fprintf(stderr, "neo: 'workflow run' is deprecated; use 'dag run' or 'run'\n");
       workflow_mode = 1;
       workflow_name = argv[arg_start + 2];
       arg_start += 3;
@@ -352,7 +356,26 @@ int main(int argc, char **argv) {
       conf.model.name = malloc(strlen(model_override) + 1);
       if (conf.model.name) strcpy(conf.model.name, model_override);
     }
-    /* plan: YAML on stdout; run: execute only (quiet_yaml) */
+    /* run：若首参精确匹配已加载图名 → 直接跑 DAG，不经 planner */
+    if (run_mode && config_find_workflow(&conf, argv[arg_start])) {
+      char *out = NULL;
+      int wr;
+      if (arg_start + 1 < argc) {
+        fprintf(stderr, "neo: run: unexpected arguments after workflow name '%s'\n",
+                argv[arg_start]);
+        config_free(&conf);
+        return 1;
+      }
+      if (cli_steps || plan_out)
+        fprintf(stderr, "neo: run: --steps/-o ignored when running named DAG\n");
+      wr = workflow_run(&conf, argv[arg_start], &out, verbose);
+      if (wr == 0 && out) fputs(out, stdout);
+      if (out && out[0] && out[strlen(out) - 1] != '\n') fputc('\n', stdout);
+      free(out);
+      config_free(&conf);
+      return wr != 0;
+    }
+    /* plan：JSON on stdout；run 未命中图名：plan then execute */
     r = plan_run(&conf, argv[arg_start], run_mode ? 1 : 0, run_mode ? 1 : 0, cli_steps, plan_out,
                  debug, verbose);
     config_free(&conf);
