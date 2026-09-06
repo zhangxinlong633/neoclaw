@@ -61,9 +61,9 @@ Neo 的逻辑内核划分为两层：**调度层（Scheduler）** 与 **执行�
 
 | 架构层 | 产品三角对应 | 本仓库主要实现入口 |
 |--------|--------------|--------------------|
-| 调度层 | DAG（拓扑、依赖、分支与跳过） | `src/workflow/workflow.c`；`neo dag run`、`neo plan`、`neo run` |
+| 调度层 | DAG（拓扑、依赖、分支与跳过） | `src/dag/workflow.c`；`neo dag run`、`neo plan`、`neo run` |
 | 执行层 | Capability Matrix 与 Policy | `src/capability/*`；配置键 `capability_matrix`；目录 `capabilities/` |
-| 规划层（可选） | 自然语言至 DAG 的转化 | `src/workflow/plan.c`；可省略，直接提交 workflows |
+| 规划层（可选） | 自然语言至 DAG 的转化 | `src/dag/plan.c`；可省略，直接提交 dags |
 
 ### 2.1 调度层
 
@@ -210,7 +210,7 @@ DAG 为调度层认可的标准编排输入。目标元素集合如下；本仓�
 }
 ```
 
-**命名约束**：步骤字段 `"tools": "on"|"off"` 仅表示该大语言模型步骤是否挂载能力矩阵工具，**禁止**将其更名为 `capability_matrix`。细则见 [`workflow.md`](workflow.md)。目录化 DAG 由顶层配置 `workflow_directory` 指向 `dags/` 加载。
+**命名约束**：步骤字段 `"tools": "on"|"off"` 仅表示该大语言模型步骤是否挂载能力矩阵工具，**禁止**将其更名为 `capability_matrix`。细则见 [`workflow.md`](workflow.md)。目录化 DAG 由顶层配置 `dag_directory` 指向 `dags/` 加载。
 
 ### 3.2 能力矩阵（Capability Matrix）
 
@@ -349,7 +349,7 @@ DAG 为调度层认可的标准编排输入。目标元素集合如下；本仓�
 
 规划层为**可选组件**，不属于最小可运行内核。
 
-在仅需确定性编排的场景中，应直接提交 DAG（配置内 `workflows` 或 `dags/` 目录），无需启用规划层。
+在仅需确定性编排的场景中，应直接提交 DAG（配置内 `dags` 或 `dags/` 目录），无需启用规划层。
 
 ### 6.2 职责
 
@@ -410,11 +410,11 @@ DAG 为调度层认可的标准编排输入。目标元素集合如下；本仓�
 
 | 愿景概念 | 本仓库落点 | 成熟度 |
 |----------|------------|--------|
-| 调度层 | `src/workflow/workflow.c` | 本机 DAG、循环与路由 |
+| 调度层 | `src/dag/workflow.c` | 本机 DAG、循环与路由 |
 | 执行层 | `src/capability/*` | 矩阵、分发与 MCP stdio 装载 |
 | 能力目录 | `capabilities/` | 已实现 |
 | DAG 目录 | `dags/` | 已实现（含 `workspace_brief` 等 SOP） |
-| 规划层 | `src/workflow/plan.c` | 已实现（可选；catalog `use` + 现编） |
+| 规划层 | `src/dag/plan.c` | 已实现（可选；catalog `use` + 现编） |
 | claw | `rules/` 以及 soul、bootstrap、memory | Skills 已废止 |
 | HTTPS | `neo_http` + vendored BearHttpsClient | 已实现（系统 DNS + known_ips） |
 | 层间结构化信封 | — | 路线图（现行为文本步骤输出） |

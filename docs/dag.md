@@ -1,7 +1,7 @@
 # Neo 确定性 DAG Workflow
 
 编排路径主张：**拓扑在配置（JSON5）里声明，LLM 只当 Worker**（不参与「下一步走哪」）。  
-自然语言 `./neo "..."` 仍可自由对话；`neo dag run`（或 `neo run <已知名>`）走确定性图。`workflow run` 为弃用别名。
+自然语言 `./neo "..."` 仍可自由对话；`neo dag run`（或 `neo run <已知名>`）走确定性图。
 
 不引入 Temporal / Airflow；引擎就是 `neo` 进程内的小 DAG runner。  
 配置迁移见 [migrate-json.md](migrate-json.md)。命令样例见 [examples.md](examples.md)。
@@ -22,7 +22,7 @@
 
 ```json5
 {
-  workflows: [
+  dags: [
     {
       name: "diamond",
       steps: [
@@ -95,10 +95,10 @@
 ./neo dag run list_overview
 ./neo -p demo dag run demo_loop
 ./neo -v dag run show_time   # stderr：步骤 type / tool / status
-./scripts/neo-ask --workflow diamond
+./scripts/neo-ask --dag diamond
 ```
 
-常用 catalog 图（需 `workflow_directory: "dags"`）：`show_time`、`repo_pulse`、**`workspace_brief`**、`list_overview`、`inspect_path`、`search_context`、`append_memo`。详见 [`../dags/README.md`](../dags/README.md)。
+常用 catalog 图（需 `dag_directory: "dags"`）：`show_time`、`repo_pulse`、**`workspace_brief`**、`list_overview`、`inspect_path`、`search_context`、`append_memo`。详见 [`../dags/README.md`](../dags/README.md)。
 
 ### 可观测（stderr）
 
@@ -114,14 +114,14 @@
 | 命令 | 行为 |
 |------|------|
 | `neo run "task"` | 规划 → 校验 → **执行**（stdout 只有执行结果） |
-| `neo plan "task"` | 规划 → 校验（stdout 为 `use` 或 workflows **JSON**） |
-| `neo dag run NAME` | 跑配置 / `workflow_directory` 里已声明的图 |
+| `neo plan "task"` | 规划 → 校验（stdout 为 `use` 或 dags **JSON**） |
+| `neo dag run NAME` | 跑配置 / `dag_directory` 里已声明的图 |
 | `neo run NAME` | 若 NAME 为已加载图名则直接跑图；否则 plan+execute |
 
 ### DAG 目录（一图一文件）
 
 ```json5
-workflow_directory: "dags",
+dag_directory: "dags",
 ```
 
 ```
@@ -135,7 +135,7 @@ dags/
 
 每个 DAG 文件建议写：`description`、`when`、`when_not`、`requires`、`outcome`（见 AGENTS.md §4.1）。这些字段会出现在 planner 的 catalog listing。场景分层见 [`applications.md`](applications.md) 与 [`dags/README.md`](../dags/README.md)。
 
-Planner **优先**输出 `{"use":["catalog_name"]}` 选用目录中的图；没有合适的再现编 `{"workflows":[...]}`。执行期仍是确定性 runner。
+Planner **优先**输出 `{"use":["catalog_name"]}` 选用目录中的图；没有合适的再现编 `{"dags":[...]}`。执行期仍是确定性 runner。
 
 由 LLM **一次性**选型或生成冻结的 DAG；执行期不重规划。
 
@@ -195,5 +195,5 @@ Planner 只能引用配置里已声明的 `tools.commands` 以及 builtin `read_
 ## cron
 
 ```text
-0 * * * * cd /path/to/neoclaw && ./scripts/neo-ask -p demo --workflow demo_loop >>/tmp/neo-cron.log 2>&1
+0 * * * * cd /path/to/neoclaw && ./scripts/neo-ask -p demo --dag demo_loop >>/tmp/neo-cron.log 2>&1
 ```

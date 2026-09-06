@@ -33,23 +33,23 @@
     directory: "capabilities",
     shell_enabled: false,
   },
-  workflow_directory: "dags",
+  dag_directory: "dags",
 }
 ```
 
 | 项 | 作用 |
 |----|------|
 | `capability_matrix.directory` | 加载 `capabilities/{local,git,unix}/` 等能力包 |
-| `workflow_directory` | 加载 `dags/{baseline,workspace}/` 的 DAG catalog |
+| `dag_directory` | 加载 `dags/{baseline,workspace}/` 的 DAG catalog |
 | `unix/enabled.json5` | 控制 Unix 工具集实际装入矩阵的子集 |
 
-未设置 `workflow_directory` 时，`neo dag run` / `neo run`（名命中图）的 catalog 选型不可用。
+未设置 `dag_directory` 时，`neo dag run` / `neo run`（名命中图）的 catalog 选型不可用。
 
 ---
 
 ## 1.1 开箱组合（默认包）
 
-复制 `config/config.json5.example` 且不改 `directory` / `workflow_directory` / 各 `manifest.load` 时，默认组合如下。细则见 [`../capabilities/README.md`](../capabilities/README.md)、[`../dags/README.md`](../dags/README.md)。
+复制 `config/config.json5.example` 且不改 `directory` / `dag_directory` / 各 `manifest.load` 时，默认组合如下。细则见 [`../capabilities/README.md`](../capabilities/README.md)、[`../dags/README.md`](../dags/README.md)。
 
 | 场景 | capabilities `load` | dags `load` | 推荐试跑 | Policy 注意 |
 |------|---------------------|-------------|----------|-------------|
@@ -140,7 +140,7 @@ neo tool: read_file
 
 ## 4. 确定性 DAG：`dag run`
 
-> `neo workflow run` 已弃用，等价于 `neo dag run`。已知图名也可用 `neo run <name>`（不经 planner）。
+> `neo dag run` 已移除；请用 `neo dag run`。已知图名也可用 `neo run <name>`（不经 planner）。
 
 不经过规划器，直接执行已声明的图。
 
@@ -223,7 +223,7 @@ neo: run done workflow=show_time status=ok
 
 ```json
 {
-  "workflows": [
+  "dags": [
     {
       "name": "planned",
       "steps": [
@@ -298,7 +298,7 @@ echo "现在几点（UTC）？请用工具" | nc -U /tmp/neo.sock
 ### 7.2 管道 / cron 辅助
 
 ```bash
-./scripts/neo-ask -p demo --workflow demo_loop
+./scripts/neo-ask -p demo --dag demo_loop
 ```
 
 见 [`scripts/`](../scripts/) 目录说明。
@@ -309,8 +309,8 @@ echo "现在几点（UTC）？请用工具" | nc -U /tmp/neo.sock
 
 | 现象 | 可能原因 | 处理 |
 |------|----------|------|
-| `unknown catalog DAG 'date_iso'` | 模型把**能力名**写进了 `{"use":[...]}` | 已支持降级为 ad-hoc tool 图；更稳妥是配置 `workflow_directory` 并使用 `show_time` 等 catalog 名。`use` **只能**是 DAG 名 |
-| `unknown workflow 'show_time'` | 未配置 `workflow_directory: "dags"` | 写入配置后重启命令；在仓库根执行 |
+| `unknown catalog DAG 'date_iso'` | 模型把**能力名**写进了 `{"use":[...]}` | 已支持降级为 ad-hoc tool 图；更稳妥是配置 `dag_directory` 并使用 `show_time` 等 catalog 名。`use` **只能**是 DAG 名 |
+| `unknown DAG 'show_time'` | 未配置 `dag_directory: "dags"` | 写入配置后重启命令；在仓库根执行 |
 | 模型从不调用工具 | 矩阵未启用，或 `NEO_DISABLE_TOOLS=1` | 检查 `capability_matrix.enabled` |
 | `unix_rm` 不可用 | 未列入 `capabilities/unix/enabled.json5` | 故意默认禁用；勿轻易加入白名单 |
 | Unix 参数被拒绝 | `unix-exec` 禁止绝对路径与 `..` | `argv` 仅用相对 `capability_matrix.root` 的路径 |

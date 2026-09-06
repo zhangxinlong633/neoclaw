@@ -9,7 +9,7 @@
     root: ".",
     directory: "tests/fixtures/cap_pack",
   },
-  workflows: [
+  dags: [
     {
       name: "cli_dir_echo",
       steps: [

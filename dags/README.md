@@ -1,10 +1,10 @@
 # dags/
 
-本目录为确定性 **DAG（workflow）** 的文件化库：一图对应一个 JSON5 文件。顶层配置 `workflow_directory` 指向本目录后，按 `manifest.json5` 的 `load[]` **逐项**扫描子目录加载。
+本目录为确定性 **DAG（workflow）** 的文件化库：一图对应一个 JSON5 文件。顶层配置 `dag_directory` 指向本目录后，按 `manifest.json5` 的 `load[]` **逐项**扫描子目录加载。
 
-Planner（`neo plan` / `neo run`）生成 catalog（含 `when` / `when_not` / `requires` / `outcome`），并优先输出 `{"use":["name"]}`；无合适条目时再现编 `{"workflows":[...]}`。
+Planner（`neo plan` / `neo run`）生成 catalog（含 `when` / `when_not` / `requires` / `outcome`），并优先输出 `{"use":["name"]}`；无合适条目时再现编 `{"dags":[...]}`。
 
-权威说明：[`docs/workflow.md`](../docs/workflow.md)、[`docs/examples.md`](../docs/examples.md)（含 **开箱组合** 与 `workspace_brief`）、[`docs/applications.md`](../docs/applications.md)、[`docs/architecture.md`](../docs/architecture.md)、[`AGENTS.md`](../AGENTS.md) §4.1。
+权威说明：[`docs/dag.md`](../docs/dag.md)、[`docs/examples.md`](../docs/examples.md)（含 **开箱组合** 与 `workspace_brief`）、[`docs/applications.md`](../docs/applications.md)、[`docs/architecture.md`](../docs/architecture.md)、[`AGENTS.md`](../AGENTS.md) §4.1。
 
 ## 职责边界
 

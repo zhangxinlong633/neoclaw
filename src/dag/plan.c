@@ -1,12 +1,12 @@
 /*
  * neo plan / run：LLM 一次性规划；执行期不重规划。
- * 先尝试 {"use":[...]} 选型目录 DAG，失败再抽完整 workflows JSON。
+ * 先尝试 {"use":[...]} 选型目录 DAG，失败再抽完整 dags JSON。
  */
 #include "plan.h"
 #include "capability_matrix.h"
 #include "llm.h"
-#include "workflow.h"
-#include "workflow_dir.h"
+#include "dag.h"
+#include "dag_dir.h"
 #include "yyjson.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,7 +36,7 @@ static int plan_name_is_capability(const agent_config_t *conf, const char *name)
 }
 
 /* 把误放入 use 的能力名降级成单图多 tool 步，供 materialize / 执行。调用方 free。 */
-char *plan_workflows_json_for_tools(char **names, int n) {
+char *plan_dags_json_for_tools(char **names, int n) {
   yyjson_mut_doc *doc;
   yyjson_mut_val *root, *wfs, *wf, *steps, *st, *deps;
   char *out;
@@ -48,7 +48,7 @@ char *plan_workflows_json_for_tools(char **names, int n) {
   root = yyjson_mut_obj(doc);
   yyjson_mut_doc_set_root(doc, root);
   wfs = yyjson_mut_arr(doc);
-  yyjson_mut_obj_add_val(doc, root, "workflows", wfs);
+  yyjson_mut_obj_add_val(doc, root, "dags", wfs);
   wf = yyjson_mut_obj(doc);
   yyjson_mut_arr_add_val(wfs, wf);
   yyjson_mut_obj_add_strcpy(doc, wf, "name", "adhoc_tools");
@@ -76,7 +76,7 @@ char *plan_workflows_json_for_tools(char **names, int n) {
   return out;
 }
 
-int plan_extract_workflows_json(const char *llm_text, char **out_json) {
+int plan_extract_dags_json(const char *llm_text, char **out_json) {
   const char *p, *start = NULL, *end = NULL;
   char *slice = NULL;
   size_t len;
@@ -120,7 +120,7 @@ int plan_extract_workflows_json(const char *llm_text, char **out_json) {
     yyjson_doc_free(doc);
     return -1;
   }
-  wfs = yyjson_obj_get(root, "workflows");
+  wfs = yyjson_obj_get(root, "dags");
   if (!yyjson_is_arr(wfs)) {
     yyjson_doc_free(doc);
     return -1;
@@ -136,7 +136,7 @@ int plan_extract_workflows_json(const char *llm_text, char **out_json) {
     mroot = yyjson_mut_obj(mdoc);
     yyjson_mut_doc_set_root(mdoc, mroot);
     mwfs = yyjson_val_mut_copy(mdoc, wfs);
-    if (!mwfs || !yyjson_mut_obj_add_val(mdoc, mroot, "workflows", mwfs)) {
+    if (!mwfs || !yyjson_mut_obj_add_val(mdoc, mroot, "dags", mwfs)) {
       yyjson_mut_doc_free(mdoc);
       yyjson_doc_free(doc);
       return -1;
@@ -191,7 +191,7 @@ void plan_free_use(char **names, int n) {
 }
 
 int plan_extract_use(const char *llm_text, char ***out_names, int *out_n) {
-  /* 解析选型短格式；与完整 workflows 数组互斥优先（由 plan_run 先调本函数）。 */
+  /* 解析选型短格式；与完整 dags 数组互斥优先（由 plan_run 先调本函数）。 */
   char *slice = NULL;
   yyjson_doc *doc = NULL;
   yyjson_val *root, *use;
@@ -286,7 +286,7 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "(listed below as \"DAG: <name> — ...\"). "
       "Never put Capability Matrix tool names (e.g. date_iso, read_file, unix_wc) in \"use\". "
       "Those belong only in invented steps with \"type\":\"tool\" and a \"tool\" field.\n"
-      "- Only invent a full workflows array if no catalog entry fits.\n"
+      "- Only invent a full dags array if no catalog entry fits.\n"
       "- Topology is fixed after you emit it; workers do not replan.\n"
       "- When inventing: use steps with id, type, depends_on, and type-specific fields.\n"
       "- Allowed types: tool, llm, loop, route.\n"
@@ -305,7 +305,7 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "graphs to %d with fake engineering roles. If soft target is 1, emit a "
       "single llm step only.\n"
       "- For tiny factual probes answerable by one allowlisted tool (time, hostname, "
-      "pwd, short git status): invent a 1-step {\"type\":\"tool\"} workflow "
+      "pwd, short git status): invent a 1-step {\"type\":\"tool\"} DAG "
       "(or pick a matching catalog DAG). Do not emit {\"use\":[\"tool_name\"]}.\n"
       "- engineering tasks (implement, fix bugs, write/edit files, scripts, "
       "multi-tool pipelines, build features): use a small software R&D team "
@@ -328,12 +328,12 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
       "- route: \"on\" template like \"{{steps.verify_id}}\"; match substring; "
       "then/else MUST be JSON arrays of step ids.\n"
       "- Use depends_on arrays for ordering when there is more than one step.\n"
-      "- Invented output format:\n```json\n{\"workflows\":[{\"name\":\"planned\",\"steps\":["
+      "- Invented output format:\n```json\n{\"dags\":[{\"name\":\"planned\",\"steps\":["
       "{\"id\":\"...\",\"type\":\"llm\",\"prompt\":\"...\",\"tools\":\"off\"}]}]}\n```\n\n"
       "DAG catalog (prefer {\"use\":[\"name\"]}):\n",
       target_steps, target_steps, target_steps);
   {
-    char *cat = workflow_dir_catalog_listing(conf);
+    char *cat = dag_dir_catalog_listing(conf);
     if (cat) {
       size_t ln = strlen(cat);
       if (n + ln + 8 > cap) {
@@ -402,7 +402,7 @@ char *plan_build_system_prompt(const agent_config_t *conf, int target_steps) {
   return s;
 }
 
-int plan_materialize_config(const agent_config_t *base, const char *workflows_json,
+int plan_materialize_config(const agent_config_t *base, const char *dags_json,
                             agent_config_t *out_conf, char *out_path, size_t out_path_sz) {
   char path[] = "/tmp/neo-plan-XXXXXX";
   int fd;
@@ -415,18 +415,18 @@ int plan_materialize_config(const agent_config_t *base, const char *workflows_js
   FILE *f;
   int i, j;
 
-  if (!base || !workflows_json || !out_conf) return -1;
+  if (!base || !dags_json || !out_conf) return -1;
   fd = mkstemp(path);
   if (fd < 0) return -1;
 
-  wf_doc = yyjson_read(workflows_json, strlen(workflows_json), YYJSON_READ_JSON5);
+  wf_doc = yyjson_read(dags_json, strlen(dags_json), YYJSON_READ_JSON5);
   if (!wf_doc) {
     close(fd);
     unlink(path);
     return -1;
   }
   wf_root = yyjson_doc_get_root(wf_doc);
-  wfs = yyjson_is_obj(wf_root) ? yyjson_obj_get(wf_root, "workflows") : NULL;
+  wfs = yyjson_is_obj(wf_root) ? yyjson_obj_get(wf_root, "dags") : NULL;
   if (!yyjson_is_arr(wfs)) {
     yyjson_doc_free(wf_doc);
     close(fd);
@@ -496,7 +496,7 @@ int plan_materialize_config(const agent_config_t *base, const char *workflows_js
                          base->session_max_turns > 0 ? base->session_max_turns : 10);
 
   mwfs = yyjson_val_mut_copy(mdoc, wfs);
-  yyjson_mut_obj_add_val(mdoc, root, "workflows", mwfs);
+  yyjson_mut_obj_add_val(mdoc, root, "dags", mwfs);
 
   written = yyjson_mut_write(mdoc, YYJSON_WRITE_PRETTY, &wlen);
   yyjson_mut_doc_free(mdoc);
@@ -523,8 +523,8 @@ int plan_materialize_config(const agent_config_t *base, const char *workflows_js
     unlink(path);
     return -1;
   }
-  if (out_conf->workflow_count < 1) {
-    fprintf(stderr, "neo plan: no workflows in planned JSON\n");
+  if (out_conf->dag_count < 1) {
+    fprintf(stderr, "neo plan: no dags in planned JSON\n");
     config_free(out_conf);
     unlink(path);
     return -1;
@@ -546,7 +546,7 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
   agent_config_t planned;
   char tmp_path[256];
   int rc = -1;
-  const char *wf_name;
+  const char *dag_name;
   int steps;
 
   if (!conf || !task || !task[0]) return -1;
@@ -561,7 +561,7 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
   snprintf(user, strlen(task) + 256,
            "Task:\n%s\n\nPrefer {\"use\":[\"catalog_DAG_name\"]} only for names listed in the "
            "DAG catalog. Capability/tool names must NOT appear in \"use\"; put them in "
-           "invented type:tool steps instead. If no catalog DAG fits, emit workflows JSON.",
+           "invented type:tool steps instead. If no catalog DAG fits, emit dags JSON.",
            task);
   if (debug) {
     fprintf(stderr, "neo %s: calling LLM to build DAG...\n", do_run ? "run" : "plan");
@@ -590,7 +590,7 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
       char *use_json = NULL;
       llm_response_free(&resp);
       for (ui = 0; ui < use_n; ui++) {
-        if (config_find_workflow(conf, use_names[ui]))
+        if (config_find_dag(conf, use_names[ui]))
           n_wf++;
         else if (plan_name_is_capability(conf, use_names[ui]))
           n_cap++;
@@ -599,7 +599,7 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
       }
       if (n_bad > 0) {
         for (ui = 0; ui < use_n; ui++) {
-          if (!config_find_workflow(conf, use_names[ui]) &&
+          if (!config_find_dag(conf, use_names[ui]) &&
               !plan_name_is_capability(conf, use_names[ui])) {
             fprintf(stderr,
                     "neo %s: '%s' is neither a catalog DAG nor a Capability Matrix name "
@@ -612,11 +612,11 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
       }
       /* 模型把能力名误写入 use：降级为单图 tool 步，走现编 materialize 路径。 */
       if (n_cap > 0 && n_wf == 0) {
-        json = plan_workflows_json_for_tools(use_names, use_n);
+        json = plan_dags_json_for_tools(use_names, use_n);
         plan_free_use(use_names, use_n);
         if (!json) return -1;
         fprintf(stderr,
-                "neo %s: treating capability name(s) in \"use\" as ad-hoc tool workflow "
+                "neo %s: treating capability name(s) in \"use\" as ad-hoc tool DAG "
                 "(prefer catalog DAG or type:tool invent next time)\n",
                 do_run ? "run" : "plan");
         goto materialize_from_json;
@@ -665,8 +665,8 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
         for (ui = 0; ui < use_n; ui++) {
           char *out = NULL;
           fprintf(stderr, "neo run: executing catalog DAG '%s'\n", use_names[ui]);
-          if (workflow_run(conf, use_names[ui], &out, verbose) != 0) {
-            fprintf(stderr, "neo run: workflow run failed\n");
+          if (dag_run(conf, use_names[ui], &out, verbose) != 0) {
+            fprintf(stderr, "neo run: DAG run failed\n");
             free(out);
             free(use_json);
             plan_free_use(use_names, use_n);
@@ -686,8 +686,8 @@ int plan_run(const agent_config_t *conf, const char *task, int do_run, int quiet
     plan_free_use(use_names, use_n);
   }
 
-  if (plan_extract_workflows_json(resp.data ? resp.data : "", &json) != 0) {
-    fprintf(stderr, "neo %s: could not extract workflows JSON from model output\n",
+  if (plan_extract_dags_json(resp.data ? resp.data : "", &json) != 0) {
+    fprintf(stderr, "neo %s: could not extract dags JSON from model output\n",
             do_run ? "run" : "plan");
     if (debug && resp.data) fprintf(stderr, "--- raw ---\n%s\n", resp.data);
     llm_response_free(&resp);
@@ -725,17 +725,17 @@ materialize_from_json:
     return -1;
   }
   if (verbose || debug)
-    fprintf(stderr, "neo: plan ok steps=%d\n", planned.workflows[0].step_count);
-  fprintf(stderr, "neo %s: validated workflow '%s' (%d steps)\n", do_run ? "run" : "plan",
-          planned.workflows[0].name ? planned.workflows[0].name : "?",
-          planned.workflows[0].step_count);
-  wf_name = planned.workflows[0].name;
+    fprintf(stderr, "neo: plan ok steps=%d\n", planned.dags[0].step_count);
+  fprintf(stderr, "neo %s: validated DAG '%s' (%d steps)\n", do_run ? "run" : "plan",
+          planned.dags[0].name ? planned.dags[0].name : "?",
+          planned.dags[0].step_count);
+  dag_name = planned.dags[0].name;
 
   if (do_run) {
     char *out = NULL;
-    fprintf(stderr, "neo run: executing DAG '%s'\n", wf_name);
-    if (workflow_run(&planned, wf_name, &out, verbose) != 0) {
-      fprintf(stderr, "neo run: workflow run failed\n");
+    fprintf(stderr, "neo run: executing DAG '%s'\n", dag_name);
+    if (dag_run(&planned, dag_name, &out, verbose) != 0) {
+      fprintf(stderr, "neo run: DAG run failed\n");
       free(out);
       config_free(&planned);
       if (tmp_path[0]) unlink(tmp_path);

@@ -9,7 +9,7 @@
 #include "daemon.h"
 #include "llm.h"
 #include "plan.h"
-#include "workflow.h"
+#include "dag.h"
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,7 +68,7 @@ static void print_usage(const char *prog) {
   fprintf(stderr, "  -m, --model NAME    Override model name\n");
   fprintf(stderr, "  -d, --debug         Print system prompt, user message and request params to stderr\n");
   fprintf(stderr, "  -v, --verbose       Workflow step summaries on stderr\n");
-  fprintf(stderr, "  -o, --output FILE   (with plan/run) Save planned workflows JSON\n");
+  fprintf(stderr, "  -o, --output FILE   (with plan/run) Save planned dags JSON\n");
   fprintf(stderr, "  --steps N           (with plan/run) Soft target step count (default 10, max 32)\n");
   fprintf(stderr, "  -h, --help          Show this help\n");
   fprintf(stderr, "  daemon              Run as daemon: read from stdin, reply to stdout\n");
@@ -76,7 +76,6 @@ static void print_usage(const char *prog) {
   fprintf(stderr, "  dag run NAME        Run a declarative DAG from config/catalog\n");
   fprintf(stderr, "  plan \"task\"         LLM emits a DAG (validate only; JSON on stdout)\n");
   fprintf(stderr, "  run NAME|\"task\"     Run named DAG, or plan+execute a task\n");
-  fprintf(stderr, "  workflow run NAME   Deprecated alias for dag run\n");
 }
 
 /* Prefer config/ layout; keep repo-root paths as fallback. */
@@ -160,8 +159,8 @@ int main(int argc, char **argv) {
   int daemon_mode = 0;
   int debug = 0;
   int verbose = 0;
-  int workflow_mode = 0;
-  const char *workflow_name = NULL;
+  int dag_mode = 0;
+  const char *dag_name = NULL;
   int plan_mode = 0;
   int run_mode = 0;
   int legacy_plan_run = 0;
@@ -231,18 +230,19 @@ int main(int argc, char **argv) {
       arg_start++;
       continue;
     }
-    if (strcmp(argv[arg_start], "dag") == 0 || strcmp(argv[arg_start], "workflow") == 0) {
-      int deprecated = (strcmp(argv[arg_start], "workflow") == 0);
+    if (strcmp(argv[arg_start], "dag") == 0) {
       if (arg_start + 2 >= argc || strcmp(argv[arg_start + 1], "run") != 0) {
-        fprintf(stderr, "neo: usage: %s run NAME\n", deprecated ? "workflow" : "dag");
+        fprintf(stderr, "neo: usage: dag run NAME\n");
         return 1;
       }
-      if (deprecated)
-        fprintf(stderr, "neo: 'workflow run' is deprecated; use 'dag run' or 'run'\n");
-      workflow_mode = 1;
-      workflow_name = argv[arg_start + 2];
+      dag_mode = 1;
+      dag_name = argv[arg_start + 2];
       arg_start += 3;
       continue;
+    }
+    if (strcmp(argv[arg_start], "workflow") == 0) {
+      fprintf(stderr, "neo: 'workflow' was removed; use 'dag run NAME' or 'run NAME'\n");
+      return 1;
     }
     if (strcmp(argv[arg_start], "--socket") == 0) {
       if (arg_start + 1 >= argc) { fprintf(stderr, "neo: --socket requires PATH\n"); return 1; }
@@ -304,7 +304,7 @@ int main(int argc, char **argv) {
     return r != 0;
   }
 
-  if (workflow_mode) {
+  if (dag_mode) {
     agent_config_t conf;
     char *out = NULL;
     int r;
@@ -320,7 +320,7 @@ int main(int argc, char **argv) {
       conf.model.name = malloc(strlen(model_override) + 1);
       if (conf.model.name) strcpy(conf.model.name, model_override);
     }
-    r = workflow_run(&conf, workflow_name, &out, verbose);
+    r = dag_run(&conf, dag_name, &out, verbose);
     if (r == 0 && out) fputs(out, stdout);
     if (out && out[0] && out[strlen(out) - 1] != '\n') fputc('\n', stdout);
     free(out);
@@ -357,18 +357,18 @@ int main(int argc, char **argv) {
       if (conf.model.name) strcpy(conf.model.name, model_override);
     }
     /* run：若首参精确匹配已加载图名 → 直接跑 DAG，不经 planner */
-    if (run_mode && config_find_workflow(&conf, argv[arg_start])) {
+    if (run_mode && config_find_dag(&conf, argv[arg_start])) {
       char *out = NULL;
       int wr;
       if (arg_start + 1 < argc) {
-        fprintf(stderr, "neo: run: unexpected arguments after workflow name '%s'\n",
+        fprintf(stderr, "neo: run: unexpected arguments after DAG name '%s'\n",
                 argv[arg_start]);
         config_free(&conf);
         return 1;
       }
       if (cli_steps || plan_out)
         fprintf(stderr, "neo: run: --steps/-o ignored when running named DAG\n");
-      wr = workflow_run(&conf, argv[arg_start], &out, verbose);
+      wr = dag_run(&conf, argv[arg_start], &out, verbose);
       if (wr == 0 && out) fputs(out, stdout);
       if (out && out[0] && out[strlen(out) - 1] != '\n') fputc('\n', stdout);
       free(out);

@@ -17,27 +17,27 @@
 | 旧 | 新 |
 |----|-----|
 | JSON `workflows` | `dags` |
-| JSON `workflow_directory` | `dag_directory` |
+| JSON `dag_directory` | `dag_directory` |
 | CLI `workflow run` | **删除**（用 `dag run` / `run`） |
-| `workflow_t` | `dag_t` |
-| `workflow_run` | `dag_run` |
-| `config_find_workflow` | `config_find_dag` |
-| `workflow_directory` 字段 | `dag_directory` |
-| `workflows` / `workflow_count` | `dags` / `dag_count` |
-| `src/workflow/` | `src/dag/` |
+| `dag_t` | `dag_t` |
+| `dag_run` | `dag_run` |
+| `config_find_dag` | `config_find_dag` |
+| `dag_directory` 字段 | `dag_directory` |
+| `workflows` / `dag_count` | `dags` / `dag_count` |
+| `src/dag/` | `src/dag/` |
 | `workflow.c` / `workflow_dir.c` | `dag.c` / `dag_dir.c` |
-| `docs/workflow.md` | `docs/dag.md` |
+| `docs/dag.md` | `docs/dag.md` |
 | `WF_STEP_*` / `WF_MAX_*` | `DAG_STEP_*` / `DAG_MAX_*` |
 | `wf_*` 静态函数前缀 | `dag_*` |
-| 错误文案 `unknown workflow` | `unknown DAG` |
+| 错误文案 `unknown DAG` | `unknown DAG` |
 
 Planner / materialize 输出顶层键：`"dags"`。
 
 ## 3. 硬切行为
 
-- 配置出现顶层 `workflows` 或 `workflow_directory`：`config_load` **失败**，stderr 提示改用 `dags` / `dag_directory`，并指向 `docs/migrate-json.md` 新增小节。
+- 配置出现顶层 `workflows` 或 `dag_directory`：`config_load` **失败**，stderr 提示改用 `dags` / `dag_directory`，并指向 `docs/migrate-json.md` 新增小节。
 - CLI 输入 `workflow`：usage 错误（不再弃用兼容）。
-- Plan 抽出 JSON 只接受含 `"dags"` 的对象；旧 `"workflows"` 判失败。
+- Plan 抽出 JSON 只接受含 `"dags"` 的对象；旧 `"dags"` 判失败。
 
 ## 4. 验收
 

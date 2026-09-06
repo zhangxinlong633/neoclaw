@@ -18,5 +18,5 @@
       },
     ],
   },
-  workflow_directory: "tests/fixtures/dag_pack",
+  dag_directory: "tests/fixtures/dag_pack",
 }

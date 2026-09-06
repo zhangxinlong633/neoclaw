@@ -18,7 +18,7 @@
       }
     ]
   },
-  "workflows": [
+  "dags": [
     {
       "name": "demo_loop",
       "description": "run count twice via loop",

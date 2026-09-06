@@ -1,6 +1,6 @@
 #include "config.h"
 #include "capability_dir.h"
-#include "workflow_dir.h"
+#include "dag_dir.h"
 #include "yyjson.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,7 +68,7 @@ static int tool_command_name_reserved(const char *name) {
                   strcmp(name, "append_file") == 0 || strcmp(name, "propose_capability") == 0);
 }
 
-static void free_workflows(workflow_t *wfs, int n) {
+static void free_dags(dag_t *wfs, int n) {
   int i, j, k;
   if (!wfs) return;
   for (i = 0; i < n; i++) {
@@ -81,7 +81,7 @@ static void free_workflows(workflow_t *wfs, int n) {
     free(wfs[i].outcome);
     if (wfs[i].steps) {
       for (j = 0; j < wfs[i].step_count; j++) {
-        workflow_step_t *s = &wfs[i].steps[j];
+        dag_step_t *s = &wfs[i].steps[j];
         free(s->id);
         free(s->tool);
         free(s->args_json);
@@ -123,7 +123,7 @@ static void free_workflows(workflow_t *wfs, int n) {
   free(wfs);
 }
 
-static int wf_id_exists(const workflow_t *wf, const char *id) {
+static int dag_id_exists(const dag_t *wf, const char *id) {
   int m;
   if (!id) return 0;
   for (m = 0; m < wf->step_count; m++) {
@@ -132,77 +132,77 @@ static int wf_id_exists(const workflow_t *wf, const char *id) {
   return 0;
 }
 
-static int validate_workflows(agent_config_t *c) {
+static int validate_dags(agent_config_t *c) {
   int i, j, k, m;
-  for (i = 0; i < c->workflow_count; i++) {
-    workflow_t *wf = &c->workflows[i];
+  for (i = 0; i < c->dag_count; i++) {
+    dag_t *wf = &c->dags[i];
     if (!wf->name || !wf->name[0]) {
-      fprintf(stderr, "neo: workflows[%d]: empty name\n", i);
+      fprintf(stderr, "neo: dags[%d]: empty name\n", i);
       return -1;
     }
     for (j = 0; j < i; j++) {
-      if (c->workflows[j].name && strcmp(c->workflows[j].name, wf->name) == 0) {
-        fprintf(stderr, "neo: workflows: duplicate name '%s'\n", wf->name);
+      if (c->dags[j].name && strcmp(c->dags[j].name, wf->name) == 0) {
+        fprintf(stderr, "neo: dags: duplicate name '%s'\n", wf->name);
         return -1;
       }
     }
     for (j = 0; j < wf->step_count; j++) {
-      workflow_step_t *s = &wf->steps[j];
+      dag_step_t *s = &wf->steps[j];
       if (!s->id || !s->id[0]) {
-        fprintf(stderr, "neo: workflow '%s' step %d: empty id\n", wf->name, j);
+        fprintf(stderr, "neo: DAG '%s' step %d: empty id\n", wf->name, j);
         return -1;
       }
       for (k = 0; k < j; k++) {
         if (wf->steps[k].id && strcmp(wf->steps[k].id, s->id) == 0) {
-          fprintf(stderr, "neo: workflow '%s': duplicate step id '%s'\n", wf->name, s->id);
+          fprintf(stderr, "neo: DAG '%s': duplicate step id '%s'\n", wf->name, s->id);
           return -1;
         }
       }
       for (k = 0; k < s->depends_count; k++) {
-        if (!s->depends_on[k] || !wf_id_exists(wf, s->depends_on[k])) {
-          fprintf(stderr, "neo: workflow '%s' step '%s': unknown depends_on '%s'\n",
+        if (!s->depends_on[k] || !dag_id_exists(wf, s->depends_on[k])) {
+          fprintf(stderr, "neo: DAG '%s' step '%s': unknown depends_on '%s'\n",
                   wf->name, s->id, s->depends_on[k] ? s->depends_on[k] : "?");
           return -1;
         }
         if (strcmp(s->depends_on[k], s->id) == 0) {
-          fprintf(stderr, "neo: workflow '%s' step '%s': depends_on self\n", wf->name, s->id);
+          fprintf(stderr, "neo: DAG '%s' step '%s': depends_on self\n", wf->name, s->id);
           return -1;
         }
       }
-      if (s->type == WF_STEP_TOOL) {
+      if (s->type == DAG_STEP_TOOL) {
         /* Planner often omits type: llm and only sets prompt — coerce. */
         if ((!s->tool || !s->tool[0]) && s->prompt && s->prompt[0]) {
-          s->type = WF_STEP_LLM;
+          s->type = DAG_STEP_LLM;
         } else if (!s->tool || !s->tool[0]) {
-          fprintf(stderr, "neo: workflow '%s' step '%s': tool required\n", wf->name, s->id);
+          fprintf(stderr, "neo: DAG '%s' step '%s': tool required\n", wf->name, s->id);
           return -1;
         }
       }
-      if (s->type == WF_STEP_LLM) {
+      if (s->type == DAG_STEP_LLM) {
         if (!s->prompt || !s->prompt[0]) {
-          fprintf(stderr, "neo: workflow '%s' step '%s': prompt required\n", wf->name, s->id);
+          fprintf(stderr, "neo: DAG '%s' step '%s': prompt required\n", wf->name, s->id);
           return -1;
         }
-      } else if (s->type == WF_STEP_LOOP) {
+      } else if (s->type == DAG_STEP_LOOP) {
         if (s->max_iters < 1) {
-          fprintf(stderr, "neo: workflow '%s' step '%s': loop max must be >= 1\n", wf->name, s->id);
+          fprintf(stderr, "neo: DAG '%s' step '%s': loop max must be >= 1\n", wf->name, s->id);
           return -1;
         }
         if (s->over_count < 1) {
-          fprintf(stderr, "neo: workflow '%s' step '%s': loop over empty\n", wf->name, s->id);
+          fprintf(stderr, "neo: DAG '%s' step '%s': loop over empty\n", wf->name, s->id);
           return -1;
         }
         for (k = 0; k < s->over_count; k++) {
           int found = 0;
           if (!s->over_ids[k]) continue;
           if (strcmp(s->over_ids[k], s->id) == 0) {
-            fprintf(stderr, "neo: workflow '%s' step '%s': loop cannot include self\n", wf->name, s->id);
+            fprintf(stderr, "neo: DAG '%s' step '%s': loop cannot include self\n", wf->name, s->id);
             return -1;
           }
           for (m = 0; m < wf->step_count; m++) {
             if (wf->steps[m].id && strcmp(wf->steps[m].id, s->over_ids[k]) == 0) {
-              if (wf->steps[m].type == WF_STEP_LOOP) {
-                fprintf(stderr, "neo: workflow '%s': loop over cannot include loop step '%s'\n",
+              if (wf->steps[m].type == DAG_STEP_LOOP) {
+                fprintf(stderr, "neo: DAG '%s': loop over cannot include loop step '%s'\n",
                         wf->name, s->over_ids[k]);
                 return -1;
               }
@@ -211,14 +211,14 @@ static int validate_workflows(agent_config_t *c) {
             }
           }
           if (!found) {
-            fprintf(stderr, "neo: workflow '%s' step '%s': unknown over id '%s'\n",
+            fprintf(stderr, "neo: DAG '%s' step '%s': unknown over id '%s'\n",
                     wf->name, s->id, s->over_ids[k]);
             return -1;
           }
         }
-      } else if (s->type == WF_STEP_ROUTE) {
+      } else if (s->type == DAG_STEP_ROUTE) {
         if (!s->route_on || !s->route_on[0]) {
-          fprintf(stderr, "neo: workflow '%s' step '%s': route on required\n", wf->name, s->id);
+          fprintf(stderr, "neo: DAG '%s' step '%s': route on required\n", wf->name, s->id);
           return -1;
         }
         if (s->route_case_count > 0) {
@@ -228,39 +228,39 @@ static int validate_workflows(agent_config_t *c) {
             const char *m = s->route_cases[k].match;
             if (!m || !m[0]) defaults++;
             for (t = 0; t < s->route_cases[k].then_count; t++) {
-              if (!wf_id_exists(wf, s->route_cases[k].then_ids[t])) {
-                fprintf(stderr, "neo: workflow '%s' step '%s': unknown cases[%d] then id\n",
+              if (!dag_id_exists(wf, s->route_cases[k].then_ids[t])) {
+                fprintf(stderr, "neo: DAG '%s' step '%s': unknown cases[%d] then id\n",
                         wf->name, s->id, k);
                 return -1;
               }
             }
           }
           if (defaults > 1) {
-            fprintf(stderr, "neo: workflow '%s' step '%s': at most one default route case\n",
+            fprintf(stderr, "neo: DAG '%s' step '%s': at most one default route case\n",
                     wf->name, s->id);
             return -1;
           }
         } else if (s->route_then_count < 1 && s->route_else_count < 1) {
-          fprintf(stderr, "neo: workflow '%s' step '%s': route then/else empty\n", wf->name, s->id);
+          fprintf(stderr, "neo: DAG '%s' step '%s': route then/else empty\n", wf->name, s->id);
           return -1;
         }
         if (s->route_case_count < 1) {
           for (k = 0; k < s->route_then_count; k++) {
-            if (!wf_id_exists(wf, s->route_then[k])) {
-              fprintf(stderr, "neo: workflow '%s' step '%s': unknown then id\n", wf->name, s->id);
+            if (!dag_id_exists(wf, s->route_then[k])) {
+              fprintf(stderr, "neo: DAG '%s' step '%s': unknown then id\n", wf->name, s->id);
               return -1;
             }
           }
           for (k = 0; k < s->route_else_count; k++) {
-            if (!wf_id_exists(wf, s->route_else[k])) {
-              fprintf(stderr, "neo: workflow '%s' step '%s': unknown else id\n", wf->name, s->id);
+            if (!dag_id_exists(wf, s->route_else[k])) {
+              fprintf(stderr, "neo: DAG '%s' step '%s': unknown else id\n", wf->name, s->id);
               return -1;
             }
           }
         }
       }
-      if (s->retry_max > 0 && s->type != WF_STEP_TOOL) {
-        fprintf(stderr, "neo: workflow '%s' step '%s': retry only allowed on type tool\n",
+      if (s->retry_max > 0 && s->type != DAG_STEP_TOOL) {
+        fprintf(stderr, "neo: DAG '%s' step '%s': retry only allowed on type tool\n",
                 wf->name, s->id);
         return -1;
       }
@@ -269,12 +269,12 @@ static int validate_workflows(agent_config_t *c) {
   return 0;
 }
 
-const workflow_t *config_find_workflow(const agent_config_t *c, const char *name) {
+const dag_t *config_find_dag(const agent_config_t *c, const char *name) {
   int i;
   if (!c || !name) return NULL;
-  for (i = 0; i < c->workflow_count; i++) {
-    if (c->workflows[i].name && strcmp(c->workflows[i].name, name) == 0)
-      return &c->workflows[i];
+  for (i = 0; i < c->dag_count; i++) {
+    if (c->dags[i].name && strcmp(c->dags[i].name, name) == 0)
+      return &c->dags[i];
   }
   return NULL;
 }
@@ -339,8 +339,8 @@ void config_free(agent_config_t *c) {
   c->tools.root = NULL;
   free(c->tools.directory);
   c->tools.directory = NULL;
-  free(c->workflow_directory);
-  c->workflow_directory = NULL;
+  free(c->dag_directory);
+  c->dag_directory = NULL;
   free(c->tools.http_allow_hosts);
   c->tools.http_allow_hosts = NULL;
   free_tool_commands(c->tools.commands, c->tools.command_count);
@@ -349,9 +349,9 @@ void config_free(agent_config_t *c) {
   free_mcp_servers(c->tools.mcp_servers, c->tools.mcp_server_count);
   c->tools.mcp_servers = NULL;
   c->tools.mcp_server_count = 0;
-  free_workflows(c->workflows, c->workflow_count);
-  c->workflows = NULL;
-  c->workflow_count = 0;
+  free_dags(c->dags, c->dag_count);
+  c->dags = NULL;
+  c->dag_count = 0;
 }
 
 static int path_has_ext(const char *path, const char *ext) {
@@ -685,32 +685,32 @@ static int fill_tools(agent_config_t *c, yyjson_val *obj) {
   return 0;
 }
 
-static wf_step_type_t parse_step_type(const char *s) {
-  if (!s) return WF_STEP_TOOL;
-  if (!strcmp(s, "llm")) return WF_STEP_LLM;
-  if (!strcmp(s, "loop")) return WF_STEP_LOOP;
-  if (!strcmp(s, "route")) return WF_STEP_ROUTE;
-  return WF_STEP_TOOL;
+static dag_step_type_t parse_step_type(const char *s) {
+  if (!s) return DAG_STEP_TOOL;
+  if (!strcmp(s, "llm")) return DAG_STEP_LLM;
+  if (!strcmp(s, "loop")) return DAG_STEP_LOOP;
+  if (!strcmp(s, "route")) return DAG_STEP_ROUTE;
+  return DAG_STEP_TOOL;
 }
 
-int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *err_ctx) {
+int config_append_dag_val(agent_config_t *c, yyjson_val *wobj, const char *err_ctx) {
   yyjson_val *steps, *st;
-  workflow_t *wf;
-  workflow_t *np;
+  dag_t *wf;
+  dag_t *np;
   size_t si, sn;
-  const char *ctx = err_ctx ? err_ctx : "workflow";
+  const char *ctx = err_ctx ? err_ctx : "dag";
   if (!c || !yyjson_is_obj(wobj)) {
     fprintf(stderr, "neo: %s: expected object\n", ctx);
     return -1;
   }
-  if (c->workflow_count >= MAX_COMMANDS) {
-    fprintf(stderr, "neo: workflows: too many entries\n");
+  if (c->dag_count >= MAX_COMMANDS) {
+    fprintf(stderr, "neo: dags: too many entries\n");
     return -1;
   }
-  np = realloc(c->workflows, (c->workflow_count + 1) * sizeof(workflow_t));
+  np = realloc(c->dags, (c->dag_count + 1) * sizeof(dag_t));
   if (!np) return -1;
-  c->workflows = np;
-  wf = &c->workflows[c->workflow_count];
+  c->dags = np;
+  wf = &c->dags[c->dag_count];
   memset(wf, 0, sizeof(*wf));
   wf->name = yy_dup_str(yyjson_obj_get(wobj, "name"));
   wf->description = yy_dup_str(yyjson_obj_get(wobj, "description"));
@@ -721,7 +721,7 @@ int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *
   wf->outcome = yy_meta_text(yyjson_obj_get(wobj, "outcome"));
   steps = yyjson_obj_get(wobj, "steps");
   if (!steps) {
-    c->workflow_count++;
+    c->dag_count++;
     return 0;
   }
   if (!yyjson_is_arr(steps)) {
@@ -730,8 +730,8 @@ int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *
   }
   sn = yyjson_arr_size(steps);
   for (si = 0; si < sn; si++) {
-    workflow_step_t *s;
-    workflow_step_t *snp;
+    dag_step_t *s;
+    dag_step_t *snp;
     yyjson_val *type_v, *tools_v, *args_v, *max_v, *dep, *over, *then_a, *else_a;
     yyjson_val *cases_a, *retry_v;
     char pathbuf[128];
@@ -741,10 +741,10 @@ int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *
       return -1;
     }
     if (wf->step_count >= MAX_PATHS) {
-      fprintf(stderr, "neo: workflow steps: too many\n");
+      fprintf(stderr, "neo: DAG steps: too many\n");
       return -1;
     }
-    snp = realloc(wf->steps, (wf->step_count + 1) * sizeof(workflow_step_t));
+    snp = realloc(wf->steps, (wf->step_count + 1) * sizeof(dag_step_t));
     if (!snp) return -1;
     wf->steps = snp;
     s = &wf->steps[wf->step_count];
@@ -755,11 +755,11 @@ int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *
     if (yyjson_is_str(type_v))
       s->type = parse_step_type(yyjson_get_str(type_v));
     else
-      s->type = WF_STEP_TOOL;
+      s->type = DAG_STEP_TOOL;
     s->tool = yy_dup_str(yyjson_obj_get(st, "tool"));
     s->prompt = yy_dup_str(yyjson_obj_get(st, "prompt"));
     if (!yyjson_is_str(type_v) && s->prompt && s->prompt[0] && (!s->tool || !s->tool[0]))
-      s->type = WF_STEP_LLM;
+      s->type = DAG_STEP_LLM;
     tools_v = yyjson_obj_get(st, "tools");
     if (yyjson_is_str(tools_v)) {
       const char *ts = yyjson_get_str(tools_v);
@@ -802,12 +802,12 @@ int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *
     cases_a = yyjson_obj_get(st, "cases");
     if (yyjson_is_arr(cases_a)) {
       size_t ci, cn = yyjson_arr_size(cases_a);
-      if (cn < 1 || cn > (size_t)WF_MAX_ROUTE_CASES) {
+      if (cn < 1 || cn > (size_t)DAG_MAX_ROUTE_CASES) {
         fprintf(stderr, "neo: %s/steps/%zu: cases length must be 1..%d\n", ctx, si,
-                WF_MAX_ROUTE_CASES);
+                DAG_MAX_ROUTE_CASES);
         return -1;
       }
-      s->route_cases = calloc(cn, sizeof(wf_route_case_t));
+      s->route_cases = calloc(cn, sizeof(dag_route_case_t));
       if (!s->route_cases) return -1;
       s->route_case_count = (int)cn;
       for (ci = 0; ci < cn; ci++) {
@@ -839,22 +839,22 @@ int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *
     }
     wf->step_count++;
   }
-  c->workflow_count++;
+  c->dag_count++;
   return 0;
 }
 
-static int fill_workflows(agent_config_t *c, yyjson_val *arr) {
+static int fill_dags(agent_config_t *c, yyjson_val *arr) {
   size_t wi, wn;
   if (!yyjson_is_arr(arr)) {
-    fprintf(stderr, "neo: config error at /workflows: expected array\n");
+    fprintf(stderr, "neo: config error at /dags: expected array\n");
     return -1;
   }
   wn = yyjson_arr_size(arr);
   for (wi = 0; wi < wn; wi++) {
     char ctx[64];
     yyjson_val *wobj = yyjson_arr_get(arr, wi);
-    snprintf(ctx, sizeof(ctx), "/workflows/%zu", wi);
-    if (config_append_workflow_val(c, wobj, ctx) != 0) return -1;
+    snprintf(ctx, sizeof(ctx), "/dags/%zu", wi);
+    if (config_append_dag_val(c, wobj, ctx) != 0) return -1;
   }
   return 0;
 }
@@ -909,6 +909,13 @@ int config_load_file(agent_config_t *c, const char *path) {
     fprintf(stderr,
             "neo: config key 'skills' is removed; migrate to rules/bootstrap and "
             "capability_matrix (see docs/superpowers/specs/2026-09-05-deprecate-skills-design.md)\n");
+  /* 硬切：旧键 workflows / workflow_directory 一律拒绝 */
+  if (yyjson_obj_get(root, "workflows") || yyjson_obj_get(root, "workflow_directory")) {
+    fprintf(stderr,
+            "neo: config keys 'workflows' / 'workflow_directory' were removed; "
+            "use 'dags' / 'dag_directory' (see docs/migrate-json.md)\n");
+    goto fail;
+  }
   {
     yyjson_val *mx = yyjson_obj_get(root, "capability_matrix");
     if (!mx) {
@@ -921,14 +928,14 @@ int config_load_file(agent_config_t *c, const char *path) {
   }
   if (capability_dir_load_into_config(c) != 0) goto fail;
   {
-    yyjson_val *wd = yyjson_obj_get(root, "workflow_directory");
+    yyjson_val *wd = yyjson_obj_get(root, "dag_directory");
     if (yyjson_is_str(wd) && yyjson_get_str(wd)) {
-      free(c->workflow_directory);
-      c->workflow_directory = dup_str(yyjson_get_str(wd));
+      free(c->dag_directory);
+      c->dag_directory = dup_str(yyjson_get_str(wd));
     }
   }
-  if ((sec = yyjson_obj_get(root, "workflows")) && fill_workflows(c, sec) != 0) goto fail;
-  if (workflow_dir_load_into_config(c) != 0) goto fail;
+  if ((sec = yyjson_obj_get(root, "dags")) && fill_dags(c, sec) != 0) goto fail;
+  if (dag_dir_load_into_config(c) != 0) goto fail;
 
   yyjson_doc_free(doc);
 
@@ -938,7 +945,7 @@ int config_load_file(agent_config_t *c, const char *path) {
   if (c->soul.max_chars <= 0) c->soul.max_chars = 8000;
   if (c->rules.max_chars_per_file <= 0) c->rules.max_chars_per_file = 8000;
   if (validate_tool_commands(c) != 0) return -1;
-  if (validate_workflows(c) != 0) return -1;
+  if (validate_dags(c) != 0) return -1;
 
 
   if (!c->model.base_url) c->model.base_url = dup_str("http://127.0.0.1:11434/v1");

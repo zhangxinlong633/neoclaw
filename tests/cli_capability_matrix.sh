@@ -76,7 +76,7 @@ else
   bad "dag run cli_count (rc=$RC err=$ERR)"
 fi
 
-# unified neo run: exact workflow name → direct DAG (no planner)
+# unified neo run: exact DAG name → direct run (no planner)
 run_capture "$NEO" -c "$CFG" run cli_count
 if [[ "$RC" -eq 0 ]]; then
   ok "run cli_count (name hit → DAG)"
@@ -84,12 +84,12 @@ else
   bad "run cli_count (rc=$RC err=$ERR)"
 fi
 
-# deprecated alias still works
+# workflow CLI removed
 run_capture "$NEO" -c "$CFG" workflow run cli_count
-if [[ "$RC" -eq 0 ]] && grep -qi 'deprecated' <<<"$ERR"; then
-  ok "workflow run deprecated but works"
+if [[ "$RC" -ne 0 ]] && grep -qi 'removed' <<<"$ERR"; then
+  ok "workflow CLI removed"
 else
-  bad "workflow run deprecated (rc=$RC err=$ERR)"
+  bad "workflow CLI removed (rc=$RC err=$ERR)"
 fi
 
 # --- MCP capability via dag ---
@@ -147,7 +147,7 @@ rm -f tests/fixtures/cap_pack/proposed/cli_prop.json5
 rm -f tests/fixtures/count.out
 run_capture "$NEO" -c tests/fixtures/tools_dag_dir.json5 dag run dir_count
 if [[ "$RC" -eq 0 ]] && [[ -f tests/fixtures/count.out ]]; then
-  ok "dag run dir_count (workflow_directory)"
+  ok "dag run dir_count (dag_directory)"
 else
   bad "dir_count (rc=$RC out=$OUT err=$ERR)"
 fi

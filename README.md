@@ -148,7 +148,7 @@ Plan without executing: use `plan` instead of `run`.
 | Scenarios & positioning (full) | [`docs/applications.md`](docs/applications.md) |
 | Hands-on examples | [`docs/examples.md`](docs/examples.md) |
 | Capability matrix | [`docs/tool.md`](docs/tool.md) |
-| DAG scheduling | [`docs/workflow.md`](docs/workflow.md) |
+| DAG scheduling | [`docs/dag.md`](docs/dag.md) |
 | Identity, rules, memory | [`docs/claw.md`](docs/claw.md) |
 | Contributing | [`AGENTS.md`](AGENTS.md) |
 | Chinese README | [`README_zh.md`](README_zh.md) |

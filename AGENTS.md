@@ -14,7 +14,7 @@
 
 | 层 | 管什么 | 配置 / 代码入口 |
 |----|--------|-----------------|
-| **DAG** | 编排怎么走（确定性拓扑） | `workflows`；`src/workflow/workflow.c`；`neo plan` / `neo run` → `src/workflow/plan.c` |
+| **DAG** | 编排怎么走（确定性拓扑） | `dags`；`src/dag/workflow.c`；`neo plan` / `neo run` → `src/dag/plan.c` |
 | **Capability Matrix** | 能调用什么（可发现能力表） | 顶层键 **`capability_matrix`**；`src/capability/capability_matrix.c` |
 | **Policy** | 许不许、贵不贵 | `shell_enabled`、`http_*`、轮次/字节上限；加载进矩阵时裁剪 `enabled` |
 
@@ -38,14 +38,14 @@
 | `src/capability/agent_tools.c` | 反应式 tool loop + `neo_dispatch_tool` |
 | `src/capability/command_tools.c` | `capability_matrix.commands` 白名单 exec |
 | `src/capability/mcp_stdio.c` | stdio MCP → 矩阵行；`tools/call` |
-| `src/workflow/workflow.c` | DAG 执行（`tool` / `llm` / `loop` / `route`） |
-| `src/workflow/workflow_dir.c` | DAG 目录加载 + catalog 列表 |
-| `src/workflow/plan.c` | 规划提示（catalog `use` 优先）、抽出 workflows JSON、materialize |
+| `src/dag/workflow.c` | DAG 执行（`tool` / `llm` / `loop` / `route`） |
+| `src/dag/workflow_dir.c` | DAG 目录加载 + catalog 列表 |
+| `src/dag/plan.c` | 规划提示（catalog `use` 优先）、抽出 dags JSON、materialize |
 | `src/vendor/yyjson.c` | 第三方 amalgamation；少改 |
 
 `#include` 仍用短名（如 `"config.h"`）；Makefile 用多路径 `-I`。
 
-用户文档：`docs/architecture.md`（目标架构）、`docs/applications.md`（应用场景与定位）、`docs/examples.md`（使用样例）、`docs/tool.md`（矩阵）、`docs/workflow.md`（DAG）、`docs/claw.md`（prompt 块）、`docs/migrate-json.md`（迁移）。设计稿：`docs/superpowers/specs/`。
+用户文档：`docs/architecture.md`（目标架构）、`docs/applications.md`（应用场景与定位）、`docs/examples.md`（使用样例）、`docs/tool.md`（矩阵）、`docs/dag.md`（DAG）、`docs/claw.md`（prompt 块）、`docs/migrate-json.md`（迁移）。设计稿：`docs/superpowers/specs/`。
 
 ---
 
@@ -122,7 +122,7 @@ capability_matrix: {
 
 1. **本目录职责**：用完整陈述句说明用途与边界（禁止只写目录名或空口号）。
 2. **子目录说明**：若有子目录，用表格或列表逐条写清各自职责。
-3. **关联入口**：指向权威文档（如 `docs/tool.md`、`docs/workflow.md`、本文相关节），避免在 README 中复述大段实现细节。
+3. **关联入口**：指向权威文档（如 `docs/tool.md`、`docs/dag.md`、本文相关节），避免在 README 中复述大段实现细节。
 
 特别适用：`capabilities/`、`dags/`、`rules/`、`src/` 各模块、`config/`、`tests/`、`docs/`、`scripts/` 及其子目录。
 

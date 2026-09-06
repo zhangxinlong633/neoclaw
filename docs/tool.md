@@ -42,7 +42,7 @@ Neo 在配置中启用 `capability_matrix` 后，会构建一张 **Capability Ma
       },
     ],
   },
-  workflow_directory: "dags",
+  dag_directory: "dags",
 }
 ```
 

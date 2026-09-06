@@ -1,6 +1,6 @@
 {
   name: "dir_count",
-  description: "Fixture DAG from workflow_directory",
+  description: "Fixture DAG from dag_directory",
   when: ["fixture", "count once via directory DAG"],
   when_not: ["Non-fixture tasks"],
   tags: ["fixture"],

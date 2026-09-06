@@ -9,11 +9,11 @@
  */
 
 /* 展开 {{prev}} / {{steps.<id>}}；未知变量返回 NULL。调用方 free。 */
-char *workflow_expand_template(const char *tmpl, const char *prev,
+char *dag_expand_template(const char *tmpl, const char *prev,
                                const char **ids, const char **texts, int n_maps);
 
 /* 按名运行 workflow；成功时 *out_text 为最终输出（调用方 free）。verbose：stderr 步骤日志。 */
-int workflow_run(const agent_config_t *conf, const char *workflow_name, char **out_text,
+int dag_run(const agent_config_t *conf, const char *dag_name, char **out_text,
                  int verbose);
 
 #endif

@@ -8,7 +8,7 @@
     "enabled": false,
     "root": "."
   },
-  "workflows": [
+  "dags": [
     {
       "name": "omit_type",
       "steps": [

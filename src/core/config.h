@@ -89,24 +89,24 @@ typedef struct {
 } tools_config_t;
 
 typedef enum {
-  WF_STEP_TOOL = 0,
-  WF_STEP_LLM = 1,
-  WF_STEP_LOOP = 2,
-  WF_STEP_ROUTE = 3
-} wf_step_type_t;
+  DAG_STEP_TOOL = 0,
+  DAG_STEP_LLM = 1,
+  DAG_STEP_LOOP = 2,
+  DAG_STEP_ROUTE = 3
+} dag_step_type_t;
 
-#define WF_MAX_ROUTE_CASES 16
+#define DAG_MAX_ROUTE_CASES 16
 
 /* 多路 route 的一支；match 为空表示默认支。 */
 typedef struct {
   char *match;
   char **then_ids;
   int then_count;
-} wf_route_case_t;
+} dag_route_case_t;
 
 typedef struct {
   char *id;
-  wf_step_type_t type;
+  dag_step_type_t type;
   char *tool;
   char *args_json;
   char *prompt;
@@ -123,10 +123,10 @@ typedef struct {
   int route_then_count;
   char **route_else;
   int route_else_count;
-  wf_route_case_t *route_cases;
+  dag_route_case_t *route_cases;
   int route_case_count;
   int retry_max; /* 仅 tool：首次失败后的额外尝试次数，0..3 */
-} workflow_step_t;
+} dag_step_t;
 
 typedef struct {
   char *name;
@@ -136,9 +136,9 @@ typedef struct {
   char *tags;
   char *requires; /* 依赖的能力名（提示用） */
   char *outcome;  /* 成功时可见结果 */
-  workflow_step_t *steps;
+  dag_step_t *steps;
   int step_count;
-} workflow_t;
+} dag_t;
 
 typedef struct {
   int target_steps; /* 0 = unset; soft preference for planner */
@@ -153,9 +153,9 @@ typedef struct {
   memory_config_t memory;
   tools_config_t tools;
   plan_config_t plan;
-  char *workflow_directory; /* optional DAG pack dir (one workflow per file) */
-  workflow_t *workflows;
-  int workflow_count;
+  char *dag_directory; /* optional DAG pack dir (one workflow per file) */
+  dag_t *dags;
+  int dag_count;
   int session_max_turns;
 } agent_config_t;
 
@@ -163,9 +163,9 @@ void config_init(agent_config_t *c);
 void config_free(agent_config_t *c);
 int config_load_file(agent_config_t *c, const char *path);
 void config_apply_env(agent_config_t *c);
-const workflow_t *config_find_workflow(const agent_config_t *c, const char *name);
+const dag_t *config_find_dag(const agent_config_t *c, const char *name);
 
 /* 追加单个 workflow 对象（内联数组或目录文件共用）。err_ctx 用于错误路径文案。 */
-int config_append_workflow_val(agent_config_t *c, yyjson_val *wobj, const char *err_ctx);
+int config_append_dag_val(agent_config_t *c, yyjson_val *wobj, const char *err_ctx);
 
 #endif

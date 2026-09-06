@@ -26,7 +26,7 @@
       }
     ]
   },
-  "workflows": [
+  "dags": [
     {
       "name": "diamond",
       "description": "A -> B,C -> D",

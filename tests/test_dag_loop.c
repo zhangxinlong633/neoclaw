@@ -1,5 +1,5 @@
 #include "config.h"
-#include "workflow.h"
+#include "dag.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,12 +14,12 @@ int main(void) {
 
   unlink("tests/fixtures/count.out");
   config_init(&c);
-  if (config_load_file(&c, "tests/fixtures/workflow_min.json5") != 0) {
+  if (config_load_file(&c, "tests/fixtures/dag_min.json5") != 0) {
     fprintf(stderr, "load failed\n");
     return 1;
   }
-  if (workflow_run(&c, "demo_loop", &out, 0) != 0) {
-    fprintf(stderr, "workflow_run failed\n");
+  if (dag_run(&c, "demo_loop", &out, 0) != 0) {
+    fprintf(stderr, "dag_run failed\n");
     free(out);
     config_free(&c);
     return 1;

@@ -1,6 +1,6 @@
 #include "plan.h"
 #include "config.h"
-#include "workflow_dir.h"
+#include "dag_dir.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,23 +21,23 @@ int main(void) {
   int fails = 0;
   const char *fenced =
       "Sure:\n```json\n"
-      "{\"workflows\":[{\"name\":\"planned\",\"steps\":["
+      "{\"dags\":[{\"name\":\"planned\",\"steps\":["
       "{\"id\":\"a\",\"type\":\"llm\",\"prompt\":\"hello\"}]}]}"
       "\n```\n";
   const char *bare =
-      "{\"workflows\":[{\"name\":\"bare\",\"steps\":["
+      "{\"dags\":[{\"name\":\"bare\",\"steps\":["
       "{\"id\":\"x\",\"type\":\"llm\",\"prompt\":\"x\"}]}]}";
 
-  if (plan_extract_workflows_json(fenced, &json) != 0) {
+  if (plan_extract_dags_json(fenced, &json) != 0) {
     fprintf(stderr, "extract fenced failed\n");
     return 1;
   }
-  fails += expect_contains(json, "\"workflows\"", "fenced");
+  fails += expect_contains(json, "\"dags\"", "fenced");
   fails += expect_contains(json, "planned", "fenced");
   free(json);
   json = NULL;
 
-  if (plan_extract_workflows_json(bare, &json) != 0) {
+  if (plan_extract_dags_json(bare, &json) != 0) {
     fprintf(stderr, "extract bare failed\n");
     return 1;
   }
@@ -45,7 +45,7 @@ int main(void) {
   free(json);
   json = NULL;
 
-  if (plan_extract_workflows_json("no json here", &json) == 0) {
+  if (plan_extract_dags_json("no json here", &json) == 0) {
     fprintf(stderr, "expected extract failure\n");
     free(json);
     return 1;
@@ -68,8 +68,8 @@ int main(void) {
     config_free(&base);
     return 1;
   }
-  if (planned.workflow_count < 1 || !planned.workflows[0].name ||
-      strcmp(planned.workflows[0].name, "bare") != 0) {
+  if (planned.dag_count < 1 || !planned.dags[0].name ||
+      strcmp(planned.dags[0].name, "bare") != 0) {
     fprintf(stderr, "bad materialize name\n");
     config_free(&planned);
     config_free(&base);
@@ -145,7 +145,7 @@ int main(void) {
     char *syn = NULL;
     tool_names[0] = (char *)"date_iso";
     tool_names[1] = (char *)"list_dir";
-    syn = plan_workflows_json_for_tools(tool_names, 2);
+    syn = plan_dags_json_for_tools(tool_names, 2);
     if (!syn || !strstr(syn, "adhoc_tools") || !strstr(syn, "date_iso") || !strstr(syn, "list_dir")) {
       fprintf(stderr, "synthesize adhoc_tools failed: %s\n", syn ? syn : "(null)");
       free(syn);
@@ -165,12 +165,12 @@ int main(void) {
       fprintf(stderr, "load dag dir fixture failed\n");
       return 1;
     }
-    if (!config_find_workflow(&c, "dir_count")) {
-      fprintf(stderr, "dir_count not loaded from workflow_directory\n");
+    if (!config_find_dag(&c, "dir_count")) {
+      fprintf(stderr, "dir_count not loaded from dag_directory\n");
       config_free(&c);
       return 1;
     }
-    cat = workflow_dir_catalog_listing(&c);
+    cat = dag_dir_catalog_listing(&c);
     if (!cat || !strstr(cat, "dir_count") || !strstr(cat, "DAG:")) {
       fprintf(stderr, "catalog missing dir_count or DAG: prefix: %s\n", cat ? cat : "(null)");
       free(cat);

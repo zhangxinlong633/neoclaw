@@ -1,5 +1,5 @@
 #include "config.h"
-#include "workflow.h"
+#include "dag.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -18,21 +18,21 @@ static int count_lines(const char *path) {
 int main(void) {
   agent_config_t c;
   char *out = NULL;
-  const workflow_t *wf;
+  const dag_t *wf;
 
   unlink("tests/fixtures/count.out");
   config_init(&c);
-  if (config_load_file(&c, "tests/fixtures/workflow_dag.json5") != 0) {
+  if (config_load_file(&c, "tests/fixtures/dag_runner.json5") != 0) {
     fprintf(stderr, "load failed\n");
     return 1;
   }
-  wf = config_find_workflow(&c, "diamond");
+  wf = config_find_dag(&c, "diamond");
   if (!wf || wf->step_count != 4 || wf->steps[1].depends_count != 1) {
     fprintf(stderr, "parse diamond bad\n");
     config_free(&c);
     return 1;
   }
-  if (workflow_run(&c, "diamond", &out, 0) != 0) {
+  if (dag_run(&c, "diamond", &out, 0) != 0) {
     fprintf(stderr, "diamond run failed\n");
     free(out);
     config_free(&c);
@@ -47,7 +47,7 @@ int main(void) {
 
   unlink("tests/fixtures/count.out");
   out = NULL;
-  if (workflow_run(&c, "route_demo", &out, 0) != 0) {
+  if (dag_run(&c, "route_demo", &out, 0) != 0) {
     fprintf(stderr, "route run failed\n");
     free(out);
     config_free(&c);
@@ -63,7 +63,7 @@ int main(void) {
 
   unlink("tests/fixtures/count.out");
   out = NULL;
-  if (workflow_run(&c, "route_merge", &out, 0) != 0) {
+  if (dag_run(&c, "route_merge", &out, 0) != 0) {
     fprintf(stderr, "route_merge run failed\n");
     free(out);
     config_free(&c);
@@ -79,7 +79,7 @@ int main(void) {
 
   unlink("tests/fixtures/count.out");
   out = NULL;
-  if (workflow_run(&c, "route_cases", &out, 0) != 0) {
+  if (dag_run(&c, "route_cases", &out, 0) != 0) {
     fprintf(stderr, "route_cases run failed\n");
     free(out);
     config_free(&c);
@@ -96,7 +96,7 @@ int main(void) {
   unlink("tests/fixtures/count.out");
   unlink("tests/fixtures/flaky.flag");
   out = NULL;
-  if (workflow_run(&c, "tool_retry", &out, 0) != 0) {
+  if (dag_run(&c, "tool_retry", &out, 0) != 0) {
     fprintf(stderr, "tool_retry run failed\n");
     free(out);
     config_free(&c);

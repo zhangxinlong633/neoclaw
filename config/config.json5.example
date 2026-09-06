@@ -50,7 +50,7 @@
   },
 
   // Default pack: dags/{baseline,workspace}. Flagship SOP: workspace_brief.
-  workflow_directory: "dags",
+  dag_directory: "dags",
 
   // plan: { target_steps: 10 },
 }

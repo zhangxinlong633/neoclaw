@@ -1,7 +1,7 @@
 /*
- * DAG 目录实现：与 capability_dir 对称，供 catalog 选型与 workflow run。
+ * DAG 目录实现：与 capability_dir 对称，供 catalog 选型与 dag run。
  */
-#include "workflow_dir.h"
+#include "dag_dir.h"
 #include "yyjson.h"
 #include <dirent.h>
 #include <errno.h>
@@ -61,7 +61,7 @@ static int read_manifest(const char *dir_abs, char ***load_dirs, int *load_n) {
   }
   doc = yyjson_read_file(path, YYJSON_READ_JSON5, NULL, &err);
   if (!doc) {
-    fprintf(stderr, "neo: workflow dir: bad manifest %s\n", path);
+    fprintf(stderr, "neo: DAG dir: bad manifest %s\n", path);
     return -1;
   }
   root = yyjson_doc_get_root(doc);
@@ -83,7 +83,7 @@ static int read_manifest(const char *dir_abs, char ***load_dirs, int *load_n) {
     return 0;
   }
   if (!yyjson_is_arr(load)) {
-    fprintf(stderr, "neo: workflow dir: manifest.load must be array\n");
+    fprintf(stderr, "neo: DAG dir: manifest.load must be array\n");
     yyjson_doc_free(doc);
     return -1;
   }
@@ -125,11 +125,11 @@ static int load_one_file(agent_config_t *conf, const char *path) {
   yyjson_read_err err;
   doc = yyjson_read_file(path, YYJSON_READ_JSON5, NULL, &err);
   if (!doc) {
-    fprintf(stderr, "neo: workflow dir: cannot parse %s (%s)\n", path, err.msg ? err.msg : "?");
+    fprintf(stderr, "neo: DAG dir: cannot parse %s (%s)\n", path, err.msg ? err.msg : "?");
     return -1;
   }
   root = yyjson_doc_get_root(doc);
-  if (config_append_workflow_val(conf, root, path) != 0) {
+  if (config_append_dag_val(conf, root, path) != 0) {
     yyjson_doc_free(doc);
     return -1;
   }
@@ -142,7 +142,7 @@ static int load_subdir(agent_config_t *conf, const char *dir_abs) {
   struct dirent *de;
   d = opendir(dir_abs);
   if (!d) {
-    fprintf(stderr, "neo: workflow dir: cannot open %s: %s\n", dir_abs, strerror(errno));
+    fprintf(stderr, "neo: DAG dir: cannot open %s: %s\n", dir_abs, strerror(errno));
     return -1;
   }
   while ((de = readdir(d)) != NULL) {
@@ -164,20 +164,20 @@ static int load_subdir(agent_config_t *conf, const char *dir_abs) {
   return 0;
 }
 
-int workflow_dir_load_into_config(agent_config_t *conf) {
+int dag_dir_load_into_config(agent_config_t *conf) {
   char dir_abs[PATH_MAX];
   char **load_dirs = NULL;
   int load_n = 0, i;
   const char *dir;
 
-  if (!conf || !conf->workflow_directory || !conf->workflow_directory[0]) return 0;
-  dir = conf->workflow_directory;
+  if (!conf || !conf->dag_directory || !conf->dag_directory[0]) return 0;
+  dir = conf->dag_directory;
   if (dir[0] == '/' || strstr(dir, "..")) {
-    fprintf(stderr, "neo: workflow_directory must be a relative path without ..\n");
+    fprintf(stderr, "neo: dag_directory must be a relative path without ..\n");
     return -1;
   }
   if (!realpath(dir, dir_abs)) {
-    fprintf(stderr, "neo: workflow_directory realpath failed for %s: %s\n", dir, strerror(errno));
+    fprintf(stderr, "neo: dag_directory realpath failed for %s: %s\n", dir, strerror(errno));
     return -1;
   }
   if (read_manifest(dir_abs, &load_dirs, &load_n) != 0) return -1;
@@ -220,13 +220,13 @@ static int catalog_append(char **buf, size_t *len, size_t *cap, const char *line
   return 0;
 }
 
-char *workflow_dir_catalog_listing(const agent_config_t *conf) {
+char *dag_dir_catalog_listing(const agent_config_t *conf) {
   char *buf = NULL;
   size_t len = 0, cap = 0;
   int i;
-  if (!conf || conf->workflow_count < 1) return dup_s("(no DAG catalog — invent a workflows array)\n");
-  for (i = 0; i < conf->workflow_count; i++) {
-    const workflow_t *wf = &conf->workflows[i];
+  if (!conf || conf->dag_count < 1) return dup_s("(no DAG catalog — invent a dags array)\n");
+  for (i = 0; i < conf->dag_count; i++) {
+    const dag_t *wf = &conf->dags[i];
     char line[1536];
     if (!wf->name) continue;
     /* 前缀 DAG: 与能力矩阵名单区分，降低 planner 把 tool 名写入 use 的概率。 */
@@ -272,6 +272,6 @@ char *workflow_dir_catalog_listing(const agent_config_t *conf) {
       }
     }
   }
-  if (!buf) return dup_s("(no DAG catalog — invent a workflows array)\n");
+  if (!buf) return dup_s("(no DAG catalog — invent a dags array)\n");
   return buf;
 }

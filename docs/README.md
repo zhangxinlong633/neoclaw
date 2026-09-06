@@ -6,7 +6,7 @@
 
 1. 仓库根 [`README.md`](../README.md)（英文）/ [`README_zh.md`](../README_zh.md)（中文）— 目标型 Agent、业务层次（与 `applications` 对齐）、上手样例  
 2. [`examples.md`](examples.md) — 可复现命令、**开箱组合**、排错  
-3. [`tool.md`](tool.md) / [`workflow.md`](workflow.md) — 矩阵与 DAG 细则  
+3. [`tool.md`](tool.md) / [`dag.md`](dag.md) — 矩阵与 DAG 细则  
 4. [`architecture.md`](architecture.md) / [`applications.md`](applications.md) — 目标架构与场景全文
 
 ## 主要文档
@@ -17,7 +17,7 @@
 | `architecture.md` | 智能体目标架构（调度/执行/规划）与本仓库实现对照 |
 | `applications.md` | 应用场景、问题域与生态位（基础 / 行业 / 未来） |
 | `tool.md` | Capability Matrix、commands、MCP、能力目录、Unix 白名单 |
-| `workflow.md` | DAG、plan/run、workflow 目录 |
+| `dag.md` | DAG、plan/run、workflow 目录 |
 | `claw.md` | soul / bootstrap / rules / memory（skills 已废弃） |
 | `migrate-json.md` | YAML → JSON5 迁移 |
 

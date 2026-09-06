@@ -26,7 +26,7 @@
       },
     ],
   },
-  workflows: [
+  dags: [
     {
       name: "cli_count",
       description: "CLI smoke: matrix command via workflow",

@@ -8,6 +8,6 @@
 |--------|------|
 | `bin/` | 测试专用可执行脚本 |
 | `cap_pack/` | `capability_matrix.directory` 加载测试包 |
-| `dag_pack/` | `workflow_directory` 加载测试包 |
+| `dag_pack/` | `dag_directory` 加载测试包 |
 
 根目录另有大量 `*.json5` 单文件夹具，由各 `tests/test_*.c` 与 `cli_capability_matrix.sh` 引用。

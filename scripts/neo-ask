@@ -11,7 +11,7 @@ fi
 
 ARGS=()
 STDIN_MODE=0
-WORKFLOW=""
+DAG=""
 MSG_PARTS=()
 
 while [[ $# -gt 0 ]]; do
@@ -20,19 +20,23 @@ while [[ $# -gt 0 ]]; do
       STDIN_MODE=1
       shift
       ;;
-    --workflow)
-      WORKFLOW="${2:-}"
-      if [[ -z "$WORKFLOW" ]]; then
-        echo "neo-ask: --workflow requires NAME" >&2
+    --dag)
+      DAG="${2:-}"
+      if [[ -z "$DAG" ]]; then
+        echo "neo-ask: --dag requires NAME" >&2
         exit 1
       fi
       shift 2
+      ;;
+    --workflow)
+      echo "neo-ask: --workflow was removed; use --dag NAME" >&2
+      exit 1
       ;;
     -p|--profile|-c|--config|-m|--model)
       ARGS+=("$1" "$2")
       shift 2
       ;;
-    -d|--debug)
+    -d|--debug|-v|--verbose)
       ARGS+=("$1")
       shift
       ;;
@@ -40,8 +44,8 @@ while [[ $# -gt 0 ]]; do
       cat >&2 <<EOF
 Usage: neo-ask [options] "message"
        echo msg | neo-ask [options] --stdin
-       neo-ask [options] --workflow NAME
-Options pass through to neo: -p/-c/-m/-d
+       neo-ask [options] --dag NAME
+Options pass through to neo: -p/-c/-m/-d/-v
 EOF
       exit 0
       ;;
@@ -59,8 +63,8 @@ done
 
 cd "$ROOT"
 
-if [[ -n "$WORKFLOW" ]]; then
-  exec "$NEO_BIN" "${ARGS[@]}" workflow run "$WORKFLOW"
+if [[ -n "$DAG" ]]; then
+  exec "$NEO_BIN" "${ARGS[@]}" dag run "$DAG"
 fi
 
 if [[ "$STDIN_MODE" -eq 1 ]]; then
@@ -69,7 +73,7 @@ if [[ "$STDIN_MODE" -eq 1 ]]; then
 fi
 
 if [[ ${#MSG_PARTS[@]} -eq 0 ]]; then
-  echo "neo-ask: message required (or --stdin / --workflow)" >&2
+  echo "neo-ask: message required (or --stdin / --dag)" >&2
   exit 1
 fi
 

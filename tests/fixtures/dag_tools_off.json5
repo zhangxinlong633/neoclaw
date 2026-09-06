@@ -18,7 +18,7 @@
       }
     ]
   },
-  "workflows": [
+  "dags": [
     {
       "name": "llm_tools_off",
       "steps": [

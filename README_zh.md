@@ -148,7 +148,7 @@ cp config/config.json5.example config/config.json5
 | 业务场景与定位（全文） | [`docs/applications.md`](docs/applications.md) |
 | 对着例子练手 | [`docs/examples.md`](docs/examples.md) |
 | 能力矩阵（能用什么） | [`docs/tool.md`](docs/tool.md) |
-| DAG 调度（怎么走） | [`docs/workflow.md`](docs/workflow.md) |
+| DAG 调度（怎么走） | [`docs/dag.md`](docs/dag.md) |
 | 身份、规则、长期记忆 | [`docs/claw.md`](docs/claw.md) |
 | 改代码、做贡献 | [`AGENTS.md`](AGENTS.md) |
 | 英文 README | [`README.md`](README.md) |
