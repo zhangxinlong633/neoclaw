@@ -77,6 +77,39 @@ int main(void) {
     return 1;
   }
 
+  unlink("tests/fixtures/count.out");
+  out = NULL;
+  if (workflow_run(&c, "route_cases", &out, 0) != 0) {
+    fprintf(stderr, "route_cases run failed\n");
+    free(out);
+    config_free(&c);
+    return 1;
+  }
+  free(out);
+  /* seed + take_docx only */
+  if (count_lines("tests/fixtures/count.out") != 2) {
+    fprintf(stderr, "route_cases want 2 lines got %d\n", count_lines("tests/fixtures/count.out"));
+    config_free(&c);
+    return 1;
+  }
+
+  unlink("tests/fixtures/count.out");
+  unlink("tests/fixtures/flaky.flag");
+  out = NULL;
+  if (workflow_run(&c, "tool_retry", &out, 0) != 0) {
+    fprintf(stderr, "tool_retry run failed\n");
+    free(out);
+    config_free(&c);
+    return 1;
+  }
+  free(out);
+  if (count_lines("tests/fixtures/count.out") != 1) {
+    fprintf(stderr, "tool_retry want 1 line got %d\n", count_lines("tests/fixtures/count.out"));
+    config_free(&c);
+    return 1;
+  }
+  unlink("tests/fixtures/flaky.flag");
+
   config_free(&c);
   printf("ok\n");
   return 0;

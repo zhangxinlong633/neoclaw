@@ -15,6 +15,14 @@
         "timeout_sec": 5,
         "max_output_bytes": 4096,
         "pass_args": "stdin_json"
+      },
+      {
+        "name": "flaky_count",
+        "description": "Fails once then appends to count.out",
+        "argv": ["./tests/fixtures/bin/flaky_count.sh"],
+        "timeout_sec": 5,
+        "max_output_bytes": 4096,
+        "pass_args": "stdin_json"
       }
     ]
   },
@@ -62,6 +70,40 @@
         },
         { "id": "fix_branch", "type": "tool", "tool": "count_run", "depends_on": ["branch"], "args": {} },
         { "id": "join", "type": "tool", "tool": "count_run", "depends_on": ["branch", "fix_branch"], "args": {} }
+      ]
+    },
+    {
+      "name": "route_cases",
+      "description": "multi-way cases: docx arm runs",
+      "steps": [
+        { "id": "seed", "type": "tool", "tool": "count_run", "args": {} },
+        {
+          "id": "branch",
+          "type": "route",
+          "depends_on": ["seed"],
+          "on": "choose docx file",
+          "cases": [
+            { "match": "pdf", "then": ["take_pdf"] },
+            { "match": "docx", "then": ["take_docx"] },
+            { "then": ["take_other"] }
+          ]
+        },
+        { "id": "take_pdf", "type": "tool", "tool": "count_run", "depends_on": ["branch"], "args": {} },
+        { "id": "take_docx", "type": "tool", "tool": "count_run", "depends_on": ["branch"], "args": {} },
+        { "id": "take_other", "type": "tool", "tool": "count_run", "depends_on": ["branch"], "args": {} }
+      ]
+    },
+    {
+      "name": "tool_retry",
+      "description": "flaky tool succeeds on retry",
+      "steps": [
+        {
+          "id": "flaky",
+          "type": "tool",
+          "tool": "flaky_count",
+          "retry": { "max": 1 },
+          "args": {}
+        }
       ]
     }
   ],
