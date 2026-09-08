@@ -14,7 +14,7 @@
 
 | 层 | 管什么 | 配置 / 代码入口 |
 |----|--------|-----------------|
-| **DAG** | 编排怎么走（确定性拓扑） | `dags`；`src/dag/workflow.c`；`neo plan` / `neo run` → `src/dag/plan.c` |
+| **DAG** | 编排怎么走（确定性拓扑） | `dags`；`src/dag/dag.c`；`neo plan` / `neo run` → `src/dag/plan.c` |
 | **Capability Matrix** | 能调用什么（可发现能力表） | 顶层键 **`capability_matrix`**；`src/capability/capability_matrix.c` |
 | **Policy** | 许不许、贵不贵 | `shell_enabled`、`http_*`、轮次/字节上限；加载进矩阵时裁剪 `enabled` |
 
@@ -24,7 +24,7 @@
 
 ## 2. 源码地图（改哪里）
 
-布局：`src/{cli,core,llm,capability,workflow,vendor}/`；编译产物在 **`build/`**（不要往 `src/` 写 `.o`）。
+布局：`src/{cli,core,llm,capability,dag,vendor}/`；编译产物在 **`build/`**（不要往 `src/` 写 `.o`）。
 
 | 模块 | 职责 |
 |------|------|
@@ -38,8 +38,8 @@
 | `src/capability/agent_tools.c` | 反应式 tool loop + `neo_dispatch_tool` |
 | `src/capability/command_tools.c` | `capability_matrix.commands` 白名单 exec |
 | `src/capability/mcp_stdio.c` | stdio MCP → 矩阵行；`tools/call` |
-| `src/dag/workflow.c` | DAG 执行（`tool` / `llm` / `loop` / `route`） |
-| `src/dag/workflow_dir.c` | DAG 目录加载 + catalog 列表 |
+| `src/dag/dag.c` | DAG 执行（`tool` / `llm` / `loop` / `route`） |
+| `src/dag/dag_dir.c` | DAG 目录加载 + catalog 列表 |
 | `src/dag/plan.c` | 规划提示（catalog `use` 优先）、抽出 dags JSON、materialize |
 | `src/vendor/yyjson.c` | 第三方 amalgamation；少改 |
 
@@ -171,12 +171,13 @@ capability_matrix: {
 - **文档**：用户可见行为变了再改 `docs/*.md` / 根 `README.md`（及中文 `README_zh.md`）；超长设计放 `docs/superpowers/`。目录职责变了须按 §6 **正式更新**该目录 `README.md`。
 - **Plan materialize**：写出的临时配置顶层键用 `capability_matrix`，并带上需要的 policy 字段。
 - **Verbose**：`-v` / `--verbose` 必须真正解析；步骤与 capability 日志走 stderr。
+- **Git 提交（硬约束）**：提交记录须像普通人手写——**禁止**在 message / trailer / author / committer 中留下各类 agent 痕迹。包括但不限于：`Co-authored-by: Cursor <cursoragent@cursor.com>`、`Co-authored-by: *agent*`、Copilot / Claude / Codex / Devin 等自动署名、`Made-with:` / `Generated-by:` 之类 trailer。若环境自动追加此类行，提交前须去掉后再 `commit`（可用编辑 message 或重新提交；已推送的历史不要乱改写，除非维护者明确要求）。Author 使用维护者本机已配置的用户名与邮箱，不要改成 agent 身份。
 
 ---
 
 ## 9. 快速自检清单
 
-改工具 / 配置 / workflow / plan 时：
+改工具 / 配置 / DAG / plan 时：
 
 - [ ] 新能力是否进入 **Capability Matrix**，而非旁路？
 - [ ] JSON 示例是否用 **`capability_matrix`**？步骤开关是否仍叫 **`tools`**？
@@ -185,4 +186,5 @@ capability_matrix: {
 - [ ] 能力/DAG 文件是否有足够的 **when / when_not**（及 DAG 的 requires/outcome）供 LLM 选型？
 - [ ] 复杂逻辑是否有足够的**中文注释**？
 - [ ] `make test` 是否通过？
+- [ ] 本次 commit **无** Cursor / 其它 agent 的 `Co-authored-by` 等 trailer？
 - [ ] 是否误改了 `example/AGENTS.md`（那是运行时示例，不是本约束文件）？
