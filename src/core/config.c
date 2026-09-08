@@ -317,6 +317,8 @@ void config_init(agent_config_t *c) {
   c->tools.http_fetch_enabled = 0;
   c->tools.http_fetch_max_bytes = 262144;
   c->tools.shell_enabled = 0;
+  c->dag_runtime.on_tool_fail_llm = 0;
+  c->dag_runtime.on_tool_fail_max_calls = 1;
 }
 
 void config_free(agent_config_t *c) {
@@ -531,6 +533,34 @@ static int fill_plan(agent_config_t *c, yyjson_val *obj) {
   }
   v = yyjson_obj_get(obj, "target_steps");
   if (yyjson_is_int(v) || yyjson_is_uint(v)) c->plan.target_steps = (int)yyjson_get_sint(v);
+  return 0;
+}
+
+/* 顶层 "dag"：运行时策略（非 dags 数组）。 */
+static int fill_dag_runtime(agent_config_t *c, yyjson_val *obj) {
+  yyjson_val *fail, *v;
+  if (!yyjson_is_obj(obj)) {
+    fprintf(stderr, "neo: config error at /dag: expected object\n");
+    return -1;
+  }
+  fail = yyjson_obj_get(obj, "on_tool_fail");
+  if (!fail) return 0;
+  if (!yyjson_is_obj(fail)) {
+    fprintf(stderr, "neo: config error at /dag/on_tool_fail: expected object\n");
+    return -1;
+  }
+  v = yyjson_obj_get(fail, "llm");
+  if (yyjson_is_bool(v))
+    c->dag_runtime.on_tool_fail_llm = yyjson_get_bool(v) ? 1 : 0;
+  else if (yyjson_is_int(v) || yyjson_is_uint(v))
+    c->dag_runtime.on_tool_fail_llm = yyjson_get_sint(v) ? 1 : 0;
+  v = yyjson_obj_get(fail, "max_calls");
+  if (yyjson_is_int(v) || yyjson_is_uint(v)) {
+    int m = (int)yyjson_get_sint(v);
+    if (m < 0) m = 0;
+    if (m > 2) m = 2;
+    c->dag_runtime.on_tool_fail_max_calls = m;
+  }
   return 0;
 }
 
@@ -897,6 +927,7 @@ int config_load_file(agent_config_t *c, const char *path) {
   if ((sec = yyjson_obj_get(root, "workspace")) && fill_workspace(c, sec) != 0) goto fail;
   if ((sec = yyjson_obj_get(root, "session")) && fill_session(c, sec) != 0) goto fail;
   if ((sec = yyjson_obj_get(root, "plan")) && fill_plan(c, sec) != 0) goto fail;
+  if ((sec = yyjson_obj_get(root, "dag")) && fill_dag_runtime(c, sec) != 0) goto fail;
   if ((sec = yyjson_obj_get(root, "bootstrap")) &&
       fill_paths_section(sec, &c->bootstrap.paths, &c->bootstrap.path_count,
                          &c->bootstrap.max_chars_per_file, "bootstrap") != 0)
@@ -940,6 +971,8 @@ int config_load_file(agent_config_t *c, const char *path) {
   yyjson_doc_free(doc);
 
   if (c->session_max_turns <= 0) c->session_max_turns = 10;
+  if (c->dag_runtime.on_tool_fail_max_calls < 0) c->dag_runtime.on_tool_fail_max_calls = 0;
+  if (c->dag_runtime.on_tool_fail_max_calls > 2) c->dag_runtime.on_tool_fail_max_calls = 2;
   if (c->tools.list_dir_max_entries <= 0) c->tools.list_dir_max_entries = 256;
   if (c->tools.http_fetch_max_bytes <= 0) c->tools.http_fetch_max_bytes = 262144;
   if (c->soul.max_chars <= 0) c->soul.max_chars = 8000;

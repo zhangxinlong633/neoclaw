@@ -86,6 +86,21 @@
 }
 ```
 
+## tool 失败自动 LLM 热线（可选）
+
+默认**关闭**。打开后：本地 `retry.max` 耗尽仍失败时，引擎自动问一次模型（无 tools）只答 `RETRY` / `ABORT`；`RETRY` 则用**同一 args** 再跑该 tool。模型不改图、不改参数、不选下一步。
+
+```json5
+dag: {
+  on_tool_fail: {
+    llm: true,
+    max_calls: 1, // 每步最多问几次，0..2
+  },
+},
+```
+
+与顶层 `dags: [...]` / `dag_directory` 不同：`dag` 是运行时策略对象。
+
 ## 运行
 
 ```bash

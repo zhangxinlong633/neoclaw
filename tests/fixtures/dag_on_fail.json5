@@ -1,0 +1,31 @@
+{
+  model: {
+    provider: "test",
+    base_url: "http://127.0.0.1:9",
+    name: "t",
+    api_key: "k",
+    max_tokens: 64,
+    temperature: 0,
+  },
+  capability_matrix: {
+    enabled: true,
+    root: ".",
+  },
+  dag: {
+    on_tool_fail: {
+      llm: true,
+      max_calls: 2,
+    },
+  },
+  dags: [
+    {
+      name: "noop",
+      description: "fixture for config parse",
+      steps: [
+        { id: "a", type: "llm", prompt: "hi", tools: "off" },
+      ],
+    },
+  ],
+  memory: { path: "MEMORY.md", max_chars: 100 },
+  session: { max_turns: 2 },
+}

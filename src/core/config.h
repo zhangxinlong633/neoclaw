@@ -144,6 +144,12 @@ typedef struct {
   int target_steps; /* 0 = unset; soft preference for planner */
 } plan_config_t;
 
+/* DAG 运行时策略（顶层键 "dag"，与 "dags" 数组不同）。 */
+typedef struct {
+  int on_tool_fail_llm;       /* 0：关（默认）；1：本地 retry 耗尽后问 LLM */
+  int on_tool_fail_max_calls; /* 每步最多问几次；0..2，默认 1 */
+} dag_runtime_config_t;
+
 typedef struct {
   model_config_t model;
   bootstrap_config_t bootstrap;
@@ -153,6 +159,7 @@ typedef struct {
   memory_config_t memory;
   tools_config_t tools;
   plan_config_t plan;
+  dag_runtime_config_t dag_runtime;
   char *dag_directory; /* optional DAG pack dir (one workflow per file) */
   dag_t *dags;
   int dag_count;

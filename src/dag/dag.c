@@ -20,6 +20,45 @@ typedef struct {
   char *text;
 } dag_out_map_t;
 
+static size_t utf8_prefix_len(const char *s, size_t max);
+
+static int dag_is_word_char(unsigned char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+}
+
+/* 大小写不敏感整词查找。 */
+static int dag_find_word_ci(const char *hay, const char *needle) {
+  size_t nlen;
+  const char *p;
+  if (!hay || !needle || !needle[0]) return 0;
+  nlen = strlen(needle);
+  for (p = hay; *p; p++) {
+    size_t i;
+    for (i = 0; i < nlen; i++) {
+      unsigned char a = (unsigned char)p[i];
+      unsigned char b = (unsigned char)needle[i];
+      if (!a) return 0;
+      if (a >= 'A' && a <= 'Z') a = (unsigned char)(a + 32);
+      if (b >= 'A' && b <= 'Z') b = (unsigned char)(b + 32);
+      if (a != b) break;
+    }
+    if (i == nlen) {
+      unsigned char before = (p == hay) ? 0 : (unsigned char)p[-1];
+      unsigned char after = (unsigned char)p[nlen];
+      if (!dag_is_word_char(before) && !dag_is_word_char(after)) return 1;
+    }
+  }
+  return 0;
+}
+
+int dag_parse_fail_llm_reply(const char *text) {
+  if (!text || !text[0]) return 0;
+  /* ABORT 优先，避免「retry then abort」误成 RETRY */
+  if (dag_find_word_ci(text, "abort")) return 0;
+  if (dag_find_word_ci(text, "retry")) return 1;
+  return 0;
+}
+
 /* 拼步骤类型摘要，供 -v / 失败路径 stderr 可读（如 type=tool tool=date_iso）。 */
 static void dag_step_kind(const dag_step_t *st, char *buf, size_t buf_sz) {
   if (!buf || buf_sz < 8) return;
@@ -211,6 +250,65 @@ static int dag_run_tool_step(const agent_config_t *conf, const char *root_real, 
     free(out);
     return 0;
   }
+
+  /* 本地 retry 耗尽：可选 LLM 热线（只答 RETRY/ABORT，不改图、不改 args） */
+  if (conf->dag_runtime.on_tool_fail_llm && conf->dag_runtime.on_tool_fail_max_calls > 0) {
+    int llm_i, max_llm = conf->dag_runtime.on_tool_fail_max_calls;
+    const char *sys =
+        "You are Neo's tool-failure hotline. Decide whether to RETRY the same tool "
+        "with the same arguments, or ABORT the DAG. Reply with a short reason, then "
+        "a final line that is exactly RETRY or ABORT. Do not call tools.";
+    for (llm_i = 0; llm_i < max_llm; llm_i++) {
+      char user_buf[8192];
+      size_t err_take;
+      llm_response_t resp;
+      int action;
+      const char *err = out ? out : "(no output)";
+      err_take = utf8_prefix_len(err, 1500);
+      snprintf(user_buf, sizeof(user_buf),
+               "DAG=%s\nstep=%s\ntool=%s\nlocal_attempts=%d\nerror:\n%.*s\n",
+               dag_name ? dag_name : "?", st->id ? st->id : "?",
+               st->tool ? st->tool : "?", attempts, (int)err_take, err);
+      memset(&resp, 0, sizeof(resp));
+      if (llm_chat(conf->model.base_url, conf->model.name, conf->model.api_key,
+                   conf->model.max_tokens > 256 ? 256 : conf->model.max_tokens,
+                   conf->model.temperature, sys, user_buf, &resp) != 0) {
+        fprintf(stderr, "neo: DAG:%s step:%s: on_fail_llm call=%d/%d failed → ABORT\n",
+                dag_name, st->id ? st->id : "?", llm_i + 1, max_llm);
+        llm_response_free(&resp);
+        break;
+      }
+      action = dag_parse_fail_llm_reply(resp.data);
+      fprintf(stderr, "neo: DAG:%s step:%s: on_fail_llm call=%d/%d action=%s\n",
+              dag_name, st->id ? st->id : "?", llm_i + 1, max_llm,
+              action ? "RETRY" : "ABORT");
+      llm_response_free(&resp);
+      if (!action) break;
+
+      free(out);
+      out = NULL;
+      out_len = 0;
+      if (neo_dispatch_tool(conf, root_real, st->tool, args, &out, &out_len) != 0) {
+        fprintf(stderr, "neo: DAG:%s step:%s: tool dispatch failed after LLM RETRY\n",
+                dag_name, st->id);
+        last_fail = -1;
+        continue;
+      }
+      if (out && (strncmp(out, "ERROR:", 6) == 0 || strncmp(out, "EXIT:", 5) == 0)) {
+        fprintf(stderr, "neo: DAG:%s step:%s: tool still failing after LLM RETRY\n",
+                dag_name, st->id);
+        last_fail = -1;
+        continue;
+      }
+      free(args);
+      dag_map_set(map, map_n, st->id, out ? out : "");
+      free(*prev_io);
+      *prev_io = out ? strdup(out) : strdup("");
+      free(out);
+      return 0;
+    }
+  }
+
   free(args);
   free(out);
   return last_fail;

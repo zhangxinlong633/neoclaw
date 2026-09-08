@@ -56,6 +56,7 @@ clean:
 		tests/test_dag_loop \
 		tests/test_dag_template \
 		tests/test_dag_runner \
+		tests/test_dag_on_fail \
 		tests/test_plan_extract \
 		tests/test_capability_matrix
 
@@ -100,6 +101,10 @@ TEST_DAG_DAG = tests/test_dag_runner
 $(TEST_DAG_DAG): tests/test_dag_runner.c $(TEST_DAG_SRCS)
 	$(CC) $(TEST_CFLAGS) -o $@ tests/test_dag_runner.c $(TEST_DAG_SRCS) $(LDFLAGS)
 
+TEST_DAG_ON_FAIL = tests/test_dag_on_fail
+$(TEST_DAG_ON_FAIL): tests/test_dag_on_fail.c $(TEST_DAG_SRCS)
+	$(CC) $(TEST_CFLAGS) -o $@ tests/test_dag_on_fail.c $(TEST_DAG_SRCS) $(LDFLAGS)
+
 TEST_PLAN = tests/test_plan_extract
 $(TEST_PLAN): tests/test_plan_extract.c src/dag/plan.c $(TEST_DAG_SRCS)
 	$(CC) $(TEST_CFLAGS) -o $@ tests/test_plan_extract.c src/dag/plan.c $(TEST_DAG_SRCS) $(LDFLAGS)
@@ -114,13 +119,14 @@ $(TEST_CAP_MATRIX): tests/test_capability_matrix.c src/capability/capability_mat
 		src/core/config.c $(TEST_HTTP) src/capability/agent_tools.c src/capability/command_tools.c \
 		src/llm/llm.c $(TEST_VENDOR) $(LDFLAGS)
 
-test: $(TEST_PARSE_CMD) $(TEST_CMD_EXEC) $(TEST_PARSE_DAG) $(TEST_DAG_LOOP) $(TEST_DAG_TMPL) $(TEST_DAG_DAG) $(TEST_PLAN) $(TEST_CAP_MATRIX) neo
+test: $(TEST_PARSE_CMD) $(TEST_CMD_EXEC) $(TEST_PARSE_DAG) $(TEST_DAG_LOOP) $(TEST_DAG_TMPL) $(TEST_DAG_DAG) $(TEST_DAG_ON_FAIL) $(TEST_PLAN) $(TEST_CAP_MATRIX) neo
 	./$(TEST_PARSE_CMD)
 	./$(TEST_CMD_EXEC)
 	./$(TEST_PARSE_DAG)
 	./$(TEST_DAG_LOOP)
 	./$(TEST_DAG_TMPL)
 	./$(TEST_DAG_DAG)
+	./$(TEST_DAG_ON_FAIL)
 	./$(TEST_PLAN)
 	./$(TEST_CAP_MATRIX)
 	./tests/cli_capability_matrix.sh

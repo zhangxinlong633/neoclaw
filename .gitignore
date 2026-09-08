@@ -19,6 +19,7 @@ tests/test_parse_dags
 tests/test_dag_loop
 tests/test_dag_template
 tests/test_dag_runner
+tests/test_dag_on_fail
 tests/test_plan_extract
 tests/test_capability_matrix
 # legacy names (pre workflow→DAG rename)
